@@ -1,0 +1,30 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  gap: 1rem;
+}
+
+.code {
+  font-size: 6rem;
+  font-weight: 700;
+  color: #e5e7eb;
+  line-height: 1;
+  margin: 0;
+}
+
+.title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.message {
+  font-size: 1rem;
+  color: #6b7280;
+  margin: 0;
+}

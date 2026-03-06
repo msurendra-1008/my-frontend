@@ -1,0 +1,95 @@
+.wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.inputWrapper:focus-within {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.inputWrapper.hasError {
+  border-color: #dc2626;
+}
+
+.inputWrapper.hasError:focus-within {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #111827;
+  min-width: 0;
+}
+
+.input::placeholder {
+  color: #9ca3af;
+}
+
+.input:disabled {
+  background-color: #f9fafb;
+  cursor: not-allowed;
+  color: #6b7280;
+}
+
+.hasLeftAddon {
+  padding-left: 0;
+}
+
+.hasRightAddon {
+  padding-right: 0;
+}
+
+.addon {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  color: #6b7280;
+  background-color: #f9fafb;
+  font-size: 0.875rem;
+  border-right: 1px solid #d1d5db;
+}
+
+.addon:last-child {
+  border-right: none;
+  border-left: 1px solid #d1d5db;
+}
+
+.error {
+  font-size: 0.75rem;
+  color: #dc2626;
+  margin: 0;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0;
+}
