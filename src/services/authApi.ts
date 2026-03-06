@@ -11,7 +11,10 @@ export const authApi = {
   logout: (refreshToken: string) =>
     api.post<{ message: string }>('/api/auth/logout/', { refresh: refreshToken }),
 
-  me: () => api.get<AuthResponse['user']>('/api/auth/me/'),
+  me: () => api.get<AuthResponse['user']>('/api/me/'),
+
+  updateMe: (data: Partial<{ first_name: string; last_name: string; email: string }>) =>
+    api.patch<AuthResponse['user']>('/api/me/', data),
 };
 
 export { tokenStorage };

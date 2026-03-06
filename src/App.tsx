@@ -1,19 +1,23 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@context/AuthContext';
-import { PageLayout } from '@components/layout';
+import { ThemeProvider } from '@context/ThemeContext';
+import { DashboardLayout } from '@components/layout/DashboardLayout';
 import { ProtectedRoute } from '@components/ui/ProtectedRoute';
-import { HomePage, AboutPage, NotFoundPage, LoginPage, SignupPage } from '@pages/index';
+import { LoginPage, SignupPage, NotFoundPage, DashboardPage, AccountPage } from '@pages/index';
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return null;
-  return isAuthenticated ? <Navigate to="/" replace /> : <>{children}</>;
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
 }
 
 function AppRoutes() {
   return (
     <Routes>
-      {/* Guest-only routes (redirect to / if already logged in) */}
+      {/* Root redirect */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+      {/* Guest-only */}
       <Route
         path="/login"
         element={
@@ -31,16 +35,18 @@ function AppRoutes() {
         }
       />
 
-      {/* Protected routes wrapped in PageLayout */}
+      {/* Protected dashboard routes */}
       <Route
+        path="/dashboard"
         element={
           <ProtectedRoute>
-            <PageLayout />
+            <DashboardLayout />
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<HomePage />} />
-        <Route path="/about" element={<AboutPage />} />
+        <Route index element={<DashboardPage />} />
+        <Route path="account" element={<AccountPage />} />
+        <Route path="settings" element={<DashboardPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
@@ -51,9 +57,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
