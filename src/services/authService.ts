@@ -14,6 +14,7 @@ export const authService = {
   logout:         (refresh: string)                  => axiosInstance.post('/api/v1/auth/logout/', { refresh }),
   getMe:          ()                                 => axiosInstance.get<User>('/api/v1/auth/me/'),
   updateMe:       (data: Partial<User>)              => axiosInstance.patch<User>('/api/v1/auth/me/', data),
+  listUpaUsers:   ()                                 => axiosInstance.get('/api/v1/upa-users/'),
   uploadPhoto:    (file: File) => {
     const form = new FormData();
     form.append('photo', file);

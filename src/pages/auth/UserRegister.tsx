@@ -29,6 +29,8 @@ export function UserRegister() {
   const [showConfirm, setShowConfirm]     = useState(false);
   const [suggestStandalone, setSuggest]   = useState(false);
   const [standaloneChecked, setStandalone]= useState(false);
+  // When checked → user wants to register WITHOUT a referral ID
+  const [noReferral, setNoReferral]       = useState(false);
   const [apiMessage, setApiMessage]       = useState('');
   const [apiError, setApiError]           = useState('');
 
@@ -46,11 +48,11 @@ export function UserRegister() {
     setApiError('');
     try {
       const res = await authService.userRegister({
-        name: data.name,
-        mobile: data.mobile,
-        password: data.password,
-        upa_ref_id: data.upa_ref_id || undefined,
-        add_standalone: standaloneChecked,
+        name:           data.name,
+        mobile:         data.mobile,
+        password:       data.password,
+        upa_ref_id:     noReferral ? undefined : (data.upa_ref_id || undefined),
+        add_standalone: standaloneChecked || noReferral,
       });
       const payload = res.data;
       if (!payload.success && payload.suggest_standalone) {
@@ -129,12 +131,46 @@ export function UserRegister() {
             }
             {...register('confirm_password')}
           />
-          <Input label="Referral ID (optional)" type="text" placeholder="UPA-XXXXXX" fullWidth {...register('upa_ref_id')} />
+
+          {/* Referral section */}
+          <div className="space-y-2">
+            {/* Checkbox to skip referral */}
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={noReferral}
+                onChange={(e) => {
+                  setNoReferral(e.target.checked);
+                  if (e.target.checked) setValue('upa_ref_id', '');
+                }}
+                className="h-4 w-4 rounded border-gray-300 accent-primary"
+              />
+              <span className="text-sm text-muted-foreground">
+                I don't have a referral ID{' '}
+                <span className="text-xs text-muted-foreground/70">(register as standalone)</span>
+              </span>
+            </label>
+
+            {/* Referral ID input — disabled when checkbox is checked */}
+            <Input
+              label="Referral ID"
+              type="text"
+              placeholder={noReferral ? 'Not required' : 'UPA-XXXXXX'}
+              fullWidth
+              disabled={noReferral}
+              {...register('upa_ref_id')}
+            />
+            {noReferral && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                You will be registered as a standalone user — not linked to any sponsor.
+              </p>
+            )}
+          </div>
 
           <Button type="submit" fullWidth size="lg" disabled={isSubmitting} className="mt-2">
             {isSubmitting
               ? <><Loader2 className="animate-spin" size={16} /> Creating account...</>
-              : standaloneChecked ? 'Register as Standalone' : 'Create Account'}
+              : (standaloneChecked || noReferral) ? 'Register as Standalone' : 'Create Account'}
           </Button>
         </form>
 
