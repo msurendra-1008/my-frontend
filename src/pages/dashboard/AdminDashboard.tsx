@@ -29,6 +29,7 @@ export function AdminDashboard() {
   const { user, updateUser } = useAuthStore();
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [employees, setEmployees]       = useState<User[]>([]);
+  const [upaCount, setUpaCount]         = useState<number | null>(null);
   const [showForm, setShowForm]         = useState(false);
   const [formError, setFormError]       = useState('');
   const [formLoading, setFormLoading]   = useState(false);
@@ -43,6 +44,12 @@ export function AdminDashboard() {
       authService.listEmployees().then((r) => {
         const data = r.data as { results?: User[] } | User[];
         setEmployees(Array.isArray(data) ? data : (data.results ?? []));
+      }).catch(() => {});
+
+      authService.listUpaUsers().then((r) => {
+        const data = r.data as { results?: unknown[] } | unknown[];
+        const arr = Array.isArray(data) ? data : (data.results ?? []);
+        setUpaCount(arr.length);
       }).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,7 +119,7 @@ export function AdminDashboard() {
         <main className="flex-1 overflow-y-auto p-5 space-y-6">
           {/* Stat cards */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Total UPA Users" value="—" />
+            <StatCard label="Total UPA Users" value={upaCount ?? '—'} />
             <StatCard label="Employees"       value={employees.length} />
             <StatCard label="Active Orders"   value="—" />
             <StatCard label="Open Tenders"    value="—" />
