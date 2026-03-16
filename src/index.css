@@ -109,9 +109,9 @@
   /* Core surfaces */
   --background:             #111113; /* near-black page bg */
   --foreground:             #F5F5F5; /* text-primary */
-  --card:                   #1C1C1E; /* surface — cards, panels */
+  --card:                   #252528; /* surface — cards, sidebar, panels (clearly raised from page) */
   --card-foreground:        #F5F5F5;
-  --popover:                #1C1C1E;
+  --popover:                #252528;
   --popover-foreground:     #F5F5F5;
 
   /* Primary accent (purple) */
@@ -123,8 +123,8 @@
   --secondary-foreground:   #F5F5F5;
 
   /* Muted */
-  --muted:                  #2C2C2E;
-  --muted-foreground:       #636366; /* text-muted dark — ~5.8:1 on surface */
+  --muted:                  #313136;
+  --muted-foreground:       #8E8E93; /* text-muted dark — readable on #252528 surface */
 
   /* Accent (nav active state) */
   --accent:                 #2C2A4A; /* nav-active-bg dark */
@@ -135,8 +135,8 @@
   --destructive-foreground: #111113;
 
   /* Border / inputs */
-  --border:                 #2C2C2E;
-  --input:                  #2C2C2E;
+  --border:                 #38383D;
+  --input:                  #38383D;
   --ring:                   #A89EF8;
 
   /* ── Badge tokens ── */
