@@ -1,5 +1,5 @@
+import { Loader2 } from 'lucide-react';
 import { cn } from '@utils/cn';
-import styles from './Spinner.module.css';
 
 type SpinnerSize = 'sm' | 'md' | 'lg';
 
@@ -9,14 +9,18 @@ interface SpinnerProps {
   label?: string;
 }
 
-const sizeStyles: Record<SpinnerSize, string> = {
-  sm: styles.sm,
-  md: styles.md,
-  lg: styles.lg,
+const sizeClass: Record<SpinnerSize, string> = {
+  sm: 'size-4',
+  md: 'size-6',
+  lg: 'size-8',
 };
 
 export function Spinner({ size = 'md', className, label = 'Loading...' }: SpinnerProps) {
   return (
-    <span role="status" aria-label={label} className={cn(styles.spinner, sizeStyles[size], className)} />
+    <Loader2
+      role="status"
+      aria-label={label}
+      className={cn('animate-spin text-muted-foreground', sizeClass[size], className)}
+    />
   );
 }
