@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Sun, Moon } from 'lucide-react';
+import { useTheme } from '@context/ThemeContext';
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
 import { useAuthStore } from '@/store/authStore';
@@ -18,6 +19,7 @@ type FormData = z.infer<typeof schema>;
 export function AdminLogin() {
   const navigate  = useNavigate();
   const { setAuth, isAuthenticated, user } = useAuthStore();
+  const { theme, toggleTheme } = useTheme();
   const [showPw, setShowPw]   = useState(false);
   const [apiError, setApiError] = useState('');
 
@@ -46,6 +48,15 @@ export function AdminLogin() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      {/* Theme toggle — top-right corner */}
+      <button
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        className="fixed right-4 top-4 flex h-9 w-9 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+      </button>
+
       <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-sm">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-foreground">Admin Portal</h1>

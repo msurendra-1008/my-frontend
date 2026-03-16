@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
+import { useTheme } from '@context/ThemeContext';
 import { RoleGuard } from '@/components/auth/RoleGuard';
 import { Badge } from '@components/ui/Badge';
 import { Button } from '@components/ui/Button';
@@ -27,6 +28,7 @@ type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
 
 export function AdminDashboard() {
   const { user, updateUser } = useAuthStore();
+  const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [employees, setEmployees]       = useState<User[]>([]);
   const [showForm, setShowForm]         = useState(false);
@@ -104,6 +106,13 @@ export function AdminDashboard() {
             <h1 className="text-base font-semibold text-foreground">Dashboard</h1>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             <Badge variant={roleBadgeVariant(user?.role ?? '')} className="capitalize">{user?.role}</Badge>
             {user?.department && <Badge variant="default">{user.department}</Badge>}
           </div>
