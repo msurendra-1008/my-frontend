@@ -161,7 +161,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       )}
 
       <aside className={cn(
-        'fixed left-0 top-0 z-30 flex h-full flex-col border-r bg-background transition-all duration-200 ease-in-out lg:static',
+        'fixed left-0 top-0 z-30 flex h-full flex-col border-r bg-card transition-all duration-200 ease-in-out lg:static',
         collapsed ? 'w-[60px]' : 'w-[220px]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       )}>
@@ -296,7 +296,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
                           >
                             <span className={cn(
                               'h-1.5 w-1.5 shrink-0 rounded-full transition-colors',
-                              isActive ? 'bg-primary' : 'bg-border',
+                              isActive ? 'bg-primary' : 'bg-muted-foreground/40',
                             )} />
                             {child.label}
                           </NavLink>
@@ -307,7 +307,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
                           key={child.path}
                           className="flex cursor-not-allowed items-center gap-2 rounded-md px-2 py-1.5 text-xs opacity-35"
                         >
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-border" />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/25" />
                           <span className="flex-1">{child.label}</span>
                           <Lock size={10} />
                         </div>
