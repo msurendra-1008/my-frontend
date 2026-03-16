@@ -159,16 +159,20 @@ export function UserDashboard() {
             {/* My Connections */}
             <div className="rounded-xl border bg-card p-5 shadow-sm">
               <h3 className="mb-4 text-sm font-semibold text-foreground">My Connections</h3>
-              {/* Parent row — stub */}
+              {/* Parent row */}
               <div className="mb-3 rounded-lg border bg-muted/30 px-4 py-2.5 text-sm">
                 <span className="text-muted-foreground">Parent: </span>
-                <span className="font-medium text-foreground">—</span>
+                {user?.upa_parent
+                  ? <><span className="font-medium text-foreground">{user.upa_parent.name}</span>
+                      <span className="ml-2 font-mono text-xs text-purple-700 dark:text-purple-400">{user.upa_parent.upa_id}</span></>
+                  : <span className="font-medium text-foreground">—</span>
+                }
               </div>
               {/* 3 legs */}
               <div className="grid grid-cols-3 gap-3">
-                <LegCard label="Left"   user={null} referralUrl={referralUrl} />
-                <LegCard label="Middle" user={null} referralUrl={referralUrl} />
-                <LegCard label="Right"  user={null} referralUrl={referralUrl} />
+                <LegCard label="Left"   user={user?.upa_legs?.L ?? null} referralUrl={referralUrl} />
+                <LegCard label="Middle" user={user?.upa_legs?.M ?? null} referralUrl={referralUrl} />
+                <LegCard label="Right"  user={user?.upa_legs?.R ?? null} referralUrl={referralUrl} />
               </div>
             </div>
           </div>
