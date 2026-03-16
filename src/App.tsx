@@ -1,9 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '@context/AuthContext';
 import { ThemeProvider } from '@context/ThemeContext';
 import { DashboardLayout } from '@components/layout/DashboardLayout';
 import { ProtectedRoute } from '@components/ui/ProtectedRoute';
-import { LoginPage, SignupPage, NotFoundPage, DashboardPage, AccountPage } from '@pages/index';
+import { useAuthStore } from '@/store/authStore';
+import { SignupPage, NotFoundPage, DashboardPage, AccountPage } from '@pages/index';
+import { AdminLogin }      from '@/pages/auth/AdminLogin';
+import { UserLogin }       from '@/pages/auth/UserLogin';
+import { UserRegister }    from '@/pages/auth/UserRegister';
+import { AdminDashboard }  from '@/pages/dashboard/AdminDashboard';
+import { UserDashboard }   from '@/pages/dashboard/UserDashboard';
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -12,41 +19,51 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
+  useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
+
   return (
     <Routes>
-      {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* Guest-only */}
+      {/* Admin auth */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+
+      {/* User auth */}
+      <Route path="/login"    element={<UserLogin />} />
+      <Route path="/register" element={<UserRegister />} />
+
+      {/* Legacy guest routes */}
+      <Route path="/signup" element={<GuestRoute><SignupPage /></GuestRoute>} />
+
+      {/* Admin dashboard */}
       <Route
-        path="/login"
+        path="/admin/dashboard"
         element={
-          <GuestRoute>
-            <LoginPage />
-          </GuestRoute>
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <AdminDashboard />
+          </ProtectedRoute>
         }
       />
-      <Route
-        path="/signup"
-        element={
-          <GuestRoute>
-            <SignupPage />
-          </GuestRoute>
-        }
-      />
+      <Route path="/admin/*" element={<Navigate to="/admin/dashboard" replace />} />
 
-      {/* Protected dashboard routes */}
+      {/* User dashboard */}
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
-            <DashboardLayout />
+          <ProtectedRoute allowedRoles={['upa_user']}>
+            <UserDashboard />
           </ProtectedRoute>
         }
+      />
+
+      {/* Legacy protected dashboard */}
+      <Route
+        path="/dashboard/legacy"
+        element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}
       >
         <Route index element={<DashboardPage />} />
         <Route path="account" element={<AccountPage />} />
-        <Route path="settings" element={<DashboardPage />} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

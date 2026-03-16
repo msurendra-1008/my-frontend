@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { authApi, tokenStorage } from '@services/index';
-import type { User, AuthContextValue, LoginPayload, RegisterPayload } from '@/types/auth';
+import type { User, AuthContextValue, LoginPayload, RegisterPayload, LegacyAuthResponse } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -28,15 +28,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (payload: LoginPayload) => {
-    const { user, tokens } = await authApi.login(payload);
-    tokenStorage.setTokens(tokens.access, tokens.refresh);
-    setUser(user);
+    // authApi uses legacy endpoint returning {message, user, tokens}
+    const res = (await authApi.login(payload)) as unknown as LegacyAuthResponse;
+    tokenStorage.setTokens(res.tokens.access, res.tokens.refresh);
+    setUser(res.user);
   }, []);
 
   const register = useCallback(async (payload: RegisterPayload) => {
-    const { user, tokens } = await authApi.register(payload);
-    tokenStorage.setTokens(tokens.access, tokens.refresh);
-    setUser(user);
+    // authApi uses legacy endpoint returning {message, user, tokens}
+    const res = (await authApi.register(payload)) as unknown as LegacyAuthResponse;
+    tokenStorage.setTokens(res.tokens.access, res.tokens.refresh);
+    setUser(res.user);
   }, []);
 
   const logout = useCallback(async () => {

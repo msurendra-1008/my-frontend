@@ -27,7 +27,7 @@ export function AccountPage() {
 
   useEffect(() => {
     if (user) {
-      setForm({ first_name: user.first_name, last_name: user.last_name, email: user.email });
+      setForm({ first_name: user.first_name, last_name: user.last_name, email: user.email ?? '' });
     }
   }, [user]);
 
@@ -83,7 +83,7 @@ export function AccountPage() {
     : '—';
 
   const initials = user
-    ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || user.email[0].toUpperCase()
+    ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'
     : '?';
 
   return (

@@ -102,7 +102,7 @@ function Topbar() {
   const navigate = useNavigate();
 
   const initials = user
-    ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || user.email[0].toUpperCase()
+    ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || user.email?.[0]?.toUpperCase() || '?'
     : '?';
 
   const handleLogout = async () => {
