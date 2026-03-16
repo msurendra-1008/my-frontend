@@ -83,12 +83,12 @@ export function UserDashboard() {
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-[52px] max-w-5xl items-center justify-between px-4">
           <span className="font-bold text-foreground">MyApp</span>
-          <div className="flex items-center gap-2">
-            <button onClick={toggleTheme} className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button onClick={toggleTheme} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
               {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
             </button>
             {user?.upa_id && (
-              <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-mono">
+              <span className="hidden sm:inline rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-mono">
                 {user.upa_id}
               </span>
             )}
@@ -97,15 +97,15 @@ export function UserDashboard() {
                 &#8377;{user.wallet_balance}
               </span>
             )}
-            <button onClick={handleLogout} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+            <button onClick={handleLogout} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               <LogOut size={14} />
-              Logout
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
 
         {/* Tab bar */}
-        <div className="mx-auto flex max-w-5xl gap-0 border-t px-4">
+        <div className="mx-auto flex max-w-5xl gap-0 border-t px-4 overflow-x-auto scrollbar-none">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -137,7 +137,7 @@ export function UserDashboard() {
                   <p className="text-xs text-muted-foreground">
                     Joined {user?.date_joined ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(user.date_joined)) : '—'}
                   </p>
-                  <div className="mt-2 grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
                     <div><span className="text-muted-foreground">Mobile: </span><span className="font-mono">{user?.mobile || '—'}</span></div>
                     <div><span className="text-muted-foreground">UPA ID: </span><span className="font-mono text-purple-700 dark:text-purple-400">{user?.upa_id || '—'}</span></div>
                   </div>
@@ -169,7 +169,7 @@ export function UserDashboard() {
                 }
               </div>
               {/* 3 legs */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <LegCard label="Left"   user={user?.upa_legs?.L ?? null} referralUrl={referralUrl} />
                 <LegCard label="Middle" user={user?.upa_legs?.M ?? null} referralUrl={referralUrl} />
                 <LegCard label="Right"  user={user?.upa_legs?.R ?? null} referralUrl={referralUrl} />

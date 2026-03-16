@@ -63,7 +63,7 @@ export function UpaUsersPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-[52px] items-center justify-between border-b bg-background px-6">
+        <header className="flex h-[52px] items-center justify-between border-b bg-background px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button className="lg:hidden text-muted-foreground" onClick={() => setSidebarOpen((o) => !o)}>
               <Menu size={20} />
@@ -83,9 +83,9 @@ export function UpaUsersPage() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-5 space-y-4">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {/* Summary strip */}
-          <div className="flex items-center gap-3">
+          <div className="grid grid-cols-3 gap-3 sm:flex sm:items-center sm:gap-3">
             <div className="rounded-lg border bg-card px-4 py-3 shadow-sm">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Total UPA Users</p>
               <p className="text-2xl font-semibold text-foreground">{loading ? '…' : upaUsers.length}</p>
@@ -102,14 +102,14 @@ export function UpaUsersPage() {
 
           {/* Table card */}
           <div className="rounded-xl border bg-card shadow-sm">
-            <div className="flex items-center justify-between border-b px-5 py-4 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b px-4 sm:px-5 py-3 sm:py-4 gap-2 sm:gap-3">
               <h2 className="font-semibold text-foreground shrink-0">All UPA Members</h2>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search by name, UPA ID or mobile…"
-                className="ml-auto h-8 rounded-md border bg-muted/40 px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-64"
+                className="h-8 rounded-md border bg-muted/40 px-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-full sm:w-64"
               />
             </div>
 
@@ -117,14 +117,14 @@ export function UpaUsersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="px-5 py-3 font-medium">Member</th>
-                    <th className="px-5 py-3 font-medium">UPA ID</th>
-                    <th className="px-5 py-3 font-medium">Sponsor</th>
-                    <th className="px-5 py-3 font-medium">Leg</th>
-                    <th className="px-5 py-3 font-medium">Level</th>
-                    <th className="px-5 py-3 font-medium">Wallet</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
-                    <th className="px-5 py-3 font-medium">Joined</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">Member</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">UPA ID</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">Sponsor</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">Leg</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">Level</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">Wallet</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">Status</th>
+                    <th className="px-3 py-3 sm:px-5 font-medium">Joined</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -142,19 +142,19 @@ export function UpaUsersPage() {
                     </tr>
                   ) : filtered.map((u) => (
                     <tr key={u.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-5 py-3">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3">
                         <p className="font-medium text-foreground">{u.full_name}</p>
                         <p className="text-xs text-muted-foreground">{u.mobile || '—'}</p>
                       </td>
-                      <td className="px-5 py-3 font-mono text-xs text-purple-700 dark:text-purple-400">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-mono text-xs text-purple-700 dark:text-purple-400">
                         {u.upa_id || '—'}
                       </td>
-                      <td className="px-5 py-3 font-mono text-xs text-muted-foreground">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3 font-mono text-xs text-muted-foreground">
                         {u.parent_upa_id
                           ? u.parent_upa_id
                           : <span className="italic text-amber-600 dark:text-amber-400">Standalone</span>}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3">
                         {u.leg ? (
                           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                             u.leg === 'L' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
@@ -165,19 +165,19 @@ export function UpaUsersPage() {
                           </span>
                         ) : <span className="text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-5 py-3 text-muted-foreground text-center">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-muted-foreground text-center">
                         {u.depth_level ?? '—'}
                       </td>
-                      <td className="px-5 py-3 text-muted-foreground font-mono text-xs">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-muted-foreground font-mono text-xs">
                         ₹{u.wallet_balance}
                       </td>
-                      <td className="px-5 py-3">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3">
                         <span className={`inline-flex items-center gap-1 text-xs font-medium ${u.is_active ? 'text-emerald-600' : 'text-red-500'}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${u.is_active ? 'bg-emerald-500' : 'bg-red-400'}`} />
                           {u.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                      <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-xs text-muted-foreground whitespace-nowrap">
                         {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(u.date_joined))}
                       </td>
                     </tr>
