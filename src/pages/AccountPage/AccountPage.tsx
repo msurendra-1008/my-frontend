@@ -4,7 +4,6 @@ import { authApi } from '@services/index';
 import { ApiError } from '@services/api';
 import { Input } from '@components/ui/Input';
 import { Button } from '@components/ui/Button';
-import styles from './AccountPage.module.css';
 
 interface FormState {
   first_name: string;
@@ -26,7 +25,6 @@ export function AccountPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Sync form if user changes (e.g. after page refresh)
   useEffect(() => {
     if (user) {
       setForm({ first_name: user.first_name, last_name: user.last_name, email: user.email });
@@ -84,59 +82,68 @@ export function AccountPage() {
     ? new Intl.DateTimeFormat('en-US', { dateStyle: 'long' }).format(new Date(user.created_at))
     : '—';
 
+  const initials = user
+    ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || user.email[0].toUpperCase()
+    : '?';
+
   return (
-    <div className={styles.page}>
+    <div className="space-y-6">
       {/* Header */}
-      <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>Profile</h1>
-        <p className={styles.pageSub}>Manage your personal information</p>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Profile</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Manage your personal information</p>
       </div>
 
-      <div className={styles.layout}>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left: avatar + meta */}
-        <aside className={styles.sidebar}>
-          <div className={styles.avatarCard}>
-            <div className={styles.avatarCircle}>
-              {user
-                ? `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() ||
-                  user.email[0].toUpperCase()
-                : '?'}
+        <aside className="space-y-4">
+          <div className="rounded-xl border bg-card p-6 text-center shadow-sm">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
+              {initials}
             </div>
-            <p className={styles.avatarName}>{user?.full_name || '—'}</p>
-            <p className={styles.avatarEmail}>{user?.email}</p>
+            <p className="mt-3 font-semibold text-foreground">{user?.full_name || '—'}</p>
+            <p className="text-sm text-muted-foreground">{user?.email}</p>
           </div>
 
-          <div className={styles.metaCard}>
-            <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>Member since</span>
-              <span className={styles.metaValue}>{joined}</span>
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>Account ID</span>
-              <span className={styles.metaValue}>#{user?.id}</span>
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>Status</span>
-              <span className={styles.statusBadge}>Active</span>
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Member since</span>
+                <span className="font-medium text-foreground">{joined}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Account ID</span>
+                <span className="font-medium text-foreground">#{user?.id}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Status</span>
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  Active
+                </span>
+              </div>
             </div>
           </div>
         </aside>
 
         {/* Right: edit form */}
-        <section className={styles.formSection}>
-          <div className={styles.formCard}>
-            <h2 className={styles.cardTitle}>Personal Information</h2>
-            <p className={styles.cardSub}>Update your name and email address</p>
+        <section className="lg:col-span-2">
+          <div className="rounded-xl border bg-card p-6 shadow-sm">
+            <h2 className="text-base font-semibold text-foreground">Personal Information</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Update your name and email address</p>
 
             {errors.general && (
-              <div className={styles.alertError} role="alert">{errors.general}</div>
+              <div className="mt-4 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+                {errors.general}
+              </div>
             )}
             {successMsg && (
-              <div className={styles.alertSuccess} role="status">{successMsg}</div>
+              <div className="mt-4 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400" role="status">
+                {successMsg}
+              </div>
             )}
 
-            <form onSubmit={handleSubmit} className={styles.form} noValidate>
-              <div className={styles.row}>
+            <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+              <div className="grid grid-cols-2 gap-4">
                 <Input
                   label="First name"
                   type="text"
@@ -170,7 +177,7 @@ export function AccountPage() {
                 autoComplete="email"
               />
 
-              <div className={styles.formFooter}>
+              <div className="flex justify-end pt-2">
                 <Button type="submit" isLoading={isSaving} size="md">
                   Save changes
                 </Button>

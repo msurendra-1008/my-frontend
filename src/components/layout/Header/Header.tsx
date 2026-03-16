@@ -1,6 +1,5 @@
 import { Link, NavLink } from 'react-router-dom';
 import { cn } from '@utils/cn';
-import styles from './Header.module.css';
 
 interface NavItem {
   label: string;
@@ -20,26 +19,28 @@ const defaultNavItems: NavItem[] = [
 
 export function Header({ logo, navItems = defaultNavItems, actions }: HeaderProps) {
   return (
-    <header className={styles.header}>
-      <div className={styles.inner}>
-        <Link to="/" className={styles.logo}>
-          {logo ?? <span className={styles.logoText}>MyApp</span>}
+    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <Link to="/" className="font-semibold text-foreground transition-colors hover:text-primary">
+          {logo ?? <span>MyApp</span>}
         </Link>
 
-        <nav className={styles.nav} aria-label="Main navigation">
+        <nav className="flex items-center gap-6" aria-label="Main navigation">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) => cn(styles.navLink, isActive && styles.active)}
               end={item.to === '/'}
+              className={({ isActive }) =>
+                cn('text-sm transition-colors hover:text-primary', isActive ? 'font-medium text-primary' : 'text-muted-foreground')
+              }
             >
               {item.label}
             </NavLink>
           ))}
         </nav>
 
-        {actions && <div className={styles.actions}>{actions}</div>}
+        {actions && <div className="flex items-center gap-2">{actions}</div>}
       </div>
     </header>
   );

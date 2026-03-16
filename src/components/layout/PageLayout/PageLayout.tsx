@@ -1,13 +1,12 @@
 import { Outlet } from 'react-router-dom';
 import { Header } from '../Header';
 import { Footer } from '../Footer';
-import styles from './PageLayout.module.css';
 
 export function PageLayout() {
   return (
-    <div className={styles.root}>
+    <div className="flex min-h-screen flex-col">
       <Header />
-      <main className={styles.main}>
+      <main className="flex-1">
         <Outlet />
       </main>
       <Footer />

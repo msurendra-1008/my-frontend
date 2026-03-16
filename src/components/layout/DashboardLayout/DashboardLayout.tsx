@@ -3,53 +3,14 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@context/AuthContext';
 import { useTheme } from '@context/ThemeContext';
 import { cn } from '@utils/cn';
-import styles from './DashboardLayout.module.css';
-
-/* ── Icons (inline SVGs) ── */
-const icons = {
-  dashboard: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-    </svg>
-  ),
-  user: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-    </svg>
-  ),
-  settings: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  ),
-  chevron: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  ),
-  sun: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="5" />
-      <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-      <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-    </svg>
-  ),
-  moon: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  ),
-  logout: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
-  ),
-};
+import {
+  LayoutDashboard,
+  User,
+  ChevronDown,
+  Sun,
+  Moon,
+  LogOut,
+} from 'lucide-react';
 
 /* ── Nav config ── */
 interface NavChild { label: string; to: string }
@@ -58,12 +19,12 @@ interface NavGroup { label: string; icon: React.ReactNode; children: NavChild[] 
 const NAV: NavGroup[] = [
   {
     label: 'Main',
-    icon: icons.dashboard,
+    icon: <LayoutDashboard size={16} />,
     children: [{ label: 'Overview', to: '/dashboard' }],
   },
   {
     label: 'Account',
-    icon: icons.user,
+    icon: <User size={16} />,
     children: [
       { label: 'Profile', to: '/dashboard/account' },
       { label: 'Settings', to: '/dashboard/settings' },
@@ -81,37 +42,47 @@ function Sidebar() {
     setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.sidebarBrand}>
-        <span className={styles.brandIcon}>⬡</span>
-        <span className={styles.brandName}>MyApp</span>
+    <aside className="flex w-60 flex-shrink-0 flex-col bg-sidebar text-sidebar-foreground">
+      {/* Brand */}
+      <div className="flex h-14 items-center gap-2.5 border-b border-sidebar-border px-5">
+        <span className="text-xl text-sidebar-primary">⬡</span>
+        <span className="font-semibold text-white">MyApp</span>
       </div>
 
-      <nav className={styles.sidebarNav}>
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto py-4">
         {NAV.map((group) => (
-          <div key={group.label} className={styles.navGroup}>
+          <div key={group.label} className="mb-1 px-3">
             <button
-              className={styles.navGroupToggle}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               onClick={() => toggle(group.label)}
               aria-expanded={openGroups[group.label]}
             >
-              <span className={styles.navGroupIcon}>{group.icon}</span>
-              <span className={styles.navGroupLabel}>{group.label}</span>
-              <span className={cn(styles.chevron, openGroups[group.label] && styles.chevronOpen)}>
-                {icons.chevron}
-              </span>
+              <span className="text-sidebar-foreground/60">{group.icon}</span>
+              <span className="flex-1 text-left">{group.label}</span>
+              <ChevronDown
+                size={12}
+                className={cn('transition-transform', openGroups[group.label] && 'rotate-180')}
+              />
             </button>
 
             {openGroups[group.label] && (
-              <div className={styles.navChildren}>
+              <div className="mt-1 space-y-0.5">
                 {group.children.map((child) => (
                   <NavLink
                     key={child.to}
                     to={child.to}
                     end={child.to === '/dashboard'}
-                    className={({ isActive }) => cn(styles.navItem, isActive && styles.navItemActive)}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
+                        isActive
+                          ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+                          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+                      )
+                    }
                   >
-                    <span className={styles.navItemDot} />
+                    <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
                     {child.label}
                   </NavLink>
                 ))}
@@ -140,25 +111,31 @@ function Topbar() {
   };
 
   return (
-    <header className={styles.topbar}>
-      <div className={styles.topbarLeft} />
-      <div className={styles.topbarRight}>
+    <header className="flex h-14 items-center justify-between border-b bg-background px-6">
+      <div />
+      <div className="flex items-center gap-3">
         <button
-          className={styles.themeToggle}
           onClick={toggleTheme}
           title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
           aria-label="Toggle theme"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
-          {theme === 'light' ? icons.moon : icons.sun}
+          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
         </button>
 
-        <div className={styles.userChip}>
-          <span className={styles.avatar}>{initials}</span>
-          <span className={styles.userName}>{user?.full_name || user?.email}</span>
+        <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+            {initials}
+          </span>
+          <span className="text-sm font-medium text-foreground">{user?.full_name || user?.email}</span>
         </div>
 
-        <button className={styles.logoutBtn} onClick={handleLogout} title="Sign out">
-          {icons.logout}
+        <button
+          onClick={handleLogout}
+          title="Sign out"
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <LogOut size={15} />
           <span>Logout</span>
         </button>
       </div>
@@ -169,11 +146,11 @@ function Topbar() {
 /* ── Layout ── */
 export function DashboardLayout() {
   return (
-    <div className={styles.shell}>
+    <div className="flex min-h-screen">
       <Sidebar />
-      <div className={styles.body}>
+      <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar />
-        <main className={styles.content}>
+        <main className="flex-1 overflow-y-auto bg-background p-6">
           <Outlet />
         </main>
       </div>

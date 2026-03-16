@@ -4,7 +4,6 @@ import { useAuth } from '@context/AuthContext';
 import { ApiError } from '@services/index';
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
-import styles from './SignupPage.module.css';
 
 interface FormState {
   first_name: string;
@@ -85,21 +84,21 @@ export function SignupPage() {
   };
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>Create an account</h1>
-          <p className={styles.subtitle}>Start your journey today</p>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <div className="w-full max-w-sm rounded-xl border bg-card p-8 shadow-sm">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-foreground">Create an account</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Start your journey today</p>
         </div>
 
         {errors.general && (
-          <div className={styles.alert} role="alert">
+          <div className="mb-4 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
             {errors.general}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className={styles.form} noValidate>
-          <div className={styles.row}>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="grid grid-cols-2 gap-3">
             <Input
               label="First name"
               type="text"
@@ -160,14 +159,14 @@ export function SignupPage() {
             autoComplete="new-password"
           />
 
-          <Button type="submit" fullWidth isLoading={isLoading} size="lg">
+          <Button type="submit" fullWidth isLoading={isLoading} size="lg" className="mt-2">
             Create account
           </Button>
         </form>
 
-        <p className={styles.footer}>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link to="/login" className={styles.link}>
+          <Link to="/login" className="font-medium text-primary hover:underline">
             Sign in
           </Link>
         </p>

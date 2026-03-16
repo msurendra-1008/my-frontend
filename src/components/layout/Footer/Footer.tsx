@@ -1,5 +1,3 @@
-import styles from './Footer.module.css';
-
 interface FooterProps {
   copyright?: string;
   links?: { label: string; href: string }[];
@@ -7,13 +5,19 @@ interface FooterProps {
 
 export function Footer({ copyright = `© ${new Date().getFullYear()} MyApp. All rights reserved.`, links }: FooterProps) {
   return (
-    <footer className={styles.footer}>
-      <div className={styles.inner}>
-        <p className={styles.copyright}>{copyright}</p>
+    <footer className="border-t bg-background">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        <p className="text-sm text-muted-foreground">{copyright}</p>
         {links && links.length > 0 && (
-          <nav className={styles.links} aria-label="Footer navigation">
+          <nav className="flex items-center gap-4" aria-label="Footer navigation">
             {links.map((link) => (
-              <a key={link.href} href={link.href} className={styles.link} target="_blank" rel="noopener noreferrer">
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {link.label}
               </a>
             ))}
