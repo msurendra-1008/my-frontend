@@ -92,7 +92,7 @@ export function AdminDashboard() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-muted/40">
-      <AdminSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen((o) => !o)} />
+      <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen((o) => !o)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
