@@ -105,7 +105,7 @@ export function AdminDashboard() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-[52px] items-center justify-between border-b bg-background px-6">
+        <header className="flex h-[52px] items-center justify-between border-b bg-background px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button className="lg:hidden text-muted-foreground" onClick={() => setSidebarOpen((o) => !o)}>
               <Menu size={20} />
@@ -125,9 +125,9 @@ export function AdminDashboard() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-5 space-y-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-6">
           {/* Stat cards */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             <StatCard label="Total UPA Users" value={upaCount ?? '—'} />
             <StatCard label="Employees"       value={employees.length} />
             <StatCard label="Active Orders"   value="—" />
@@ -137,7 +137,7 @@ export function AdminDashboard() {
           {/* Employees table — admin/superadmin only */}
           <RoleGuard allowedRoles={['superadmin', 'admin']}>
             <div className="rounded-xl border bg-card shadow-sm">
-              <div className="flex items-center justify-between border-b px-5 py-4">
+              <div className="flex items-center justify-between border-b px-4 sm:px-5 py-4">
                 <h2 className="font-semibold text-foreground">Employees</h2>
                 <Button size="sm" onClick={() => setShowForm(true)}>Add Employee</Button>
               </div>
@@ -148,7 +148,7 @@ export function AdminDashboard() {
                   {formError && (
                     <div className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{formError}</div>
                   )}
-                  <form onSubmit={handleCreateEmployee} className="grid grid-cols-2 gap-3">
+                  <form onSubmit={handleCreateEmployee} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input label="Full Name"   value={form.name}       onChange={(e) => setForm((f)=>({...f,name:e.target.value}))}       fullWidth placeholder="John Doe" />
                     <Input label="Email"       value={form.email}      onChange={(e) => setForm((f)=>({...f,email:e.target.value}))}      fullWidth placeholder="emp@example.com" />
                     <Input label="Mobile"      value={form.mobile}     onChange={(e) => setForm((f)=>({...f,mobile:e.target.value}))}     fullWidth placeholder="9876543210" />
@@ -177,10 +177,10 @@ export function AdminDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="px-5 py-3 font-medium">Name</th>
-                      <th className="px-5 py-3 font-medium">Role</th>
-                      <th className="px-5 py-3 font-medium">Department</th>
-                      <th className="px-5 py-3 font-medium">Status</th>
+                      <th className="px-3 py-3 sm:px-5 font-medium">Name</th>
+                      <th className="px-3 py-3 sm:px-5 font-medium">Role</th>
+                      <th className="px-3 py-3 sm:px-5 font-medium">Department</th>
+                      <th className="px-3 py-3 sm:px-5 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -188,13 +188,13 @@ export function AdminDashboard() {
                       <tr><td colSpan={4} className="px-5 py-8 text-center text-muted-foreground">No employees yet</td></tr>
                     ) : employees.map((emp) => (
                       <tr key={emp.id} className="border-b last:border-0 hover:bg-muted/30">
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3">
                           <p className="font-medium text-foreground">{emp.full_name}</p>
                           <p className="text-xs text-muted-foreground">{emp.email || emp.mobile}</p>
                         </td>
-                        <td className="px-5 py-3 capitalize text-muted-foreground">{emp.role}</td>
-                        <td className="px-5 py-3 text-muted-foreground">{emp.department || '—'}</td>
-                        <td className="px-5 py-3">
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 capitalize text-muted-foreground">{emp.role}</td>
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3 text-muted-foreground">{emp.department || '—'}</td>
+                        <td className="px-3 py-2.5 sm:px-5 sm:py-3">
                           <span className={`inline-flex items-center gap-1 text-xs font-medium ${emp.is_active ? 'text-emerald-600' : 'text-red-500'}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${emp.is_active ? 'bg-emerald-500' : 'bg-red-400'}`} />
                             {emp.is_active ? 'Active' : 'Inactive'}

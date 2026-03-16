@@ -74,10 +74,10 @@ export function UserRegister() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-sm">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-foreground">Create Account</h1>
+    <div className="min-h-screen bg-background px-4 py-6 flex flex-col items-center justify-start sm:justify-center">
+      <div className="w-full max-w-md rounded-xl border bg-card p-5 sm:p-8 shadow-sm">
+        <div className="mb-4 sm:mb-6 text-center">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Create Account</h1>
           <p className="mt-1 text-sm text-muted-foreground">Join the UPA network</p>
         </div>
 
@@ -102,7 +102,7 @@ export function UserRegister() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4" noValidate>
           <Input label="Full Name" type="text" placeholder="John Doe" error={errors.name?.message} fullWidth {...register('name')} />
           <Input label="Mobile Number" type="tel" placeholder="9876543210" error={errors.mobile?.message} fullWidth {...register('mobile')} />
           <Input
@@ -174,7 +174,7 @@ export function UserRegister() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="mt-4 sm:mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{' '}
           <Link to="/login" className="font-medium text-primary hover:underline">Sign In</Link>
         </p>
