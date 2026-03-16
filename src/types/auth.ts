@@ -1,5 +1,10 @@
 export type UserRole = 'superadmin' | 'admin' | 'employee' | 'upa_user';
 
+export interface UpaLegUser {
+  name: string;
+  upa_id: string;
+}
+
 export interface User {
   id: string;
   email: string | null;
@@ -15,6 +20,8 @@ export interface User {
   permissions: string[] | null;
   date_joined: string;
   is_active: boolean;
+  upa_parent: UpaLegUser | null;
+  upa_legs: { L: UpaLegUser | null; M: UpaLegUser | null; R: UpaLegUser | null } | null;
   // backward compat
   created_at?: string;
 }
