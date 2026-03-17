@@ -132,8 +132,9 @@ function ProductFormSheet({ categories, product, onClose, onSaved }: ProductForm
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[520px] flex-col bg-card shadow-xl">
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="relative flex w-full max-w-2xl max-h-[90vh] flex-col rounded-xl bg-card shadow-xl">
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b px-5">
           <h2 className="text-sm font-semibold">{product ? 'Edit Product' : 'New Product'}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">&times;</button>
@@ -260,21 +261,28 @@ function ProductFormSheet({ categories, product, onClose, onSaved }: ProductForm
             )}
           </div>
 
-          <div className="sticky bottom-0 border-t bg-card p-4">
+          <div className="sticky bottom-0 border-t bg-card p-4 rounded-b-xl">
             <button type="submit" disabled={saving}
               className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               {saving ? 'Saving…' : product ? 'Save Changes' : 'Create Product'}
             </button>
           </div>
         </form>
+        </div>
       </div>
     </>
   );
 }
 
-// ── Category Management ───────────────────────────────────────────────────
+// ── Category Form Modal ───────────────────────────────────────────────────
 
-function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRefresh: () => void }) {
+interface CategoryFormModalProps {
+  categories: Category[];
+  onClose:    () => void;
+  onSaved:    () => void;
+}
+
+function CategoryFormModal({ categories, onClose, onSaved }: CategoryFormModalProps) {
   const toast = useToast();
   const [name,   setName]   = useState('');
   const [parent, setParent] = useState('');
@@ -285,12 +293,62 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
     setSaving(true);
     try {
       await productService.createCategory({ name, parent: parent || null });
-      setName(''); setParent('');
-      onRefresh();
+      onSaved();
       toast.show('Category created.');
     } catch { toast.show('Failed.', true); }
     finally { setSaving(false); }
   };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-xl bg-card shadow-xl">
+          <div className="flex h-[52px] items-center justify-between border-b px-5">
+            <h2 className="text-sm font-semibold">New Category</h2>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">&times;</button>
+          </div>
+          <form onSubmit={handleCreate} className="p-5 space-y-4">
+            <Field label="Category Name *">
+              <input required value={name} onChange={(e) => setName(e.target.value)}
+                className="input-base" placeholder="Category name" autoFocus />
+            </Field>
+            <Field label="Parent Category">
+              <select value={parent} onChange={(e) => setParent(e.target.value)} className="input-base">
+                <option value="">— Root (no parent) —</option>
+                {categories.filter((c) => !c.parent_id).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </Field>
+            {toast.msg && (
+              <p className={cn('text-xs rounded-lg px-3 py-2 border',
+                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200')}>
+                {toast.msg}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button type="button" onClick={onClose}
+                className="rounded-lg border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button type="submit" disabled={saving}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                {saving ? 'Creating…' : 'Create Category'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Category Management ───────────────────────────────────────────────────
+
+function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRefresh: () => void }) {
+  const toast = useToast();
+  const [catModalOpen, setCatModalOpen] = useState(false);
 
   const handleDelete = async (slug: string) => {
     if (!confirm('Delete this category?')) return;
@@ -303,27 +361,16 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
 
   return (
     <div className="space-y-4">
-      {/* Create form */}
-      <form onSubmit={handleCreate} className="flex items-end gap-3 rounded-xl border bg-card p-4">
-        <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">New Category</label>
-          <input required value={name} onChange={(e) => setName(e.target.value)}
-            className="input-base" placeholder="Category name" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Parent</label>
-          <select value={parent} onChange={(e) => setParent(e.target.value)} className="input-base">
-            <option value="">— Root —</option>
-            {categories.filter((c) => !c.parent_id).map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-        <button type="submit" disabled={saving}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-          {saving ? 'Adding…' : 'Add'}
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{categories.length} categories</p>
+        <button
+          onClick={() => setCatModalOpen(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus size={13} /> New Category
         </button>
-      </form>
+      </div>
 
       {/* Categories list */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
@@ -364,6 +411,14 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
           toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
+      )}
+
+      {catModalOpen && (
+        <CategoryFormModal
+          categories={categories}
+          onClose={() => setCatModalOpen(false)}
+          onSaved={() => { setCatModalOpen(false); onRefresh(); }}
+        />
       )}
     </div>
   );
