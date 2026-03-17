@@ -50,7 +50,7 @@ const MENU: NavItem[] = [
     icon:         GitBranch,
     allowedRoles: ['superadmin', 'admin'],
     children: [
-      { label: 'MLM Tree', path: '/admin/mlm-tree', allowedRoles: ['superadmin', 'admin'] },
+      { label: 'UPA Tree', path: '/admin/upa-tree', allowedRoles: ['superadmin', 'admin'] },
     ],
   },
   {
