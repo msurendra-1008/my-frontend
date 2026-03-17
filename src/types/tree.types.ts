@@ -38,6 +38,7 @@ export interface TreeNode {
 }
 
 export interface UPAProfile extends TreeNode {
+  user_id:          string;
   wallet_balance:   string;
   children_summary: {
     L: LegUser | null;

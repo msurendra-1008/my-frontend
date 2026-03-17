@@ -6,10 +6,16 @@ import { useTheme } from '@context/ThemeContext';
 import { authService } from '@/services/authService';
 import { tokenStorage } from '@/utils/axiosInstance';
 import { treeService } from '@/services/treeService';
+import { walletService } from '@/services/walletService';
 import { Badge } from '@/components/ui/Badge';
 import type { MyConnections } from '@/types/tree.types';
+import type { Wallet, WalletTransaction } from '@/types/wallet.types';
 
 type Tab = 'account' | 'wallet' | 'orders' | 'shop';
+
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
+}
 
 function LegCard({ label, user: legUser, referralUrl }: {
   label: string;
@@ -42,6 +48,22 @@ function LegCard({ label, user: legUser, referralUrl }: {
   );
 }
 
+function TxnRow({ txn }: { txn: WalletTransaction }) {
+  const isCredit = txn.type === 'credit';
+  const date = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(txn.created_at));
+  return (
+    <div className="flex items-center justify-between py-3 border-b last:border-0 text-sm">
+      <div className="flex-1 min-w-0">
+        <p className="text-foreground truncate">{txn.reason}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{date}</p>
+      </div>
+      <span className={`ml-4 font-semibold tabular-nums ${isCredit ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+        {isCredit ? '+' : '-'}&#8377;{txn.amount}
+      </span>
+    </div>
+  );
+}
+
 export function UserDashboard() {
   const { user, updateUser, clearAuth } = useAuthStore();
   const { theme, toggleTheme }          = useTheme();
@@ -50,6 +72,14 @@ export function UserDashboard() {
   const [copied, setCopied]              = useState(false);
   const [connections, setConnections]    = useState<MyConnections | null>(null);
 
+  // Wallet state
+  const [wallet, setWallet]             = useState<Wallet | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [txnPage, setTxnPage]           = useState(1);
+  const [txnNext, setTxnNext]           = useState<string | null>(null);
+  const [extraTxns, setExtraTxns]       = useState<WalletTransaction[]>([]);
+  const [loadingMore, setLoadingMore]   = useState(false);
+
   const referralUrl = `${window.location.origin}/register?ref=${user?.upa_id ?? ''}`;
 
   useEffect(() => {
@@ -57,6 +87,39 @@ export function UserDashboard() {
     treeService.getMyConnections().then((r) => setConnections(r.data)).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fetch wallet data when tab becomes active
+  useEffect(() => {
+    if (tab !== 'wallet' || wallet) return;
+    setWalletLoading(true);
+    walletService.getMyWallet()
+      .then((r) => setWallet(r.data))
+      .catch(() => {})
+      .finally(() => setWalletLoading(false));
+  }, [tab, wallet]);
+
+  const handleLoadMore = async () => {
+    const nextPage = txnPage + 1;
+    setLoadingMore(true);
+    try {
+      const r = await walletService.getMyTransactions(nextPage);
+      setExtraTxns((prev) => [...prev, ...r.data.results]);
+      setTxnNext(r.data.next);
+      setTxnPage(nextPage);
+    } catch { /* ignore */ } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Initialise txnNext from first-page meta once wallet loads
+  useEffect(() => {
+    if (!wallet) return;
+    // wallet.transactions already has last 20; load more uses my-transactions
+    // Prime the "next" state by fetching page 1 of my-transactions meta
+    walletService.getMyTransactions(1).then((r) => {
+      setTxnNext(r.data.next);
+    }).catch(() => {});
+  }, [wallet]);
 
   const handleLogout = async () => {
     const refresh = tokenStorage.getRefresh();
@@ -81,6 +144,11 @@ export function UserDashboard() {
     { id: 'orders',  label: 'My Orders' },
     { id: 'shop',    label: 'Shop'    },
   ];
+
+  const allTxns = wallet ? [...wallet.transactions, ...extraTxns] : [];
+  const lastUpdated = wallet
+    ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(wallet.updated_at))
+    : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -193,13 +261,64 @@ export function UserDashboard() {
         {/* Wallet tab */}
         {tab === 'wallet' && (
           <div className="space-y-4">
+            {/* Balance card */}
             <div className="rounded-xl border bg-card p-6 shadow-sm">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Wallet Balance</p>
-              <p className="mt-2 text-3xl font-semibold text-foreground">&#8377;{user?.wallet_balance ?? '0.00'}</p>
+              {walletLoading ? (
+                <>
+                  <Skeleton className="h-3 w-28 mb-3" />
+                  <Skeleton className="h-9 w-40" />
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Wallet Balance</p>
+                  <p className="mt-2 text-3xl font-semibold text-foreground">
+                    &#8377;{wallet?.balance ?? '0.00'}
+                  </p>
+                  {lastUpdated && (
+                    <p className="mt-1 text-xs text-muted-foreground">Last updated {lastUpdated}</p>
+                  )}
+                </>
+              )}
             </div>
+
+            {/* Transactions */}
             <div className="rounded-xl border bg-card shadow-sm">
-              <div className="border-b px-5 py-4"><h3 className="font-semibold text-foreground">Transactions</h3></div>
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">No transactions yet.</p>
+              <div className="border-b px-5 py-4">
+                <h3 className="font-semibold text-foreground">Transactions</h3>
+              </div>
+
+              {walletLoading ? (
+                <div className="space-y-1 px-5 py-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center justify-between py-3 border-b last:border-0">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-3.5 w-40" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  ))}
+                </div>
+              ) : allTxns.length === 0 ? (
+                <p className="px-5 py-10 text-center text-sm text-muted-foreground">No transactions yet.</p>
+              ) : (
+                <div className="px-5">
+                  {allTxns.map((txn) => <TxnRow key={txn.id} txn={txn} />)}
+                </div>
+              )}
+
+              {/* Load more */}
+              {!walletLoading && txnNext && (
+                <div className="border-t px-5 py-3">
+                  <button
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="w-full rounded-lg border px-4 py-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-50 transition-colors"
+                  >
+                    {loadingMore ? 'Loading…' : 'Load more'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
