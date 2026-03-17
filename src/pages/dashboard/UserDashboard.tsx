@@ -8,6 +8,7 @@ import { tokenStorage } from '@/utils/axiosInstance';
 import { treeService } from '@/services/treeService';
 import { walletService } from '@/services/walletService';
 import { Badge } from '@/components/ui/Badge';
+import { ShopTab } from '@/pages/dashboard/user/ShopTab';
 import type { MyConnections } from '@/types/tree.types';
 import type { Wallet, WalletTransaction } from '@/types/wallet.types';
 
@@ -333,13 +334,7 @@ export function UserDashboard() {
         )}
 
         {/* Shop tab */}
-        {tab === 'shop' && (
-          <div className="flex flex-col items-center justify-center rounded-xl border bg-card py-16 text-center shadow-sm">
-            <p className="text-2xl">🛍️</p>
-            <p className="mt-2 font-medium text-foreground">Coming soon</p>
-            <p className="mt-1 text-sm text-muted-foreground">The shop is being built. Check back later!</p>
-          </div>
-        )}
+        {tab === 'shop' && <ShopTab />}
       </main>
     </div>
   );
