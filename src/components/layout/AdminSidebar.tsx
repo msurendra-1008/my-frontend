@@ -58,6 +58,7 @@ const MENU: NavItem[] = [
     icon:         ShoppingCart,
     allowedRoles: ['superadmin', 'admin', 'employee'],
     children: [
+      { label: 'Products',  path: '/admin/products',  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit'  },
       { label: 'Vendors',   path: '/admin/vendors',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'   },
       { label: 'Tenders',   path: '/admin/tenders',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view'   },
       { label: 'Inventory', path: '/admin/inventory', allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
