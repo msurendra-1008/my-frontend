@@ -7,6 +7,7 @@ import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
+import { treeService } from '@/services/treeService';
 import type { User } from '@/types/auth';
 
 const PERMISSIONS_LIST = [
@@ -46,10 +47,8 @@ export function AdminDashboard() {
         setEmployees(Array.isArray(data) ? data : (data.results ?? []));
       }).catch(() => {});
 
-      authService.listUpaUsers().then((r) => {
-        const data = r.data as { results?: unknown[] } | unknown[];
-        const arr = Array.isArray(data) ? data : (data.results ?? []);
-        setUpaCount(arr.length);
+      treeService.getStats().then((r) => {
+        setUpaCount(r.data.total_upa_users);
       }).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -12,6 +12,7 @@ import { UserRegister }    from '@/pages/auth/UserRegister';
 import { AdminDashboard }  from '@/pages/dashboard/AdminDashboard';
 import { UserDashboard }   from '@/pages/dashboard/UserDashboard';
 import { UpaUsersPage }    from '@/pages/dashboard/UpaUsersPage';
+import { UPATreePage }     from '@/pages/dashboard/admin/UPATreePage';
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -52,6 +53,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <UpaUsersPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* UPA Tree page */}
+      <Route
+        path="/admin/upa-tree"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin']}>
+            <UPATreePage />
           </ProtectedRoute>
         }
       />
