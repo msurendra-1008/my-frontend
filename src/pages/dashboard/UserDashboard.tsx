@@ -5,6 +5,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useTheme } from '@context/ThemeContext';
 import { authService } from '@/services/authService';
 import { tokenStorage } from '@/utils/axiosInstance';
+import { treeService } from '@/services/treeService';
+import { Badge } from '@/components/ui/Badge';
+import type { MyConnections } from '@/types/tree.types';
 
 type Tab = 'account' | 'wallet' | 'orders' | 'shop';
 
@@ -45,11 +48,13 @@ export function UserDashboard() {
   const navigate                         = useNavigate();
   const [tab, setTab]                    = useState<Tab>('account');
   const [copied, setCopied]              = useState(false);
+  const [connections, setConnections]    = useState<MyConnections | null>(null);
 
   const referralUrl = `${window.location.origin}/register?ref=${user?.upa_id ?? ''}`;
 
   useEffect(() => {
     authService.getMe().then((r) => updateUser(r.data)).catch(() => {});
+    treeService.getMyConnections().then((r) => setConnections(r.data)).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -139,7 +144,14 @@ export function UserDashboard() {
                   </p>
                   <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
                     <div><span className="text-muted-foreground">Mobile: </span><span className="font-mono">{user?.mobile || '—'}</span></div>
-                    <div><span className="text-muted-foreground">UPA ID: </span><span className="font-mono text-purple-700 dark:text-purple-400">{user?.upa_id || '—'}</span></div>
+                    <div>
+                      <span className="text-muted-foreground">UPA ID: </span><span className="font-mono text-purple-700 dark:text-purple-400">{user?.upa_id || '—'}</span>
+                      <div className="mt-1">
+                        <Badge variant="secondary">
+                          {connections?.depth_level == null || connections.depth_level === 0 ? 'Root' : `Level ${connections.depth_level}`}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
