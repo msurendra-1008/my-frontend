@@ -41,7 +41,7 @@ const upaCache: Record<string, UPAPrice> = {};
 function ProductCard({ product }: { product: ProductListItem }) {
   const navigate              = useNavigate();
   const toast                 = useToast();
-  const incrementCartCount    = useCartStore((s) => s.incrementCartCount);
+  const fetchCartCount        = useCartStore((s) => s.fetchCartCount);
   const [upaPrice, setUpaPrice]         = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
   const [addingToCart, setAddingToCart] = useState(false);
 
@@ -120,7 +120,7 @@ function ProductCard({ product }: { product: ProductListItem }) {
             setAddingToCart(true);
             try {
               await cartService.addItem(product.first_variant_id);
-              incrementCartCount();
+              await fetchCartCount();
               toast.show('Added to cart', {
                 label: 'Go to Cart →',
                 onClick: () => navigate('/cart'),

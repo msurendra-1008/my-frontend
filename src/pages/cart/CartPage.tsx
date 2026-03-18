@@ -160,7 +160,7 @@ function OrderSummaryCard({
 export function CartPage() {
   const navigate          = useNavigate();
   const toast             = useToast();
-  const setCartCount      = useCartStore((s) => s.setCartCount);
+  const fetchCartCount    = useCartStore((s) => s.fetchCartCount);
   const [cart, setCart]   = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -168,7 +168,7 @@ export function CartPage() {
     try {
       const r = await cartService.getCart();
       setCart(r.data);
-      setCartCount(r.data.totals.item_count);
+      await fetchCartCount();
     } catch {
       toast.show('Failed to load cart', true);
     } finally {
@@ -182,7 +182,7 @@ export function CartPage() {
     try {
       const r = await cartService.updateItem(itemId, qty);
       setCart(r.data);
-      setCartCount(r.data.totals.item_count);
+      await fetchCartCount();
     } catch {
       toast.show('Failed to update item', true);
     }
@@ -192,7 +192,7 @@ export function CartPage() {
     try {
       const r = await cartService.removeItem(itemId);
       setCart(r.data);
-      setCartCount(r.data.totals.item_count);
+      await fetchCartCount();
       toast.show('Item removed');
     } catch {
       toast.show('Failed to remove item', true);

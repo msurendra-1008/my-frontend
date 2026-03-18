@@ -257,6 +257,13 @@ export function CheckoutPage() {
   const [confirming, setConfirming] = useState(false);
   const [error,      setError]      = useState('');
 
+  // Inline validation toast
+  const [toastError, setToastError] = useState('');
+  const showValidationError = (msg: string) => {
+    setToastError(msg);
+    setTimeout(() => setToastError(''), 4000);
+  };
+
   // ── Load data ───────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -313,7 +320,26 @@ export function CheckoutPage() {
 
   // ── Initiate checkout ───────────────────────────────────────────────────────
   const handleInitiate = async () => {
-    if (!selectedAddressId) { setError('Please select a delivery address.'); return; }
+    // Client-side validation
+    if (!cart?.items.length) {
+      showValidationError('Your cart is empty');
+      return;
+    }
+    if (!selectedAddressId) {
+      showValidationError('Please select a delivery address');
+      return;
+    }
+    if (useWallet) {
+      const walletAmt = parseFloat(walletAmount || '0');
+      if (walletAmt > walletBalance) {
+        showValidationError(`Wallet amount cannot exceed your balance of ₹${walletBalance.toFixed(2)}`);
+        return;
+      }
+      if (walletAmt > amountPayable) {
+        showValidationError(`Wallet amount cannot exceed order total of ₹${amountPayable.toFixed(2)}`);
+        return;
+      }
+    }
     setError('');
     setInitiating(true);
     try {
@@ -324,7 +350,8 @@ export function CheckoutPage() {
       setInitData(r.data);
       setStep('confirm');
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Failed to initiate checkout.';
+      const err = e as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to initiate checkout.';
       setError(msg);
     } finally {
       setInitiating(false);
@@ -333,20 +360,23 @@ export function CheckoutPage() {
 
   // ── Confirm checkout ────────────────────────────────────────────────────────
   const handleConfirm = async (paymentId: string, signature: string) => {
-    if (!initData) return;
+    if (!initData) { showValidationError('Checkout session expired. Please start again.'); return; }
+    if (!selectedAddressId) { showValidationError('Please select a delivery address'); return; }
     setConfirming(true);
     setError('');
     try {
-      const r = await orderService.confirmCheckout({
+      const confirmPayload = {
         address_id:          selectedAddressId,
         wallet_amount:       walletUse.toFixed(2),
         razorpay_order_id:   initData.razorpay_order_id,
         razorpay_payment_id: paymentId,
         razorpay_signature:  signature,
-      });
+      };
+      const r = await orderService.confirmCheckout(confirmPayload);
       navigate('/order/success', { state: { order: r.data } });
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? 'Payment confirmation failed.';
+      const err = e as { response?: { data?: { detail?: string; message?: string } }; message?: string };
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Payment confirmation failed.';
       setError(msg);
       setConfirming(false);
     }
@@ -587,6 +617,13 @@ export function CheckoutPage() {
           </div>
         </div>
       </main>
+
+      {/* Validation error toast */}
+      {toastError && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/80 dark:border-red-800 px-4 py-3 shadow-lg text-sm text-red-700 dark:text-red-300">
+          <span>{toastError}</span>
+        </div>
+      )}
     </div>
   );
 }
