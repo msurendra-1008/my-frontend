@@ -15,8 +15,11 @@ import { UpaUsersPage }    from '@/pages/dashboard/UpaUsersPage';
 import { UPATreePage }     from '@/pages/dashboard/admin/UPATreePage';
 import { ProductsPage }       from '@/pages/dashboard/admin/ProductsPage';
 import { ProductDetailPage } from '@/pages/dashboard/admin/ProductDetailPage';
-import { StoreFront }      from '@/pages/shop/StoreFront';
-import { ProductDetail }   from '@/pages/shop/ProductDetail';
+import { StoreFront }         from '@/pages/shop/StoreFront';
+import { ProductDetail }      from '@/pages/shop/ProductDetail';
+import { CheckoutPage }       from '@/pages/checkout/CheckoutPage';
+import { OrderSuccessPage }   from '@/pages/checkout/OrderSuccessPage';
+import { AdminOrdersPage }    from '@/pages/dashboard/admin/OrdersPage';
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -88,11 +91,39 @@ function AppRoutes() {
         }
       />
 
+      {/* Admin orders */}
+      <Route
+        path="/admin/orders"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <AdminOrdersPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route path="/admin/*" element={<Navigate to="/admin/dashboard" replace />} />
 
       {/* Public shop */}
       <Route path="/shop"       element={<StoreFront />} />
       <Route path="/shop/:slug" element={<ProductDetail />} />
+
+      {/* Checkout (UPA users only) */}
+      <Route
+        path="/checkout"
+        element={
+          <ProtectedRoute allowedRoles={['upa_user']}>
+            <CheckoutPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/order/success"
+        element={
+          <ProtectedRoute allowedRoles={['upa_user']}>
+            <OrderSuccessPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* User dashboard */}
       <Route

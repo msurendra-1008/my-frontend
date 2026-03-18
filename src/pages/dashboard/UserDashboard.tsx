@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Sun, Moon, LogOut, Copy, Check } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useTheme } from '@context/ThemeContext';
@@ -9,10 +9,12 @@ import { treeService } from '@/services/treeService';
 import { walletService } from '@/services/walletService';
 import { Badge } from '@/components/ui/Badge';
 import { ShopTab } from '@/pages/dashboard/user/ShopTab';
+import { CartTab } from '@/pages/dashboard/user/CartTab';
+import { OrdersTab } from '@/pages/dashboard/user/OrdersTab';
 import type { MyConnections } from '@/types/tree.types';
 import type { Wallet, WalletTransaction } from '@/types/wallet.types';
 
-type Tab = 'account' | 'wallet' | 'orders' | 'shop';
+type Tab = 'account' | 'wallet' | 'orders' | 'shop' | 'cart';
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
@@ -69,7 +71,10 @@ export function UserDashboard() {
   const { user, updateUser, clearAuth } = useAuthStore();
   const { theme, toggleTheme }          = useTheme();
   const navigate                         = useNavigate();
-  const [tab, setTab]                    = useState<Tab>('account');
+  const location                         = useLocation();
+  const [tab, setTab]                    = useState<Tab>(
+    (location.state as { tab?: Tab } | null)?.tab ?? 'account'
+  );
   const [copied, setCopied]              = useState(false);
   const [connections, setConnections]    = useState<MyConnections | null>(null);
 
@@ -140,10 +145,11 @@ export function UserDashboard() {
     : '?';
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'account', label: 'Account' },
-    { id: 'wallet',  label: 'Wallet'  },
+    { id: 'account', label: 'Account'   },
+    { id: 'wallet',  label: 'Wallet'    },
     { id: 'orders',  label: 'My Orders' },
-    { id: 'shop',    label: 'Shop'    },
+    { id: 'cart',    label: 'Cart'      },
+    { id: 'shop',    label: 'Shop'      },
   ];
 
   const allTxns = wallet ? [...wallet.transactions, ...extraTxns] : [];
@@ -325,13 +331,10 @@ export function UserDashboard() {
         )}
 
         {/* Orders tab */}
-        {tab === 'orders' && (
-          <div className="flex flex-col items-center justify-center rounded-xl border bg-card py-16 text-center shadow-sm">
-            <p className="text-2xl">📦</p>
-            <p className="mt-2 font-medium text-foreground">No orders yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">Start shopping to see your orders here!</p>
-          </div>
-        )}
+        {tab === 'orders' && <OrdersTab />}
+
+        {/* Cart tab */}
+        {tab === 'cart' && <CartTab />}
 
         {/* Shop tab */}
         {tab === 'shop' && <ShopTab />}
