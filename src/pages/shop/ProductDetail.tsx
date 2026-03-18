@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ChevronRight, ShoppingCart } from 'lucide-react';
 import { productService } from '@/services/productService';
+import { cartService } from '@/services/cartService';
+import { useAuthStore } from '@/store/authStore';
 import type { Product, ProductVariant, StockLabel } from '@/types/product.types';
 
 function Skeleton({ className }: { className?: string }) {
@@ -27,11 +29,13 @@ export function ProductDetail() {
   const { slug }    = useParams<{ slug: string }>();
   const navigate    = useNavigate();
   const toast       = useToast();
+  const user        = useAuthStore((s) => s.user);
 
   const [product,         setProduct]         = useState<Product | null>(null);
   const [loading,         setLoading]         = useState(true);
   const [selectedImage,   setSelectedImage]   = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [addingToCart,    setAddingToCart]    = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -188,11 +192,23 @@ export function ProductDetail() {
 
             {/* Add to cart */}
             <button
-              onClick={() => toast.show('Login to purchase')}
-              disabled={stockLbl === 'Out of Stock'}
+              onClick={async () => {
+                if (!user) { toast.show('Login to add to cart'); return; }
+                if (!selectedVariant) { toast.show('Please select a variant'); return; }
+                setAddingToCart(true);
+                try {
+                  await cartService.addItem(selectedVariant.id);
+                  toast.show('Added to cart!');
+                } catch {
+                  toast.show('Failed to add to cart');
+                } finally {
+                  setAddingToCart(false);
+                }
+              }}
+              disabled={stockLbl === 'Out of Stock' || addingToCart}
               className="mt-2 w-full rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {stockLbl === 'Out of Stock' ? 'Out of Stock' : 'Add to Cart'}
+              {addingToCart ? 'Adding…' : stockLbl === 'Out of Stock' ? 'Out of Stock' : 'Add to Cart'}
             </button>
           </div>
         </div>

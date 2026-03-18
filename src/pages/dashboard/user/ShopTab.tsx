@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { productService } from '@/services/productService';
+import { cartService } from '@/services/cartService';
 import type { ProductListItem, Category, StockLabel, UPAPrice } from '@/types/product.types';
 
 function Skeleton({ className }: { className?: string }) {
@@ -26,9 +27,10 @@ function useToast() {
 const upaCache: Record<string, UPAPrice> = {};
 
 function ProductCard({ product }: { product: ProductListItem }) {
-  const navigate = useNavigate();
-  const toast    = useToast();
-  const [upaPrice, setUpaPrice] = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
+  const navigate       = useNavigate();
+  const toast          = useToast();
+  const [upaPrice, setUpaPrice]       = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     if (upaCache[product.slug]) { setUpaPrice(upaCache[product.slug]); return; }
@@ -97,11 +99,25 @@ function ProductCard({ product }: { product: ProductListItem }) {
         </div>
 
         <button
-          onClick={() => toast.show('Cart coming soon')}
-          disabled={product.stock_label === 'Out of Stock'}
+          onClick={async () => {
+            if (!product.first_variant_id) {
+              navigate(`/shop/${product.slug}`);
+              return;
+            }
+            setAddingToCart(true);
+            try {
+              await cartService.addItem(product.first_variant_id);
+              toast.show('Added to cart!');
+            } catch {
+              toast.show('Failed to add to cart');
+            } finally {
+              setAddingToCart(false);
+            }
+          }}
+          disabled={product.stock_label === 'Out of Stock' || addingToCart}
           className="mt-2 w-full h-8 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          Add to Cart
+          {addingToCart ? 'Adding…' : 'Add to Cart'}
         </button>
       </div>
 

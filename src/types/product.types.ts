@@ -38,16 +38,17 @@ export interface ProductVariant {
 }
 
 export interface ProductListItem {
-  id:            string;
-  name:          string;
-  slug:          string;
-  mrp:           string;
-  primary_image: string | null;
-  category_name: string | null;
-  is_published:  boolean;
-  stock_label:   StockLabel;
-  total_stock:   number;
-  variant_count: number;
+  id:               string;
+  name:             string;
+  slug:             string;
+  mrp:              string;
+  primary_image:    string | null;
+  category_name:    string | null;
+  is_published:     boolean;
+  stock_label:      StockLabel;
+  total_stock:      number;
+  variant_count:    number;
+  first_variant_id: string | null;
 }
 
 export interface Product {
