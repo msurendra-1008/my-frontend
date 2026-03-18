@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Menu, Plus, Pencil, Trash2, Eye, EyeOff, Package } from 'lucide-react';
 import { cn } from '@utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
@@ -35,7 +36,7 @@ interface ProductFormProps {
   onSaved:     () => void;
 }
 
-function ProductFormSheet({ categories, product, onClose, onSaved }: ProductFormProps) {
+export function ProductFormSheet({ categories, product, onClose, onSaved }: ProductFormProps) {
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -408,19 +409,153 @@ function CategoryFormModal({ categories, onClose, onSaved }: CategoryFormModalPr
   );
 }
 
+// ── Confirm Dialog ────────────────────────────────────────────────────────
+
+function ConfirmDialog({
+  title,
+  description,
+  confirmLabel = 'Delete',
+  isDanger = true,
+  loading = false,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  isDanger?: boolean;
+  loading?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" />
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="w-full max-w-sm rounded-2xl bg-card shadow-2xl border border-border/60 p-6">
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              onClick={onCancel}
+              disabled={loading}
+              className="rounded-xl border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className={cn(
+                'rounded-xl px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60',
+                isDanger
+                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+              )}
+            >
+              {loading ? 'Please wait…' : confirmLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Category Edit Modal ───────────────────────────────────────────────────
+
+function CategoryEditModal({
+  category,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  category: Category;
+  categories: Category[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [name,   setName]   = useState(category.name);
+  const [parent, setParent] = useState(category.parent_id ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await productService.updateCategory(category.slug, { name, parent: parent || null });
+      onSaved();
+    } catch { toast.show('Failed.', true); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl bg-card shadow-2xl border border-border/60">
+          <div className="flex h-14 items-center justify-between border-b px-6">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Edit Category</h2>
+              <p className="text-xs text-muted-foreground">Update category details</p>
+            </div>
+            <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">&times;</button>
+          </div>
+          <form onSubmit={handleSave} className="p-6 space-y-4">
+            <Field label="Category Name" required>
+              <input required value={name} onChange={(e) => setName(e.target.value)}
+                className="input-base" placeholder="e.g. Beverages" autoFocus />
+            </Field>
+            <Field label="Parent Category" hint="Optional">
+              <select value={parent} onChange={(e) => setParent(e.target.value)} className="input-base">
+                <option value="">— Root (no parent) —</option>
+                {categories.filter((c) => !c.parent_id && c.id !== category.id).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </Field>
+            {toast.msg && (
+              <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium',
+                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
+                {toast.msg}
+              </p>
+            )}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button type="button" onClick={onClose}
+                className="rounded-xl border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors">
+                Cancel
+              </button>
+              <button type="submit" disabled={saving}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Category Management ───────────────────────────────────────────────────
 
 function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRefresh: () => void }) {
   const toast = useToast();
   const [catModalOpen, setCatModalOpen] = useState(false);
+  const [editTarget,   setEditTarget]   = useState<Category | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
 
-  const handleDelete = async (slug: string) => {
-    if (!confirm('Delete this category?')) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await productService.deleteCategory(slug);
+      await productService.deleteCategory(deleteTarget.slug);
       onRefresh();
       toast.show('Deleted.');
     } catch { toast.show('Failed.', true); }
+    finally { setDeleting(false); setDeleteTarget(null); }
   };
 
   return (
@@ -444,7 +579,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Name</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Parent</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
-              <th className="px-4 py-3 w-10" />
+              <th className="px-4 py-3 w-20" />
             </tr>
           </thead>
           <tbody>
@@ -456,10 +591,16 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
                   <Badge variant={c.is_active ? 'success' : 'danger'}>{c.is_active ? 'Active' : 'Inactive'}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <button onClick={() => handleDelete(c.slug)}
-                    className="text-red-500 hover:text-red-700 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setEditTarget(c)}
+                      className="text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => setDeleteTarget(c)}
+                      className="text-red-500 hover:text-red-700 transition-colors" title="Delete">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -482,6 +623,25 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
           categories={categories}
           onClose={() => setCatModalOpen(false)}
           onSaved={() => { setCatModalOpen(false); onRefresh(); }}
+        />
+      )}
+
+      {editTarget && (
+        <CategoryEditModal
+          category={editTarget}
+          categories={categories}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => { setEditTarget(null); onRefresh(); toast.show('Category updated.'); }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete category?"
+          description={`"${deleteTarget.name}" will be permanently deleted. This cannot be undone.`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>
@@ -567,10 +727,13 @@ function ProductsTab({
 }) {
   const { user }    = useAuthStore();
   const toast       = useToast();
-  const [products,  setProducts]  = useState<ProductListItem[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [nextPage,  setNextPage]  = useState<string | null>(null);
-  const [page,      setPage]      = useState(1);
+  const navigate    = useNavigate();
+  const [products,     setProducts]     = useState<ProductListItem[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [nextPage,     setNextPage]     = useState<string | null>(null);
+  const [page,         setPage]         = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<ProductListItem | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
 
   const canEdit = user?.role === 'superadmin' || user?.role === 'admin' ||
     (user?.permissions?.includes('products.edit') ?? false);
@@ -598,13 +761,15 @@ function ProductsTab({
     } catch { toast.show('Failed.', true); }
   };
 
-  const handleDelete = async (p: ProductListItem) => {
-    if (!confirm(`Delete "${p.name}"?`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await productService.deleteProduct(p.slug);
-      setProducts((prev) => prev.filter((x) => x.id !== p.id));
+      await productService.deleteProduct(deleteTarget.slug);
+      setProducts((prev) => prev.filter((x) => x.id !== deleteTarget.id));
       toast.show('Product deleted.');
     } catch { toast.show('Failed.', true); }
+    finally { setDeleting(false); setDeleteTarget(null); }
   };
 
   const handleEdit = async (p: ProductListItem) => {
@@ -654,7 +819,12 @@ function ProductsTab({
                           </div>
                         )}
                       </div>
-                      <span className="font-medium text-foreground">{p.name}</span>
+                      <button
+                        onClick={() => navigate(`/admin/products/${p.slug}`)}
+                        className="font-medium text-foreground hover:text-primary hover:underline text-left transition-colors"
+                      >
+                        {p.name}
+                      </button>
                     </div>
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">{p.id.slice(0,8)}…</td>
@@ -685,7 +855,7 @@ function ProductsTab({
                           title={p.is_published ? 'Unpublish' : 'Publish'}>
                           {p.is_published ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
-                        <button onClick={() => handleDelete(p)}
+                        <button onClick={() => setDeleteTarget(p)}
                           className="text-red-500 hover:text-red-700" title="Delete">
                           <Trash2 size={14} />
                         </button>
@@ -719,6 +889,16 @@ function ProductsTab({
           toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete product?"
+          description={`"${deleteTarget.name}" will be permanently deleted. This action cannot be undone.`}
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

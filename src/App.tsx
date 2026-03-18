@@ -13,7 +13,8 @@ import { AdminDashboard }  from '@/pages/dashboard/AdminDashboard';
 import { UserDashboard }   from '@/pages/dashboard/UserDashboard';
 import { UpaUsersPage }    from '@/pages/dashboard/UpaUsersPage';
 import { UPATreePage }     from '@/pages/dashboard/admin/UPATreePage';
-import { ProductsPage }    from '@/pages/dashboard/admin/ProductsPage';
+import { ProductsPage }       from '@/pages/dashboard/admin/ProductsPage';
+import { ProductDetailPage } from '@/pages/dashboard/admin/ProductDetailPage';
 import { StoreFront }      from '@/pages/shop/StoreFront';
 import { ProductDetail }   from '@/pages/shop/ProductDetail';
 
@@ -75,6 +76,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <ProductsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/products/:slug"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <ProductDetailPage />
           </ProtectedRoute>
         }
       />
