@@ -8,7 +8,6 @@ import { authService } from '@/services/authService';
 import { tokenStorage } from '@/utils/axiosInstance';
 import { treeService } from '@/services/treeService';
 import { walletService } from '@/services/walletService';
-import { cartService } from '@/services/cartService';
 import { Badge } from '@/components/ui/Badge';
 import { ShopTab } from '@/pages/dashboard/user/ShopTab';
 import { OrdersTab } from '@/pages/dashboard/user/OrdersTab';
@@ -77,7 +76,7 @@ export function UserDashboard() {
   const [tab, setTab]                    = useState<Tab>(
     locState?.activeTab ?? locState?.tab ?? 'account'
   );
-  const { cartCount, setCartCount } = useCartStore();
+  const { cartCount, fetchCartCount } = useCartStore();
   const [copied, setCopied]              = useState(false);
   const [connections, setConnections]    = useState<MyConnections | null>(null);
 
@@ -94,7 +93,7 @@ export function UserDashboard() {
   useEffect(() => {
     authService.getMe().then((r) => updateUser(r.data)).catch(() => {});
     treeService.getMyConnections().then((r) => setConnections(r.data)).catch(() => {});
-    cartService.getCart().then((r) => setCartCount(r.data.totals.item_count)).catch(() => {});
+    fetchCartCount();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -4,6 +4,7 @@ import { ChevronRight, ShoppingCart } from 'lucide-react';
 import { productService } from '@/services/productService';
 import { cartService } from '@/services/cartService';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import type { Product, ProductVariant, StockLabel } from '@/types/product.types';
 
 function Skeleton({ className }: { className?: string }) {
@@ -30,12 +31,23 @@ export function ProductDetail() {
   const navigate    = useNavigate();
   const toast       = useToast();
   const user        = useAuthStore((s) => s.user);
+  const { cartCount, fetchCartCount } = useCartStore();
 
   const [product,         setProduct]         = useState<Product | null>(null);
   const [loading,         setLoading]         = useState(true);
   const [selectedImage,   setSelectedImage]   = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [addingToCart,    setAddingToCart]    = useState(false);
+  const [addedToCart,     setAddedToCart]     = useState(false);
+
+  // Reset addedToCart when variant changes
+  useEffect(() => { setAddedToCart(false); }, [selectedVariant]);
+
+  // Fetch cart count for logged-in users on mount
+  useEffect(() => {
+    if (user) fetchCartCount();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!slug) return;
@@ -89,8 +101,17 @@ export function ProductDetail() {
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-[52px] max-w-5xl items-center justify-between px-4">
           <Link to="/shop" className="font-bold text-foreground">MyApp Shop</Link>
-          <button className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
+          <button
+            onClick={() => navigate('/cart')}
+            className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+            aria-label="Cart"
+          >
             <ShoppingCart size={16} />
+            {user && cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white leading-none">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            )}
           </button>
         </div>
       </header>
@@ -190,26 +211,64 @@ export function ProductDetail() {
               </div>
             )}
 
-            {/* Add to cart */}
-            <button
-              onClick={async () => {
-                if (!user) { toast.show('Login to add to cart'); return; }
-                if (!selectedVariant) { toast.show('Please select a variant'); return; }
-                setAddingToCart(true);
-                try {
-                  await cartService.addItem(selectedVariant.id);
-                  toast.show('Added to cart!');
-                } catch {
-                  toast.show('Failed to add to cart');
-                } finally {
-                  setAddingToCart(false);
-                }
-              }}
-              disabled={stockLbl === 'Out of Stock' || addingToCart}
-              className="mt-2 w-full rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {addingToCart ? 'Adding…' : stockLbl === 'Out of Stock' ? 'Out of Stock' : 'Add to Cart'}
-            </button>
+            {/* Add to cart / Go to cart */}
+            <div className="space-y-2">
+              {addedToCart ? (
+                <button
+                  onClick={() => navigate('/cart')}
+                  className="w-full rounded-lg bg-emerald-600 px-6 py-3 text-sm font-medium text-white hover:bg-emerald-700 transition-colors"
+                >
+                  Go to Cart →
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (!user) {
+                      toast.show('Login to add to cart');
+                      setTimeout(() => navigate('/login?next=/shop'), 1500);
+                      return;
+                    }
+                    if (!selectedVariant) { toast.show('Please select a variant'); return; }
+                    setAddingToCart(true);
+                    try {
+                      await cartService.addItem(selectedVariant.id);
+                      await fetchCartCount();
+                      setAddedToCart(true);
+                    } catch {
+                      toast.show('Failed to add to cart');
+                    } finally {
+                      setAddingToCart(false);
+                    }
+                  }}
+                  disabled={stockLbl === 'Out of Stock' || addingToCart}
+                  className="w-full rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {addingToCart ? 'Adding…' : stockLbl === 'Out of Stock' ? 'Out of Stock' : 'Add to Cart'}
+                </button>
+              )}
+
+              {addedToCart && (
+                <button
+                  onClick={async () => {
+                    if (!selectedVariant) return;
+                    setAddingToCart(true);
+                    try {
+                      await cartService.addItem(selectedVariant.id);
+                      await fetchCartCount();
+                      toast.show('Added another to cart');
+                    } catch {
+                      toast.show('Failed to add to cart');
+                    } finally {
+                      setAddingToCart(false);
+                    }
+                  }}
+                  disabled={addingToCart}
+                  className="w-full text-center text-sm text-purple-600 hover:underline disabled:opacity-40"
+                >
+                  {addingToCart ? 'Adding…' : '+ Add more'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </main>
