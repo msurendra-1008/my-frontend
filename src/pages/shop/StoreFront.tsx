@@ -25,7 +25,7 @@ function ProductCard({ product }: { product: ProductListItem }) {
       className="rounded-lg border bg-card hover:shadow-sm transition-shadow duration-150 cursor-pointer overflow-hidden"
     >
       {/* Image — fixed height, never grows */}
-      <div className="h-40 w-full bg-muted overflow-hidden">
+      <div className="h-28 w-full bg-muted overflow-hidden">
         {product.primary_image ? (
           <img
             src={product.primary_image}
@@ -200,10 +200,10 @@ export function StoreFront() {
 
         {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {[1,2,3,4,5,6,7,8].map((i) => (
               <div key={i} className="rounded-lg border overflow-hidden">
-                <Skeleton className="h-40 w-full" />
+                <Skeleton className="h-28 w-full" />
                 <div className="p-3 space-y-2">
                   <Skeleton className="h-3 w-16" />
                   <Skeleton className="h-4 w-full" />
@@ -218,7 +218,7 @@ export function StoreFront() {
             <p className="mt-1 text-sm text-muted-foreground">Try adjusting your filters.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {products.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         )}
