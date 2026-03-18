@@ -78,7 +78,7 @@ export function OrderSuccessPage() {
             View my orders
           </button>
           <button
-            onClick={() => navigate('/shop')}
+            onClick={() => navigate('/dashboard', { state: { activeTab: 'shop' } })}
             className="w-full rounded-lg border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
           >
             Continue shopping

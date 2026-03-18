@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CheckCircle2, Circle, MapPin, Wallet, CreditCard,
+  CheckCircle2, MapPin, Wallet, CreditCard,
   ChevronRight, Plus, ShoppingBag, Info,
 } from 'lucide-react';
 import { cartService } from '@/services/cartService';
@@ -267,13 +267,18 @@ export function CheckoutPage() {
         walletService.getMyWallet().catch(() => null),
       ]);
       setCart(cartRes.data);
-      setAddresses(addrRes.data);
+
+      // Handle both paginated { results: [...] } and plain array responses
+      const rawAddr = addrRes.data as Address[] | { results: Address[] };
+      const addrList: Address[] = Array.isArray(rawAddr) ? rawAddr : (rawAddr.results ?? []);
+      setAddresses(addrList);
+
       if (walletRes) setWallet(walletRes.data);
 
-      const defaultAddr = addrRes.data.find((a) => a.is_default) ?? addrRes.data[0];
+      const defaultAddr = addrList.find((a) => a.is_default) ?? addrList[0];
       if (defaultAddr) setSelectedAddressId(defaultAddr.id);
 
-      if (!cartRes.data.items.length) navigate('/dashboard');
+      if (!cartRes.data.items.length) navigate('/cart');
     } catch {
       setError('Failed to load checkout data. Please try again.');
     } finally {
@@ -376,7 +381,7 @@ export function CheckoutPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-[52px] max-w-4xl items-center px-4 gap-3">
-          <button onClick={() => navigate('/dashboard')} className="text-sm text-muted-foreground hover:text-foreground">
+          <button onClick={() => navigate('/cart')} className="text-sm text-muted-foreground hover:text-foreground">
             ← Back
           </button>
           <span className="font-semibold text-foreground">Checkout</span>

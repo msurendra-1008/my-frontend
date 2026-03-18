@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { productService } from '@/services/productService';
 import { cartService } from '@/services/cartService';
+import { useCartStore } from '@/store/cartStore';
 import type { ProductListItem, Category, StockLabel, UPAPrice } from '@/types/product.types';
 
 function Skeleton({ className }: { className?: string }) {
@@ -17,19 +18,31 @@ function StockBadge({ label }: { label: StockLabel }) {
   return <span className="text-[10px] font-medium text-emerald-600">In Stock</span>;
 }
 
+interface ToastState {
+  text: string;
+  action?: { label: string; onClick: () => void };
+}
+
 function useToast() {
-  const [msg, setMsg] = useState<string | null>(null);
-  const show = (m: string) => { setMsg(m); setTimeout(() => setMsg(null), 3000); };
-  return { msg, show };
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const timerRef = { current: 0 as ReturnType<typeof setTimeout> };
+  const show = (text: string, action?: ToastState['action']) => {
+    clearTimeout(timerRef.current);
+    setToast({ text, action });
+    timerRef.current = setTimeout(() => setToast(null), 4000);
+  };
+  const dismiss = () => setToast(null);
+  return { toast, show, dismiss };
 }
 
 // Cache UPA prices so we don't re-fetch on every render
 const upaCache: Record<string, UPAPrice> = {};
 
 function ProductCard({ product }: { product: ProductListItem }) {
-  const navigate       = useNavigate();
-  const toast          = useToast();
-  const [upaPrice, setUpaPrice]       = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
+  const navigate              = useNavigate();
+  const toast                 = useToast();
+  const incrementCartCount    = useCartStore((s) => s.incrementCartCount);
+  const [upaPrice, setUpaPrice]         = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
   const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
@@ -107,7 +120,11 @@ function ProductCard({ product }: { product: ProductListItem }) {
             setAddingToCart(true);
             try {
               await cartService.addItem(product.first_variant_id);
-              toast.show('Added to cart!');
+              incrementCartCount();
+              toast.show('Added to cart', {
+                label: 'Go to Cart →',
+                onClick: () => navigate('/cart'),
+              });
             } catch {
               toast.show('Failed to add to cart');
             } finally {
@@ -121,9 +138,17 @@ function ProductCard({ product }: { product: ProductListItem }) {
         </button>
       </div>
 
-      {toast.msg && (
-        <div className="fixed bottom-5 right-5 z-50 rounded-lg border bg-card px-4 py-3 shadow-lg text-sm text-foreground">
-          {toast.msg}
+      {toast.toast && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-lg text-sm text-foreground">
+          <span>{toast.toast.text}</span>
+          {toast.toast.action && (
+            <button
+              onClick={() => { toast.toast!.action!.onClick(); toast.dismiss(); }}
+              className="ml-1 font-medium text-purple-600 hover:underline shrink-0"
+            >
+              {toast.toast.action.label}
+            </button>
+          )}
         </div>
       )}
     </div>
