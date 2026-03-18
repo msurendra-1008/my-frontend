@@ -366,6 +366,7 @@ export function CheckoutPage() {
     setError('');
     try {
       const confirmPayload = {
+        internal_order_id:   initData.internal_order_id,
         address_id:          selectedAddressId,
         wallet_amount:       walletUse.toFixed(2),
         razorpay_order_id:   initData.razorpay_order_id,
