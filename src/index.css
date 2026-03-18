@@ -181,18 +181,31 @@ body {
 .input-base {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid hsl(var(--border));
-  background-color: hsl(var(--background));
+  border: 1.5px solid #D1D1D6;
+  background-color: #FFFFFF;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   color: hsl(var(--foreground));
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .input-base:focus {
-  ring: 2px solid hsl(var(--ring));
-  outline: 2px solid hsl(var(--ring));
-  outline-offset: -1px;
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15);
+  outline: none;
 }
 .input-base::placeholder {
-  color: hsl(var(--muted-foreground));
+  color: #AEAEB2;
+}
+.dark .input-base {
+  background-color: #1C1C1E;
+  border-color: #3A3A3C;
+  color: #F5F5F7;
+}
+.dark .input-base:focus {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 3px hsl(var(--ring) / 0.25);
+}
+.dark .input-base::placeholder {
+  color: #636366;
 }
