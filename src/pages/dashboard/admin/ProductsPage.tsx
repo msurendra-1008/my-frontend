@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Menu, Plus, Pencil, Trash2, Eye, EyeOff, Package } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Menu, Plus, Pencil, Trash2, Eye, EyeOff, Package, Search, X } from 'lucide-react';
 import { cn } from '@utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Badge } from '@/components/ui/Badge';
@@ -547,6 +547,21 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [deleting,     setDeleting]     = useState(false);
 
+  // ── Client-side filters ────────────────────────────────────────────────
+  const [searchInput, setSearchInput] = useState('');
+  const [typeFilter,  setTypeFilter]  = useState<'all' | 'parent' | 'sub'>('all');
+
+  const filtered = categories.filter((c) => {
+    const matchesSearch = !searchInput || c.name.toLowerCase().includes(searchInput.toLowerCase());
+    const matchesType   =
+      typeFilter === 'all' ? true :
+      typeFilter === 'parent' ? !c.parent_id :
+      !!c.parent_id;
+    return matchesSearch && matchesType;
+  });
+
+  const hasFilters = !!(searchInput || typeFilter !== 'all');
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -559,19 +574,64 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
   };
 
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{categories.length} categories</p>
+    <div className="space-y-3">
+
+      {/* ── Filter bar ── */}
+      <div className="flex flex-wrap gap-2 items-center">
+        {/* Search */}
+        <div className="relative flex-1 min-w-40">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search categories…"
+            className="input-base pl-8 py-1.5 text-xs h-8"
+          />
+          {searchInput && (
+            <button onClick={() => setSearchInput('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Type */}
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as 'all' | 'parent' | 'sub')}
+          className="input-base text-xs py-1.5 h-8 pr-7"
+        >
+          <option value="all">All types</option>
+          <option value="parent">Parent categories</option>
+          <option value="sub">Subcategories</option>
+        </select>
+
+        {/* Clear */}
+        {hasFilters && (
+          <button
+            onClick={() => { setSearchInput(''); setTypeFilter('all'); }}
+            className="flex items-center gap-1 rounded-lg border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
+          >
+            <X size={11} /> Clear all
+          </button>
+        )}
+
+        {/* New Category — pushed to the right */}
         <button
           onClick={() => setCatModalOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          className="ml-auto flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 h-8"
         >
           <Plus size={13} /> New Category
         </button>
       </div>
 
-      {/* Categories list */}
+      {/* ── Result count ── */}
+      <p className="text-xs text-muted-foreground px-0.5">
+        Showing <span className="font-medium text-foreground">{filtered.length}</span> of{' '}
+        <span className="font-medium text-foreground">{categories.length}</span> categor{categories.length !== 1 ? 'ies' : 'y'}
+      </p>
+
+      {/* ── Table ── */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -583,7 +643,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
             </tr>
           </thead>
           <tbody>
-            {categories.map((c) => (
+            {filtered.map((c) => (
               <tr key={c.id} className="border-b last:border-0 hover:bg-muted/20">
                 <td className="px-4 py-3 font-medium text-foreground">{c.name}</td>
                 <td className="px-4 py-3 text-muted-foreground">{c.parent_name ?? '—'}</td>
@@ -604,8 +664,10 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
                 </td>
               </tr>
             ))}
-            {categories.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">No categories yet.</td></tr>
+            {filtered.length === 0 && (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                {hasFilters ? 'No categories match your filters.' : 'No categories yet.'}
+              </td></tr>
             )}
           </tbody>
         </table>
@@ -720,15 +782,27 @@ function DiscountSettingsCard() {
 // ── Products Tab ──────────────────────────────────────────────────────────
 
 function ProductsTab({
+  categories = [],
   onEditProduct,
 }: {
   categories?: Category[];
   onEditProduct: (p: Product) => void;
 }) {
-  const { user }    = useAuthStore();
-  const toast       = useToast();
-  const navigate    = useNavigate();
+  const { user }           = useAuthStore();
+  const toast              = useToast();
+  const navigate           = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // ── Filter state from URL ──────────────────────────────────────────────
+  const categoryFilter = searchParams.get('category') ?? '';
+  const statusFilter   = searchParams.get('status')   ?? '';
+  const stockFilter    = searchParams.get('stock')    ?? '';
+
+  // Local search input (debounced before hitting URL)
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') ?? '');
+
   const [products,     setProducts]     = useState<ProductListItem[]>([]);
+  const [totalCount,   setTotalCount]   = useState(0);
   const [loading,      setLoading]      = useState(true);
   const [nextPage,     setNextPage]     = useState<string | null>(null);
   const [page,         setPage]         = useState(1);
@@ -738,19 +812,58 @@ function ProductsTab({
   const canEdit = user?.role === 'superadmin' || user?.role === 'admin' ||
     (user?.permissions?.includes('products.edit') ?? false);
 
+  // ── Debounce search into URL ───────────────────────────────────────────
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        searchInput ? next.set('search', searchInput) : next.delete('search');
+        return next;
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // ── Fetch whenever URL params change ──────────────────────────────────
+  const searchFromUrl = searchParams.get('search') ?? '';
+
   const fetchProducts = async (pg = 1, reset = true) => {
     if (reset) setLoading(true);
     try {
-      const r = await productService.listProducts({ page: pg });
+      const r = await productService.listProducts({
+        search:   searchFromUrl   || undefined,
+        category: categoryFilter  || undefined,
+        status:   (statusFilter   as 'published' | 'unpublished') || undefined,
+        stock:    (stockFilter    as 'in_stock' | 'low_stock' | 'out_of_stock') || undefined,
+        page: pg,
+      });
       if (reset) setProducts(r.data.results);
       else       setProducts((prev) => [...prev, ...r.data.results]);
+      setTotalCount(r.data.count);
       setNextPage(r.data.next);
       setPage(pg);
     } catch { /* ignore */ } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  useEffect(() => { fetchProducts(1, true); }, [searchFromUrl, categoryFilter, statusFilter, stockFilter]);
 
+  // ── Filter helpers ─────────────────────────────────────────────────────
+  const setFilter = (key: string, value: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      value ? next.set(key, value) : next.delete(key);
+      return next;
+    });
+  };
+
+  const hasFilters = !!(searchInput || categoryFilter || statusFilter || stockFilter);
+
+  const clearFilters = () => {
+    setSearchInput('');
+    setSearchParams({});
+  };
+
+  // ── Actions ────────────────────────────────────────────────────────────
   const handleTogglePublish = async (p: ProductListItem) => {
     try {
       const r = await productService.togglePublish(p.slug);
@@ -767,6 +880,7 @@ function ProductsTab({
     try {
       await productService.deleteProduct(deleteTarget.slug);
       setProducts((prev) => prev.filter((x) => x.id !== deleteTarget.id));
+      setTotalCount((c) => c - 1);
       toast.show('Product deleted.');
     } catch { toast.show('Failed.', true); }
     finally { setDeleting(false); setDeleteTarget(null); }
@@ -780,7 +894,82 @@ function ProductsTab({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+
+      {/* ── Filter bar ── */}
+      <div className="flex flex-wrap gap-2 items-center">
+        {/* Search */}
+        <div className="relative flex-1 min-w-48">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by name or SKU…"
+            className="input-base pl-8 py-1.5 text-xs h-8"
+          />
+          {searchInput && (
+            <button onClick={() => setSearchInput('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Category */}
+        <select
+          value={categoryFilter}
+          onChange={(e) => setFilter('category', e.target.value)}
+          className="input-base text-xs py-1.5 h-8 pr-7"
+        >
+          <option value="">All categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.slug}>{c.name}</option>
+          ))}
+        </select>
+
+        {/* Status */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setFilter('status', e.target.value)}
+          className="input-base text-xs py-1.5 h-8 pr-7"
+        >
+          <option value="">All status</option>
+          <option value="published">Published</option>
+          <option value="unpublished">Unpublished</option>
+        </select>
+
+        {/* Stock */}
+        <select
+          value={stockFilter}
+          onChange={(e) => setFilter('stock', e.target.value)}
+          className="input-base text-xs py-1.5 h-8 pr-7"
+        >
+          <option value="">All stock</option>
+          <option value="in_stock">In Stock</option>
+          <option value="low_stock">Low Stock</option>
+          <option value="out_of_stock">Out of Stock</option>
+        </select>
+
+        {/* Clear all */}
+        {hasFilters && (
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1 rounded-lg border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
+          >
+            <X size={11} /> Clear all
+          </button>
+        )}
+      </div>
+
+      {/* ── Result count ── */}
+      {!loading && (
+        <p className="text-xs text-muted-foreground px-0.5">
+          Showing <span className="font-medium text-foreground">{products.length}</span> of{' '}
+          <span className="font-medium text-foreground">{totalCount}</span> product{totalCount !== 1 ? 's' : ''}
+        </p>
+      )}
+
+      {/* ── Table ── */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-5 space-y-3">
@@ -838,7 +1027,7 @@ function ProductsTab({
                   <td className="px-4 py-3">
                     <span className={cn('text-xs font-medium',
                       p.stock_label === 'Out of Stock' ? 'text-red-500' :
-                      p.stock_label === 'Low Stock' ? 'text-amber-600' : 'text-emerald-600'
+                      p.stock_label === 'Low Stock'    ? 'text-amber-600' : 'text-emerald-600'
                     )}>
                       {p.stock_label}
                     </span>
@@ -864,9 +1053,9 @@ function ProductsTab({
                   )}
                 </tr>
               ))}
-              {products.length === 0 && !loading && (
+              {products.length === 0 && (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  No products yet.
+                  {hasFilters ? 'No products match your filters.' : 'No products yet.'}
                 </td></tr>
               )}
             </tbody>

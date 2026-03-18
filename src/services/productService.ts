@@ -6,8 +6,10 @@ import type {
 
 export const productService = {
   // ── Categories ─────────────────────────────────────────────────────────────
-  listCategories: () =>
-    axiosInstance.get<{ results: Category[] }>('/api/v1/categories/'),
+  listCategories: (params?: { search?: string }) => {
+    const qs = params?.search ? `?search=${encodeURIComponent(params.search)}` : '';
+    return axiosInstance.get<{ results: Category[] }>(`/api/v1/categories/${qs}`);
+  },
 
   createCategory: (data: { name: string; parent?: string | null; is_active?: boolean }) =>
     axiosInstance.post<Category>('/api/v1/categories/', data),
@@ -24,6 +26,8 @@ export const productService = {
     if (filters.category) params.set('category', filters.category);
     if (filters.search)   params.set('search', filters.search);
     if (filters.in_stock) params.set('in_stock', 'true');
+    if (filters.status)   params.set('status', filters.status);
+    if (filters.stock)    params.set('stock', filters.stock);
     if (filters.page)     params.set('page', String(filters.page));
     const qs = params.toString();
     return axiosInstance.get<PaginatedProducts>(`/api/v1/products/${qs ? `?${qs}` : ''}`);
