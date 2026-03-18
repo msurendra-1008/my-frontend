@@ -19,6 +19,7 @@ import { StoreFront }         from '@/pages/shop/StoreFront';
 import { ProductDetail }      from '@/pages/shop/ProductDetail';
 import { CheckoutPage }       from '@/pages/checkout/CheckoutPage';
 import { OrderSuccessPage }   from '@/pages/checkout/OrderSuccessPage';
+import { CartPage }           from '@/pages/cart/CartPage';
 import { AdminOrdersPage }    from '@/pages/dashboard/admin/OrdersPage';
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
@@ -106,6 +107,16 @@ function AppRoutes() {
       {/* Public shop */}
       <Route path="/shop"       element={<StoreFront />} />
       <Route path="/shop/:slug" element={<ProductDetail />} />
+
+      {/* Cart (UPA users only) */}
+      <Route
+        path="/cart"
+        element={
+          <ProtectedRoute allowedRoles={['upa_user']}>
+            <CartPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Checkout (UPA users only) */}
       <Route

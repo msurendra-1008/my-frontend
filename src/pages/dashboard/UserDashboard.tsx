@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Sun, Moon, LogOut, Copy, Check } from 'lucide-react';
+import { Sun, Moon, LogOut, Copy, Check, ShoppingCart } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import { useTheme } from '@context/ThemeContext';
 import { authService } from '@/services/authService';
 import { tokenStorage } from '@/utils/axiosInstance';
 import { treeService } from '@/services/treeService';
 import { walletService } from '@/services/walletService';
+import { cartService } from '@/services/cartService';
 import { Badge } from '@/components/ui/Badge';
 import { ShopTab } from '@/pages/dashboard/user/ShopTab';
-import { CartTab } from '@/pages/dashboard/user/CartTab';
 import { OrdersTab } from '@/pages/dashboard/user/OrdersTab';
 import type { MyConnections } from '@/types/tree.types';
 import type { Wallet, WalletTransaction } from '@/types/wallet.types';
 
-type Tab = 'account' | 'wallet' | 'orders' | 'shop' | 'cart';
+type Tab = 'account' | 'wallet' | 'orders' | 'shop';
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
@@ -72,9 +73,11 @@ export function UserDashboard() {
   const { theme, toggleTheme }          = useTheme();
   const navigate                         = useNavigate();
   const location                         = useLocation();
+  const locState = location.state as { tab?: Tab; activeTab?: Tab } | null;
   const [tab, setTab]                    = useState<Tab>(
-    (location.state as { tab?: Tab } | null)?.tab ?? 'account'
+    locState?.activeTab ?? locState?.tab ?? 'account'
   );
+  const { cartCount, setCartCount } = useCartStore();
   const [copied, setCopied]              = useState(false);
   const [connections, setConnections]    = useState<MyConnections | null>(null);
 
@@ -91,6 +94,7 @@ export function UserDashboard() {
   useEffect(() => {
     authService.getMe().then((r) => updateUser(r.data)).catch(() => {});
     treeService.getMyConnections().then((r) => setConnections(r.data)).catch(() => {});
+    cartService.getCart().then((r) => setCartCount(r.data.totals.item_count)).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -148,7 +152,6 @@ export function UserDashboard() {
     { id: 'account', label: 'Account'   },
     { id: 'wallet',  label: 'Wallet'    },
     { id: 'orders',  label: 'My Orders' },
-    { id: 'cart',    label: 'Cart'      },
     { id: 'shop',    label: 'Shop'      },
   ];
 
@@ -177,6 +180,18 @@ export function UserDashboard() {
                 &#8377;{user.wallet_balance}
               </span>
             )}
+            <button
+              onClick={() => navigate('/cart')}
+              className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent"
+              aria-label="Cart"
+            >
+              <ShoppingCart size={20} />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-600 text-[10px] font-bold text-white leading-none">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
+            </button>
             <button onClick={handleLogout} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               <LogOut size={14} />
               <span className="hidden sm:inline">Logout</span>
@@ -332,9 +347,6 @@ export function UserDashboard() {
 
         {/* Orders tab */}
         {tab === 'orders' && <OrdersTab />}
-
-        {/* Cart tab */}
-        {tab === 'cart' && <CartTab />}
 
         {/* Shop tab */}
         {tab === 'shop' && <ShopTab />}
