@@ -92,5 +92,7 @@ export interface ProductFilters {
   category?: string;
   search?:   string;
   in_stock?: boolean;
+  status?:   'published' | 'unpublished';
+  stock?:    'in_stock' | 'low_stock' | 'out_of_stock';
   page?:     number;
 }
