@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Menu, Plus, Pencil, Trash2, Eye, EyeOff, Package, Search, X } from 'lucide-react';
+import { Menu, Plus, Pencil, Trash2, Eye, EyeOff, Package } from 'lucide-react';
+import { FilterToolbar } from '@/components/admin/FilterToolbar';
 import { cn } from '@utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Badge } from '@/components/ui/Badge';
@@ -548,19 +549,18 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
   const [deleting,     setDeleting]     = useState(false);
 
   // ── Client-side filters ────────────────────────────────────────────────
-  const [searchInput, setSearchInput] = useState('');
-  const [typeFilter,  setTypeFilter]  = useState<'all' | 'parent' | 'sub'>('all');
+  const [searchInput,  setSearchInput]  = useState('');
+  const [typeFilter,   setTypeFilter]   = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
   const filtered = categories.filter((c) => {
-    const matchesSearch = !searchInput || c.name.toLowerCase().includes(searchInput.toLowerCase());
-    const matchesType   =
-      typeFilter === 'all' ? true :
-      typeFilter === 'parent' ? !c.parent_id :
-      !!c.parent_id;
-    return matchesSearch && matchesType;
+    if (searchInput && !c.name.toLowerCase().includes(searchInput.toLowerCase())) return false;
+    if (typeFilter === 'parent' && c.parent_id)  return false;
+    if (typeFilter === 'sub'    && !c.parent_id) return false;
+    if (statusFilter === 'active'   && !c.is_active) return false;
+    if (statusFilter === 'inactive' && c.is_active)  return false;
+    return true;
   });
-
-  const hasFilters = !!(searchInput || typeFilter !== 'all');
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -576,60 +576,45 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
   return (
     <div className="space-y-3">
 
-      {/* ── Filter bar ── */}
-      <div className="space-y-2 mb-4">
-        {/* Row 1 — Search */}
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search categories…"
-            className="input-base pl-9 h-9 w-full text-sm"
-          />
-          {searchInput && (
-            <button onClick={() => setSearchInput('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Row 2 — Type filter + actions */}
-        <div className="flex items-center gap-2">
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as 'all' | 'parent' | 'sub')}
-            className="input-base text-xs h-8 w-44 shrink-0"
-          >
-            <option value="all">All types</option>
-            <option value="parent">Parent categories</option>
-            <option value="sub">Subcategories</option>
-          </select>
-
-          {hasFilters && (
-            <button
-              onClick={() => { setSearchInput(''); setTypeFilter('all'); }}
-              className="shrink-0 flex items-center gap-1 rounded-lg border border-dashed px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
-            >
-              <X size={11} /> Clear
-            </button>
-          )}
-
+      {/* ── Filter toolbar ── */}
+      <FilterToolbar
+        searchPlaceholder="Search categories..."
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        filters={[
+          {
+            id: 'type',
+            placeholder: 'All types',
+            value: typeFilter,
+            onChange: setTypeFilter,
+            options: [
+              { label: 'Parent only',    value: 'parent' },
+              { label: 'Subcategories',  value: 'sub' },
+            ],
+            width: 'w-[140px]',
+          },
+          {
+            id: 'status',
+            placeholder: 'All status',
+            value: statusFilter,
+            onChange: setStatusFilter,
+            options: [
+              { label: 'Active',   value: 'active' },
+              { label: 'Inactive', value: 'inactive' },
+            ],
+            width: 'w-[120px]',
+          },
+        ]}
+        resultCount={{ showing: filtered.length, total: categories.length, label: 'categories' }}
+        actions={
           <button
             onClick={() => setCatModalOpen(true)}
-            className="ml-auto shrink-0 flex items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 h-8"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 h-9"
           >
             <Plus size={13} /> New Category
           </button>
-        </div>
-      </div>
-
-      {/* ── Result count ── */}
-      <p className="text-xs text-muted-foreground px-0.5">
-        Showing <span className="font-medium text-foreground">{filtered.length}</span> of{' '}
-        <span className="font-medium text-foreground">{categories.length}</span> categor{categories.length !== 1 ? 'ies' : 'y'}
-      </p>
+        }
+      />
 
       {/* ── Table ── */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
@@ -666,7 +651,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
             ))}
             {filtered.length === 0 && (
               <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {hasFilters ? 'No categories match your filters.' : 'No categories yet.'}
+                {(searchInput || typeFilter || statusFilter) ? 'No categories match your filters.' : 'No categories yet.'}
               </td></tr>
             )}
           </tbody>
@@ -858,11 +843,6 @@ function ProductsTab({
 
   const hasFilters = !!(searchInput || categoryFilter || statusFilter || stockFilter);
 
-  const clearFilters = () => {
-    setSearchInput('');
-    setSearchParams({});
-  };
-
   // ── Actions ────────────────────────────────────────────────────────────
   const handleTogglePublish = async (p: ProductListItem) => {
     try {
@@ -896,77 +876,46 @@ function ProductsTab({
   return (
     <div className="space-y-3">
 
-      {/* ── Filter bar ── */}
-      <div className="space-y-2 mb-4">
-        {/* Row 1 — Search */}
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by name or SKU…"
-            className="input-base pl-9 h-9 w-full text-sm"
-          />
-          {searchInput && (
-            <button onClick={() => setSearchInput('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Row 2 — Dropdowns + Clear */}
-        <div className="flex items-center gap-2">
-          <select
-            value={categoryFilter}
-            onChange={(e) => setFilter('category', e.target.value)}
-            className="input-base text-xs h-8 flex-1 min-w-0"
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.slug}>{c.name}</option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setFilter('status', e.target.value)}
-            className="input-base text-xs h-8 flex-1 min-w-0"
-          >
-            <option value="">All status</option>
-            <option value="published">Published</option>
-            <option value="unpublished">Unpublished</option>
-          </select>
-
-          <select
-            value={stockFilter}
-            onChange={(e) => setFilter('stock', e.target.value)}
-            className="input-base text-xs h-8 flex-1 min-w-0"
-          >
-            <option value="">All stock</option>
-            <option value="in_stock">In Stock</option>
-            <option value="low_stock">Low Stock</option>
-            <option value="out_of_stock">Out of Stock</option>
-          </select>
-
-          {hasFilters && (
-            <button
-              onClick={clearFilters}
-              className="shrink-0 flex items-center gap-1 rounded-lg border border-dashed px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
-            >
-              <X size={11} /> Clear
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Result count ── */}
-      {!loading && (
-        <p className="text-xs text-muted-foreground px-0.5">
-          Showing <span className="font-medium text-foreground">{products.length}</span> of{' '}
-          <span className="font-medium text-foreground">{totalCount}</span> product{totalCount !== 1 ? 's' : ''}
-        </p>
-      )}
+      {/* ── Filter toolbar ── */}
+      <FilterToolbar
+        searchPlaceholder="Search by name or SKU..."
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        filters={[
+          {
+            id: 'category',
+            placeholder: 'All categories',
+            value: categoryFilter,
+            onChange: (v) => setFilter('category', v),
+            options: categories.map((c) => ({ label: c.name, value: c.slug })),
+            width: 'w-[150px]',
+          },
+          {
+            id: 'status',
+            placeholder: 'All status',
+            value: statusFilter,
+            onChange: (v) => setFilter('status', v),
+            options: [
+              { label: 'Published',   value: 'published' },
+              { label: 'Unpublished', value: 'unpublished' },
+            ],
+            width: 'w-[130px]',
+          },
+          {
+            id: 'stock',
+            placeholder: 'All stock',
+            value: stockFilter,
+            onChange: (v) => setFilter('stock', v),
+            options: [
+              { label: 'In stock',     value: 'in_stock' },
+              { label: 'Low stock',    value: 'low_stock' },
+              { label: 'Out of stock', value: 'out_of_stock' },
+            ],
+            width: 'w-[130px]',
+          },
+        ]}
+        resultCount={!loading ? { showing: products.length, total: totalCount, label: 'products' } : undefined}
+      />
 
       {/* ── Table ── */}
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
