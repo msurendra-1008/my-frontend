@@ -41,22 +41,22 @@ function ProductCard({ product }: { product: ProductListItem }) {
   }, [product.slug]);
 
   return (
-    <div className="group rounded-xl border bg-card shadow-sm overflow-hidden hover:shadow-md transition-shadow">
-      {/* Image */}
+    <div className="rounded-lg border bg-card hover:shadow-sm transition-shadow duration-150 overflow-hidden">
+      {/* Image — fixed height */}
       <div
         onClick={() => navigate(`/shop/${product.slug}`)}
-        className="relative aspect-square bg-muted overflow-hidden cursor-pointer"
+        className="relative h-40 w-full bg-muted overflow-hidden cursor-pointer"
       >
         {product.primary_image ? (
           <img src={product.primary_image} alt={product.name}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            className="h-full w-full object-cover" />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
-            <ShoppingCart size={32} />
+            <ShoppingCart size={28} />
           </div>
         )}
         {upaPrice && parseFloat(upaPrice.discount_percent) > 0 && (
-          <span className="absolute top-2 left-2 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white">
+          <span className="absolute top-2 left-2 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
             {upaPrice.discount_percent}% OFF
           </span>
         )}
@@ -65,22 +65,22 @@ function ProductCard({ product }: { product: ProductListItem }) {
       {/* Info */}
       <div className="p-3">
         {product.category_name && (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+          <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded mb-1">
             {product.category_name}
           </span>
         )}
         <p
           onClick={() => navigate(`/shop/${product.slug}`)}
-          className="mt-0.5 text-sm font-medium text-foreground line-clamp-2 cursor-pointer hover:text-primary"
+          className="text-sm font-medium leading-tight line-clamp-2 cursor-pointer hover:text-primary text-foreground"
         >
           {product.name}
         </p>
 
         {/* Pricing */}
-        <div className="mt-2">
+        <div className="mt-1">
           {upaPrice ? (
             <div className="flex items-baseline gap-1.5">
-              <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                 &#8377;{upaPrice.upa_price}
               </span>
               {parseFloat(upaPrice.discount_percent) > 0 && (
@@ -88,27 +88,21 @@ function ProductCard({ product }: { product: ProductListItem }) {
               )}
             </div>
           ) : (
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-base font-semibold text-foreground">&#8377;{product.mrp}</span>
-            </div>
-          )}
-          {upaPrice && parseFloat(upaPrice.saving) > 0 && (
-            <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
-              You save &#8377;{upaPrice.saving}
-            </p>
+            <span className="text-sm font-semibold text-foreground">&#8377;{product.mrp}</span>
           )}
         </div>
 
-        <div className="mt-2 flex items-center justify-between">
+        <div className="mt-1">
           <StockBadge label={product.stock_label} />
-          <button
-            onClick={() => toast.show('Cart coming soon')}
-            disabled={product.stock_label === 'Out of Stock'}
-            className="rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Add to Cart
-          </button>
         </div>
+
+        <button
+          onClick={() => toast.show('Cart coming soon')}
+          disabled={product.stock_label === 'Out of Stock'}
+          className="mt-2 w-full h-8 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Add to Cart
+        </button>
       </div>
 
       {toast.msg && (
@@ -206,10 +200,10 @@ export function ShopTab() {
 
       {/* Grid */}
       {loading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {[1,2,3,4,5,6].map((i) => (
-            <div key={i} className="rounded-xl border overflow-hidden">
-              <Skeleton className="aspect-square w-full" />
+            <div key={i} className="rounded-lg border overflow-hidden">
+              <Skeleton className="h-40 w-full" />
               <div className="p-3 space-y-2">
                 <Skeleton className="h-3 w-16" />
                 <Skeleton className="h-4 w-full" />
@@ -224,7 +218,7 @@ export function ShopTab() {
           <p className="mt-1 text-sm text-muted-foreground">Try adjusting your filters.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {products.map((p) => <ProductCard key={p.id} product={p} />)}
         </div>
       )}

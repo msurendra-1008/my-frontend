@@ -22,32 +22,32 @@ function ProductCard({ product }: { product: ProductListItem }) {
   return (
     <div
       onClick={() => navigate(`/shop/${product.slug}`)}
-      className="group cursor-pointer rounded-xl border bg-card shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+      className="rounded-lg border bg-card hover:shadow-sm transition-shadow duration-150 cursor-pointer overflow-hidden"
     >
-      {/* Image */}
-      <div className="relative aspect-square bg-muted overflow-hidden">
+      {/* Image — fixed height, never grows */}
+      <div className="h-40 w-full bg-muted overflow-hidden">
         {product.primary_image ? (
           <img
             src={product.primary_image}
             alt={product.name}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="h-full w-full object-cover"
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
-            <ShoppingCart size={32} />
+            <ShoppingCart size={28} />
           </div>
         )}
       </div>
       {/* Info */}
       <div className="p-3">
         {product.category_name && (
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+          <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded mb-1">
             {product.category_name}
           </span>
         )}
-        <p className="mt-0.5 text-sm font-medium text-foreground line-clamp-2">{product.name}</p>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="text-base font-semibold text-foreground">&#8377;{product.mrp}</span>
+        <p className="text-sm font-medium leading-tight line-clamp-2 text-foreground">{product.name}</p>
+        <p className="text-sm font-semibold mt-1 text-foreground">&#8377;{product.mrp}</p>
+        <div className="mt-1">
           <StockBadge label={product.stock_label} />
         </div>
       </div>
@@ -200,10 +200,10 @@ export function StoreFront() {
 
         {/* Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {[1,2,3,4,5,6,7,8].map((i) => (
-              <div key={i} className="rounded-xl border overflow-hidden">
-                <Skeleton className="aspect-square w-full" />
+              <div key={i} className="rounded-lg border overflow-hidden">
+                <Skeleton className="h-40 w-full" />
                 <div className="p-3 space-y-2">
                   <Skeleton className="h-3 w-16" />
                   <Skeleton className="h-4 w-full" />
@@ -218,7 +218,7 @@ export function StoreFront() {
             <p className="mt-1 text-sm text-muted-foreground">Try adjusting your filters.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {products.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         )}
