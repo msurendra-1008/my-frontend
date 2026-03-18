@@ -577,15 +577,15 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
     <div className="space-y-3">
 
       {/* ── Filter bar ── */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex gap-3 items-center mb-4">
         {/* Search */}
-        <div className="relative flex-1 min-w-40">
+        <div className="relative flex-1">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search categories…"
-            className="input-base pl-8 py-1.5 text-xs h-8"
+            className="input-base pl-8 text-xs h-8 w-full"
           />
           {searchInput && (
             <button onClick={() => setSearchInput('')}
@@ -599,7 +599,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as 'all' | 'parent' | 'sub')}
-          className="input-base text-xs py-1.5 h-8 pr-7"
+          className="input-base text-xs h-8 w-40 shrink-0"
         >
           <option value="all">All types</option>
           <option value="parent">Parent categories</option>
@@ -610,7 +610,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
         {hasFilters && (
           <button
             onClick={() => { setSearchInput(''); setTypeFilter('all'); }}
-            className="flex items-center gap-1 rounded-lg border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
+            className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
           >
             <X size={11} /> Clear all
           </button>
@@ -619,7 +619,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
         {/* New Category — pushed to the right */}
         <button
           onClick={() => setCatModalOpen(true)}
-          className="ml-auto flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 h-8"
+          className="ml-auto shrink-0 flex items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 h-8"
         >
           <Plus size={13} /> New Category
         </button>
@@ -897,15 +897,15 @@ function ProductsTab({
     <div className="space-y-3">
 
       {/* ── Filter bar ── */}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex gap-3 items-center mb-4">
         {/* Search */}
-        <div className="relative flex-1 min-w-48">
+        <div className="relative flex-1">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search by name or SKU…"
-            className="input-base pl-8 py-1.5 text-xs h-8"
+            className="input-base pl-8 text-xs h-8 w-full"
           />
           {searchInput && (
             <button onClick={() => setSearchInput('')}
@@ -919,7 +919,7 @@ function ProductsTab({
         <select
           value={categoryFilter}
           onChange={(e) => setFilter('category', e.target.value)}
-          className="input-base text-xs py-1.5 h-8 pr-7"
+          className="input-base text-xs h-8 w-40 shrink-0"
         >
           <option value="">All categories</option>
           {categories.map((c) => (
@@ -931,7 +931,7 @@ function ProductsTab({
         <select
           value={statusFilter}
           onChange={(e) => setFilter('status', e.target.value)}
-          className="input-base text-xs py-1.5 h-8 pr-7"
+          className="input-base text-xs h-8 w-40 shrink-0"
         >
           <option value="">All status</option>
           <option value="published">Published</option>
@@ -942,7 +942,7 @@ function ProductsTab({
         <select
           value={stockFilter}
           onChange={(e) => setFilter('stock', e.target.value)}
-          className="input-base text-xs py-1.5 h-8 pr-7"
+          className="input-base text-xs h-8 w-40 shrink-0"
         >
           <option value="">All stock</option>
           <option value="in_stock">In Stock</option>
@@ -954,7 +954,7 @@ function ProductsTab({
         {hasFilters && (
           <button
             onClick={clearFilters}
-            className="flex items-center gap-1 rounded-lg border border-dashed px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
+            className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors h-8"
           >
             <X size={11} /> Clear all
           </button>
