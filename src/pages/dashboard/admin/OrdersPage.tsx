@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Menu, X, ChevronRight, Search } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { orderService } from '@/services/orderService';
-import type { OrderListItem, Order, OrderStatus, PaymentStatus } from '@/types/order.types';
+import type { OrderListItem, Order, OrderStatus, PaymentStatus, OrderItemStatus } from '@/types/order.types';
 import { cn } from '@utils/cn';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -42,6 +42,25 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
     <span className={cn('flex items-center gap-1 text-xs font-medium', paid ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
       <span className={cn('h-1.5 w-1.5 rounded-full', paid ? 'bg-green-500' : 'bg-red-500')} />
       {status}
+    </span>
+  );
+}
+
+// ── Item Status Badge ─────────────────────────────────────────────────────────
+
+function itemStatusClass(s: OrderItemStatus): string {
+  if (s === 'delivered')                              return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+  if (s === 'return_requested' || s === 'exchange_requested') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+  if (s === 'return_approved'  || s === 'exchange_approved')  return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400';
+  if (s === 'return_rejected'  || s === 'exchange_rejected')  return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+  if (s === 'refunded' || s === 'exchanged')          return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
+  return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+}
+
+function ItemStatusBadge({ status }: { status: OrderItemStatus }) {
+  return (
+    <span className={cn('rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide', itemStatusClass(status))}>
+      {status.replace(/_/g, ' ')}
     </span>
   );
 }
@@ -149,6 +168,9 @@ function OrderDetailSheet({
                   <div>
                     <p className="font-medium">{item.product_name}</p>
                     <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
+                    <div className="mt-1">
+                      <ItemStatusBadge status={item.status} />
+                    </div>
                   </div>
                   <span className="font-semibold">₹{item.line_total}</span>
                 </div>
