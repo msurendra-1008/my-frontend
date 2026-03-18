@@ -362,19 +362,22 @@ function CategoryFormModal({ categories, onClose, onSaved }: CategoryFormModalPr
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-xl bg-card shadow-xl">
-          <div className="flex h-[52px] items-center justify-between border-b px-5">
-            <h2 className="text-sm font-semibold">New Category</h2>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">&times;</button>
+        <div className="w-full max-w-md rounded-2xl bg-card shadow-2xl border border-border/60">
+          <div className="flex h-14 items-center justify-between border-b px-6">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">New Category</h2>
+              <p className="text-xs text-muted-foreground">Add a category to organise products</p>
+            </div>
+            <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors text-lg leading-none">&times;</button>
           </div>
-          <form onSubmit={handleCreate} className="p-5 space-y-4">
-            <Field label="Category Name *">
+          <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <Field label="Category Name" required>
               <input required value={name} onChange={(e) => setName(e.target.value)}
-                className="input-base" placeholder="Category name" autoFocus />
+                className="input-base" placeholder="e.g. Beverages" autoFocus />
             </Field>
-            <Field label="Parent Category">
+            <Field label="Parent Category" hint="Optional">
               <select value={parent} onChange={(e) => setParent(e.target.value)} className="input-base">
                 <option value="">— Root (no parent) —</option>
                 {categories.filter((c) => !c.parent_id).map((c) => (
@@ -383,18 +386,18 @@ function CategoryFormModal({ categories, onClose, onSaved }: CategoryFormModalPr
               </select>
             </Field>
             {toast.msg && (
-              <p className={cn('text-xs rounded-lg px-3 py-2 border',
-                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200')}>
+              <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium',
+                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
                 {toast.msg}
               </p>
             )}
             <div className="flex items-center justify-end gap-3 pt-1">
               <button type="button" onClick={onClose}
-                className="rounded-lg border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors">
+                className="rounded-xl border px-4 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors">
                 Cancel
               </button>
               <button type="submit" disabled={saving}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
                 {saving ? 'Creating…' : 'Create Category'}
               </button>
             </div>
