@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Package, ChevronRight, X } from 'lucide-react';
 import { orderService } from '@/services/orderService';
-import type { OrderListItem, Order, OrderStatus, PaymentStatus, OrderItemStatus } from '@/types/order.types';
+import type { OrderListItem, Order, OrderStatus, PaymentStatus } from '@/types/order.types';
+import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
@@ -10,11 +11,12 @@ function Skeleton({ className }: { className?: string }) {
 // ── Badges ────────────────────────────────────────────────────────────────────
 
 const ORDER_STATUS_CLASSES: Record<OrderStatus, string> = {
-  pending:    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  processing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  shipped:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  delivered:  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  cancelled:  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  pending:   'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  confirmed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  packed:    'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  shipped:   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  delivered: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
 function OrderStatusBadge({ status }: { status: OrderStatus }) {
@@ -34,26 +36,6 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
         status === 'paid' ? 'bg-green-500' : 'bg-red-500'
       }`} />
       {status}
-    </span>
-  );
-}
-
-// ── Item Status Badge ─────────────────────────────────────────────────────────
-
-function itemStatusClass(s: OrderItemStatus): string {
-  if (s === 'delivered')                              return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
-  if (s === 'return_requested' || s === 'exchange_requested') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
-  if (s === 'return_approved'  || s === 'exchange_approved')  return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400';
-  if (s === 'return_rejected'  || s === 'exchange_rejected')  return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
-  if (s === 'refunded' || s === 'exchanged')          return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400';
-  // confirmed / packed / shipped
-  return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
-}
-
-function ItemStatusBadge({ status }: { status: OrderItemStatus }) {
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${itemStatusClass(status)}`}>
-      {status.replace(/_/g, ' ')}
     </span>
   );
 }
@@ -116,7 +98,7 @@ function OrderDetailSheet({ orderId, onClose }: { orderId: string; onClose: () =
                     <p className="font-medium truncate">{item.product_name}</p>
                     <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
                     <div className="mt-1">
-                      <ItemStatusBadge status={item.status} />
+                      <OrderItemStatusBadge status={item.status} />
                     </div>
                   </div>
                   <span className="font-semibold ml-3">₹{item.line_total}</span>
@@ -218,12 +200,13 @@ function OrderCard({ order, onView }: { order: OrderListItem; onView: () => void
 // ── OrdersTab ─────────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS: { label: string; value: string }[] = [
-  { label: 'All Status',  value: '' },
-  { label: 'Pending',     value: 'pending'    },
-  { label: 'Processing',  value: 'processing' },
-  { label: 'Shipped',     value: 'shipped'    },
-  { label: 'Delivered',   value: 'delivered'  },
-  { label: 'Cancelled',   value: 'cancelled'  },
+  { label: 'All Status', value: ''          },
+  { label: 'Pending',    value: 'pending'   },
+  { label: 'Confirmed',  value: 'confirmed' },
+  { label: 'Packed',     value: 'packed'    },
+  { label: 'Shipped',    value: 'shipped'   },
+  { label: 'Delivered',  value: 'delivered' },
+  { label: 'Cancelled',  value: 'cancelled' },
 ];
 
 export function OrdersTab() {

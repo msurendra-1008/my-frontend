@@ -82,7 +82,7 @@ export interface CheckoutConfirmRequest {
 
 // ── Order ─────────────────────────────────────────────────────────────────────
 
-export type OrderStatus    = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus    = 'pending' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
 export type PaymentStatus  = 'pending' | 'paid' | 'failed' | 'refunded';
 
 export type OrderItemStatus =
