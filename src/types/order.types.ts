@@ -82,8 +82,23 @@ export interface CheckoutConfirmRequest {
 
 // ── Order ─────────────────────────────────────────────────────────────────────
 
-export type OrderStatus    = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+export type OrderStatus    = 'pending' | 'confirmed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
 export type PaymentStatus  = 'pending' | 'paid' | 'failed' | 'refunded';
+
+export type OrderItemStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'packed'
+  | 'shipped'
+  | 'delivered'
+  | 'return_requested'
+  | 'return_approved'
+  | 'return_rejected'
+  | 'exchange_requested'
+  | 'exchange_approved'
+  | 'exchange_rejected'
+  | 'refunded'
+  | 'exchanged';
 
 export interface OrderItem {
   id:           string;
@@ -94,6 +109,7 @@ export interface OrderItem {
   upa_price:    string;
   quantity:     number;
   line_total:   string;
+  status:       OrderItemStatus;
 }
 
 export interface OrderListItem {

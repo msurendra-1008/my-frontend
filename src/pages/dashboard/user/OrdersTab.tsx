@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Package, ChevronRight, X } from 'lucide-react';
 import { orderService } from '@/services/orderService';
 import type { OrderListItem, Order, OrderStatus, PaymentStatus } from '@/types/order.types';
+import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
@@ -10,11 +11,12 @@ function Skeleton({ className }: { className?: string }) {
 // ── Badges ────────────────────────────────────────────────────────────────────
 
 const ORDER_STATUS_CLASSES: Record<OrderStatus, string> = {
-  pending:    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  processing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  shipped:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  delivered:  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  cancelled:  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  pending:   'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  confirmed: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  packed:    'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  shipped:   'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  delivered: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  cancelled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
 function OrderStatusBadge({ status }: { status: OrderStatus }) {
@@ -95,6 +97,9 @@ function OrderDetailSheet({ orderId, onClose }: { orderId: string; onClose: () =
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{item.product_name}</p>
                     <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
+                    <div className="mt-1">
+                      <OrderItemStatusBadge status={item.status} />
+                    </div>
                   </div>
                   <span className="font-semibold ml-3">₹{item.line_total}</span>
                 </div>
@@ -195,12 +200,13 @@ function OrderCard({ order, onView }: { order: OrderListItem; onView: () => void
 // ── OrdersTab ─────────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS: { label: string; value: string }[] = [
-  { label: 'All Status',  value: '' },
-  { label: 'Pending',     value: 'pending'    },
-  { label: 'Processing',  value: 'processing' },
-  { label: 'Shipped',     value: 'shipped'    },
-  { label: 'Delivered',   value: 'delivered'  },
-  { label: 'Cancelled',   value: 'cancelled'  },
+  { label: 'All Status', value: ''          },
+  { label: 'Pending',    value: 'pending'   },
+  { label: 'Confirmed',  value: 'confirmed' },
+  { label: 'Packed',     value: 'packed'    },
+  { label: 'Shipped',    value: 'shipped'   },
+  { label: 'Delivered',  value: 'delivered' },
+  { label: 'Cancelled',  value: 'cancelled' },
 ];
 
 export function OrdersTab() {
