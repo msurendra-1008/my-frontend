@@ -63,6 +63,7 @@ const MENU: NavItem[] = [
       { label: 'Tenders',   path: '/admin/tenders',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view'   },
       { label: 'Inventory', path: '/admin/inventory', allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
       { label: 'Orders',    path: '/admin/orders',    allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view'    },
+      { label: 'Returns',   path: '/admin/returns',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view'    },
     ],
   },
   {

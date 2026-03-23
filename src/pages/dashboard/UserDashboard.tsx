@@ -11,10 +11,11 @@ import { walletService } from '@/services/walletService';
 import { Badge } from '@/components/ui/Badge';
 import { ShopTab } from '@/pages/dashboard/user/ShopTab';
 import { OrdersTab } from '@/pages/dashboard/user/OrdersTab';
+import { ReturnsTab } from '@/pages/dashboard/user/ReturnsTab';
 import type { MyConnections } from '@/types/tree.types';
 import type { Wallet, WalletTransaction } from '@/types/wallet.types';
 
-type Tab = 'account' | 'wallet' | 'orders' | 'shop';
+type Tab = 'account' | 'wallet' | 'orders' | 'returns' | 'shop';
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
@@ -151,6 +152,7 @@ export function UserDashboard() {
     { id: 'account', label: 'Account'   },
     { id: 'wallet',  label: 'Wallet'    },
     { id: 'orders',  label: 'My Orders' },
+    { id: 'returns', label: 'Returns'   },
     { id: 'shop',    label: 'Shop'      },
   ];
 
@@ -346,6 +348,9 @@ export function UserDashboard() {
 
         {/* Orders tab */}
         {tab === 'orders' && <OrdersTab />}
+
+        {/* Returns tab */}
+        {tab === 'returns' && <ReturnsTab />}
 
         {/* Shop tab */}
         {tab === 'shop' && <ShopTab />}

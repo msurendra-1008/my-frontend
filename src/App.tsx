@@ -21,6 +21,7 @@ import { CheckoutPage }       from '@/pages/checkout/CheckoutPage';
 import { OrderSuccessPage }   from '@/pages/checkout/OrderSuccessPage';
 import { CartPage }           from '@/pages/cart/CartPage';
 import { AdminOrdersPage }    from '@/pages/dashboard/admin/OrdersPage';
+import { AdminReturnsPage }   from '@/pages/dashboard/admin/ReturnsPage';
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -98,6 +99,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <AdminOrdersPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Admin returns */}
+      <Route
+        path="/admin/returns"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <AdminReturnsPage />
           </ProtectedRoute>
         }
       />

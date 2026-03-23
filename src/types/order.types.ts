@@ -110,6 +110,9 @@ export interface OrderItem {
   quantity:     number;
   line_total:   string;
   status:       OrderItemStatus;
+  delivered_at: string | null;
+  variant_id:   string | null;
+  product_slug: string | null;
 }
 
 export interface OrderListItem {
