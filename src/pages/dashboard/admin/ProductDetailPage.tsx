@@ -164,7 +164,7 @@ export function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-background">
+      <div className="flex h-screen overflow-hidden bg-background">
         <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen((o) => !o)} />
         <div className="flex flex-1 items-center justify-center">
           <p className="text-sm text-muted-foreground">Loading…</p>
@@ -175,7 +175,7 @@ export function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="flex h-screen bg-background">
+      <div className="flex h-screen overflow-hidden bg-background">
         <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen((o) => !o)} />
         <div className="flex flex-1 flex-col items-center justify-center gap-3">
           <p className="text-sm text-muted-foreground">Product not found.</p>
@@ -195,7 +195,7 @@ export function ProductDetailPage() {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen((o) => !o)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">

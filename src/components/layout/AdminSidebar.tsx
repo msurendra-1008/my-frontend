@@ -163,7 +163,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       )}
 
       <aside className={cn(
-        'fixed left-0 top-0 z-30 flex h-full flex-col border-r bg-card transition-all duration-200 ease-in-out lg:static',
+        'fixed left-0 top-0 z-30 flex h-full flex-col overflow-y-auto border-r bg-card transition-all duration-200 ease-in-out lg:static lg:flex-shrink-0',
         collapsed ? 'w-[60px]' : 'w-[220px]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       )}>
