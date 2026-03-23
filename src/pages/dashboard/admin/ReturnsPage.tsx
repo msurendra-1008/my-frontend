@@ -30,22 +30,126 @@ function formatDate(iso: string) {
   );
 }
 
+// ── Inline AlertDialog ────────────────────────────────────────────────────────
+
+type DialogType = 'approve' | 'reject' | 'info';
+
+function ActionAlertDialog({
+  type,
+  rr,
+  notes,
+  maxAttempts,
+  acting,
+  onConfirm,
+  onCancel,
+}: {
+  type:        DialogType;
+  rr:          ReturnRequest;
+  notes:       string;
+  maxAttempts: number;
+  acting:      boolean;
+  onConfirm:   () => void;
+  onCancel:    () => void;
+}) {
+  const notesLen  = notes.trim().length;
+  const notesOk   = notesLen >= 10;
+  const remaining = maxAttempts - rr.attempt_count - 1; // remaining after this rejection
+
+  const cfg = {
+    approve: {
+      title:       'Approve this request?',
+      description: rr.refund_amount
+        ? `This will credit ₹${rr.refund_amount} to the user's wallet and restock the item. This action cannot be undone.`
+        : 'This will process the return / exchange. This action cannot be undone.',
+      notesRequired: false,
+      helper:      '',
+      confirmLabel:'Confirm approval',
+      confirmCls:  'bg-emerald-600 hover:bg-emerald-700 text-white',
+    },
+    reject: {
+      title:       'Reject this request?',
+      description: remaining <= 0
+        ? 'This is the final rejection. The user will not be able to raise another request for this item.'
+        : `User will be notified. They have ${remaining} attempt${remaining === 1 ? '' : 's'} remaining after this.`,
+      notesRequired: true,
+      helper:      'Please add rejection reason (min 10 chars)',
+      confirmLabel:'Confirm rejection',
+      confirmCls:  'bg-red-600 hover:bg-red-700 text-white',
+    },
+    info: {
+      title:       'Request more information?',
+      description: 'User will see your message and can reply with more details or photos.',
+      notesRequired: true,
+      helper:      'Please add your question for the user (min 10 chars)',
+      confirmLabel:'Send request',
+      confirmCls:  'bg-amber-500 hover:bg-amber-600 text-white',
+    },
+  }[type];
+
+  const confirmDisabled = acting || (cfg.notesRequired && !notesOk);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-background shadow-2xl border p-6 space-y-4">
+        <h3 className="font-semibold text-base">{cfg.title}</h3>
+        <p className="text-sm text-muted-foreground leading-relaxed">{cfg.description}</p>
+
+        {/* Notes preview */}
+        {notes.trim() && (
+          <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Notes: </span>{notes.trim()}
+          </div>
+        )}
+
+        {/* Required but missing */}
+        {cfg.notesRequired && !notesOk && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">{cfg.helper}</p>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={onCancel}
+            disabled={acting}
+            className="flex-1 rounded-lg border px-4 py-2.5 text-sm hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+            className={cn(
+              'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50',
+              cfg.confirmCls,
+            )}
+          >
+            {acting ? 'Processing…' : cfg.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Return Request Detail Sheet ───────────────────────────────────────────────
 
 function ReturnDetailSheet({
   rrId,
+  maxAttempts,
   onClose,
   onUpdated,
 }: {
-  rrId: string;
-  onClose: () => void;
-  onUpdated: (rr: ReturnRequest) => void;
+  rrId:        string;
+  maxAttempts: number;
+  onClose:     () => void;
+  onUpdated:   (rr: ReturnRequest) => void;
 }) {
   const toast = useToast();
   const [rr,      setRr]      = useState<ReturnRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [notes,   setNotes]   = useState('');
   const [acting,  setActing]  = useState(false);
+  const [dialog,  setDialog]  = useState<DialogType | null>(null);
 
   useEffect(() => {
     returnsService.adminDetail(rrId)
@@ -54,11 +158,14 @@ function ReturnDetailSheet({
       .finally(() => setLoading(false));
   }, [rrId]);
 
+  // ── Action handlers ──────────────────────────────────────────────────────────
+
   const handleApprove = async () => {
     if (!rr) return;
     setActing(true);
+    setDialog(null);
     try {
-      const r = await returnsService.approve(rr.id);
+      const r = await returnsService.approve(rr.id, notes);
       setRr(r.data);
       onUpdated(r.data);
       toast.show('Request approved');
@@ -71,6 +178,7 @@ function ReturnDetailSheet({
   const handleReject = async () => {
     if (!rr) return;
     setActing(true);
+    setDialog(null);
     try {
       const r = await returnsService.reject(rr.id, notes);
       setRr(r.data);
@@ -84,6 +192,7 @@ function ReturnDetailSheet({
   const handleRequestInfo = async () => {
     if (!rr) return;
     setActing(true);
+    setDialog(null);
     try {
       const r = await returnsService.requestInfo(rr.id, notes);
       setRr(r.data);
@@ -94,7 +203,17 @@ function ReturnDetailSheet({
     } finally { setActing(false); }
   };
 
-  const canAct = rr && (rr.status === 'raised' || rr.status === 'under_review');
+  // ── Derived state ────────────────────────────────────────────────────────────
+
+  const notesLen        = notes.trim().length;
+  const notesOk         = notesLen >= 10;
+  const isActive        = rr?.status === 'raised' || rr?.status === 'under_review';
+  const waitingFor      = rr?.waiting_for ?? '';
+  const waitingForUser  = isActive && waitingFor === 'user';
+  const canAct          = isActive && !waitingForUser && !acting;
+  // Reject/Need Info confirm available in dialog only if notes >= 10
+  const canOpenApprove  = canAct;
+  const canOpenRequired = canAct; // Reject & Need Info open always; dialog blocks confirm
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -223,47 +342,109 @@ function ReturnDetailSheet({
               </div>
             )}
 
-            {/* Existing admin notes */}
-            {rr.admin_notes && !canAct && (
+            {/* Existing admin notes (terminal state) */}
+            {rr.admin_notes && !isActive && (
               <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
                 {rr.admin_notes}
               </div>
             )}
 
-            {/* Admin actions */}
-            {canAct && (
+            {/* ── Admin action panel ─────────────────────────────────────── */}
+            {isActive && (
               <div className="rounded-xl border p-4 space-y-3">
-                <p className="font-semibold text-sm">Admin Notes</p>
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-sm">Admin Notes</p>
+                  <span className="text-[10px] text-muted-foreground">{notesLen} / 500</span>
+                </div>
+
+                {/* Shared textarea — RULE 5 */}
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Optional note to customer…"
+                  maxLength={500}
+                  placeholder="Add notes (required for Reject and Need Info)…"
                   rows={3}
                   className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
                 />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleApprove}
-                    disabled={acting}
-                    className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-60"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={handleReject}
-                    disabled={acting}
-                    className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-60"
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={handleRequestInfo}
-                    disabled={acting}
-                    className="flex-1 rounded-lg bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 transition-colors disabled:opacity-60"
-                  >
-                    Need Info
-                  </button>
-                </div>
+
+                {/* Waiting-for-user message — RULE 4 */}
+                {waitingForUser && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Waiting for user reply before next action
+                  </p>
+                )}
+
+                {/* Buttons — RULES 3 & 4 */}
+                {!waitingForUser && (
+                  <div className="flex gap-2">
+                    {/* Approve */}
+                    <button
+                      onClick={() => canOpenApprove && setDialog('approve')}
+                      disabled={!canOpenApprove}
+                      title="Approve this request"
+                      className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+
+                    {/* Reject * */}
+                    <div className="relative group flex-1">
+                      <button
+                        onClick={() => canOpenRequired && setDialog('reject')}
+                        disabled={!canOpenRequired}
+                        title={!notesOk ? 'Please add notes before this action' : 'Reject this request'}
+                        className="w-full rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                      >
+                        Reject <span className="opacity-70">*</span>
+                      </button>
+                      {canOpenRequired && !notesOk && (
+                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background opacity-0 group-hover:opacity-100 transition-opacity">
+                          Please add notes before this action
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Need Info * */}
+                    <div className="relative group flex-1">
+                      <button
+                        onClick={() => canOpenRequired && setDialog('info')}
+                        disabled={!canOpenRequired}
+                        title={!notesOk ? 'Please add notes before this action' : 'Request more info'}
+                        className="w-full rounded-lg bg-amber-500 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
+                      >
+                        Need Info <span className="opacity-70">*</span>
+                      </button>
+                      {canOpenRequired && !notesOk && (
+                        <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background opacity-0 group-hover:opacity-100 transition-opacity">
+                          Please add notes before this action
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legend */}
+                <p className="text-[10px] text-muted-foreground">
+                  <span className="opacity-70">*</span> Notes required (min 10 chars)
+                </p>
+              </div>
+            )}
+
+            {/* Terminal state banner — RULE 4 */}
+            {!isActive && (
+              <div className={cn(
+                'rounded-lg px-3 py-2.5 text-sm font-medium',
+                rr.status === 'completed'
+                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                  : rr.status === 'rejected_final'
+                  ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+                  : 'bg-muted/50 border text-muted-foreground',
+              )}>
+                {rr.status === 'completed'
+                  ? '✓ Resolved'
+                  : rr.status === 'rejected_final'
+                  ? 'Rejected — no more attempts allowed'
+                  : `Status: ${rr.status}`}
               </div>
             )}
           </div>
@@ -271,6 +452,23 @@ function ReturnDetailSheet({
           <p className="p-5 text-sm text-muted-foreground">Failed to load request.</p>
         )}
       </div>
+
+      {/* AlertDialog — RULE 2 */}
+      {dialog && rr && (
+        <ActionAlertDialog
+          type={dialog}
+          rr={rr}
+          notes={notes}
+          maxAttempts={maxAttempts}
+          acting={acting}
+          onConfirm={
+            dialog === 'approve' ? handleApprove
+            : dialog === 'reject' ? handleReject
+            : handleRequestInfo
+          }
+          onCancel={() => setDialog(null)}
+        />
+      )}
     </div>
   );
 }
@@ -434,7 +632,8 @@ export function AdminReturnsPage() {
   const [page,        setPage]        = useState(1);
   const [next,        setNext]        = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [viewId,      setViewId]      = useState<string | null>(null);
+  const [viewId,          setViewId]          = useState<string | null>(null);
+  const [pageMaxAttempts, setPageMaxAttempts] = useState(2);
 
   // Stats
   const [stats, setStats] = useState({ total: 0, raised: 0, under_review: 0, approved: 0 });
@@ -489,6 +688,12 @@ export function AdminReturnsPage() {
   }, []);
 
   useEffect(() => { fetchStats(); }, [fetchStats]);
+
+  useEffect(() => {
+    returnsService.getSettings()
+      .then((r) => setPageMaxAttempts(r.data.max_attempts))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -670,6 +875,7 @@ export function AdminReturnsPage() {
       {viewId && (
         <ReturnDetailSheet
           rrId={viewId}
+          maxAttempts={pageMaxAttempts}
           onClose={() => setViewId(null)}
           onUpdated={handleUpdated}
         />
