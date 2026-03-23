@@ -195,7 +195,7 @@ export function ProductDetailPage() {
   // ── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen((o) => !o)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">

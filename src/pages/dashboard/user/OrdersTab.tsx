@@ -44,16 +44,6 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
   );
 }
 
-// ── Return window eligibility (client-side) ───────────────────────────────────
-
-function isItemReturnEligible(item: OrderItem, windowDays: number): boolean {
-  if (item.status !== 'delivered') return false;
-  if (!item.delivered_at) return false;
-  const deadline = new Date(item.delivered_at);
-  deadline.setDate(deadline.getDate() + windowDays);
-  return new Date() <= deadline;
-}
-
 // ── Raise Return Sheet (nested, z-60) ─────────────────────────────────────────
 
 function RaiseReturnSheet({
@@ -282,21 +272,29 @@ function RaiseReturnSheet({
 
 // ── Order Detail Sheet ────────────────────────────────────────────────────────
 
-function OrderDetailSheet({ orderId, onClose }: { orderId: string; onClose: () => void }) {
-  const [order,           setOrder]           = useState<Order | null>(null);
-  const [loading,         setLoading]         = useState(true);
-  const [retSettings,     setRetSettings]     = useState<ReturnSettings | null>(null);
-  const [returnItemId,    setReturnItemId]     = useState<string | null>(null);
-  const [successMsg,      setSuccessMsg]       = useState('');
+function OrderDetailSheet({
+  orderId,
+  returnWindowDays,
+  onClose,
+}: {
+  orderId:          string;
+  returnWindowDays: number;
+  onClose:          () => void;
+}) {
+  const [order,        setOrder]        = useState<Order | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [retSettings,  setRetSettings]  = useState<ReturnSettings | null>(null);
+  const [returnItemId, setReturnItemId] = useState<string | null>(null);
+  const [successMsg,   setSuccessMsg]   = useState('');
 
   useEffect(() => {
-    Promise.all([
-      orderService.getMyOrder(orderId),
-      returnsService.getSettings(),
-    ])
-      .then(([o, s]) => { setOrder(o.data); setRetSettings(s.data); })
+    orderService.getMyOrder(orderId)
+      .then((o) => setOrder(o.data))
       .catch(() => {})
       .finally(() => setLoading(false));
+    returnsService.getSettings()
+      .then((s) => setRetSettings(s.data))
+      .catch(() => {});
   }, [orderId]);
 
   const returnItem = order?.items.find((i) => i.id === returnItemId) ?? null;
@@ -352,9 +350,18 @@ function OrderDetailSheet({ orderId, onClose }: { orderId: string; onClose: () =
                   <p className="text-xs font-semibold uppercase text-muted-foreground">Items</p>
                 </div>
                 {order.items.map((item) => {
-                  const eligible = retSettings
-                    ? isItemReturnEligible(item, retSettings.return_window_days)
-                    : false;
+                  const eligible = (() => {
+                    try {
+                      if (item.status !== 'delivered') return false;
+                      if (!item.delivered_at) return false;
+                      const deliveredDate = new Date(item.delivered_at);
+                      const windowEnd = new Date(deliveredDate);
+                      windowEnd.setDate(windowEnd.getDate() + returnWindowDays);
+                      return new Date() <= windowEnd;
+                    } catch {
+                      return false;
+                    }
+                  })();
                   return (
                     <div key={item.id} className="flex items-start justify-between px-4 py-3 border-b last:border-0 text-sm">
                       <div className="flex-1 min-w-0">
@@ -493,15 +500,22 @@ const STATUS_OPTIONS: { label: string; value: string }[] = [
 ];
 
 export function OrdersTab() {
-  const [orders,  setOrders]  = useState<OrderListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [next,    setNext]    = useState<string | null>(null);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [page,    setPage]    = useState(1);
+  const [orders,           setOrders]           = useState<OrderListItem[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [next,             setNext]             = useState<string | null>(null);
+  const [loadingMore,      setLoadingMore]      = useState(false);
+  const [page,             setPage]             = useState(1);
+  const [returnWindowDays, setReturnWindowDays] = useState(7);
 
-  const [search, setSearch]         = useState('');
+  const [search,       setSearch]       = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [viewId, setViewId]         = useState<string | null>(null);
+  const [viewId,       setViewId]       = useState<string | null>(null);
+
+  useEffect(() => {
+    returnsService.getSettings()
+      .then((res) => setReturnWindowDays(res.data.return_window_days))
+      .catch(() => setReturnWindowDays(7));
+  }, []);
 
   const fetchOrders = useCallback(async (pg = 1, reset = true) => {
     if (reset) setLoading(true);
@@ -585,7 +599,13 @@ export function OrdersTab() {
       )}
 
       {/* Detail sheet */}
-      {viewId && <OrderDetailSheet orderId={viewId} onClose={() => setViewId(null)} />}
+      {viewId && (
+        <OrderDetailSheet
+          orderId={viewId}
+          returnWindowDays={returnWindowDays}
+          onClose={() => setViewId(null)}
+        />
+      )}
     </div>
   );
 }
