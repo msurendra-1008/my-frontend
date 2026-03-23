@@ -350,8 +350,10 @@ function OrderDetailSheet({
                   <p className="text-xs font-semibold uppercase text-muted-foreground">Items</p>
                 </div>
                 {order.items.map((item) => {
+                  const rejCount = item.return_rejection_count ?? 0;
                   const eligible = (() => {
                     try {
+                      if (rejCount >= 2) return false;
                       if (item.status !== 'delivered') return false;
                       if (!item.delivered_at) return false;
                       const deliveredDate = new Date(item.delivered_at);
@@ -363,23 +365,42 @@ function OrderDetailSheet({
                     }
                   })();
                   return (
-                    <div key={item.id} className="flex items-start justify-between px-4 py-3 border-b last:border-0 text-sm">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{item.product_name}</p>
-                        <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <OrderItemStatusBadge status={item.status} />
-                          {eligible && (
-                            <button
-                              onClick={() => setReturnItemId(item.id)}
-                              className="flex items-center gap-1 text-[10px] font-medium text-purple-600 dark:text-purple-400 hover:underline"
-                            >
-                              <RotateCcw size={9} /> Return/Exchange
-                            </button>
-                          )}
+                    <div key={item.id} className="px-4 py-3 border-b last:border-0 text-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{item.product_name}</p>
+                          <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <OrderItemStatusBadge status={item.status} />
+                            {eligible && rejCount > 0 && rejCount < 2 && (
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                                Previous request rejected. You can raise 1 more request.
+                              </span>
+                            )}
+                            {eligible && (
+                              <button
+                                onClick={() => setReturnItemId(item.id)}
+                                className="flex items-center gap-1 text-[10px] font-medium text-purple-600 dark:text-purple-400 hover:underline"
+                              >
+                                <RotateCcw size={9} /> Return/Exchange
+                              </button>
+                            )}
+                            {!eligible && rejCount >= 2 && item.status === 'delivered' && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Maximum return attempts reached
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        <span className="font-semibold ml-3">₹{item.line_total}</span>
                       </div>
-                      <span className="font-semibold ml-3">₹{item.line_total}</span>
+
+                      {/* Under review — amber info box */}
+                      {item.return_status === 'under_review' && item.return_admin_notes && (
+                        <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                          <span className="font-semibold">Admin needs more info:</span> {item.return_admin_notes}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

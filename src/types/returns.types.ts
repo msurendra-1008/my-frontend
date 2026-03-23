@@ -22,16 +22,17 @@ export type RefundMode          = 'wallet' | 'original_source';
 export interface ReturnRequest {
   id:                   string;
   order_item:           {
-    id:           string;
-    product_name: string;
-    variant_name: string;
-    sku:          string;
-    quantity:     number;
-    upa_price:    string;
-    status:       string;
-    delivered_at: string | null;
-    variant_id:   string | null;
-    product_slug: string | null;
+    id:                     string;
+    product_name:           string;
+    variant_name:           string;
+    sku:                    string;
+    quantity:               number;
+    upa_price:              string;
+    status:                 string;
+    delivered_at:           string | null;
+    variant_id:             string | null;
+    product_slug:           string | null;
+    return_rejection_count: number;
   };
   request_type:         ReturnRequestType;
   return_qty:           number;
@@ -43,6 +44,7 @@ export interface ReturnRequest {
   refund_amount:        string | null;
   refund_mode:          RefundMode;
   admin_notes:          string;
+  user_reply_count:     number;
   raised_at:            string;
   reviewed_at:          string | null;
   completed_at:         string | null;

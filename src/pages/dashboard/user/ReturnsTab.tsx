@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { RotateCcw, X } from 'lucide-react';
 import { returnsService } from '@/services/returnsService';
+import { productService } from '@/services/productService';
 import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
-import type { ReturnRequest } from '@/types/returns.types';
+import type { ReturnRequest, ReturnRequestType, ReturnSettings } from '@/types/returns.types';
+import type { ProductVariant } from '@/types/product.types';
 import {
   Select,
   SelectContent,
@@ -36,13 +39,231 @@ const STATUS_OPTIONS: { label: string; value: string }[] = [
   { label: 'Completed',    value: 'completed'    },
 ];
 
+// ── Raise Return Form (inline, for re-raising after rejection) ────────────────
+
+function RaiseReturnInlineForm({
+  orderItemId,
+  orderItemQty,
+  productSlug,
+  variantId,
+  settings,
+  onSuccess,
+  onCancel,
+}: {
+  orderItemId: string;
+  orderItemQty: number;
+  productSlug:  string | null;
+  variantId:    string | null;
+  settings:     ReturnSettings;
+  onSuccess:    (rr: ReturnRequest) => void;
+  onCancel:     () => void;
+}) {
+  const [type,       setType]       = useState<ReturnRequestType>('return');
+  const [qty,        setQty]        = useState(1);
+  const [reason,     setReason]     = useState('');
+  const [notes,      setNotes]      = useState('');
+  const [exVariant,  setExVariant]  = useState('');
+  const [variants,   setVariants]   = useState<ProductVariant[]>([]);
+  const [photos,     setPhotos]     = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error,      setError]      = useState('');
+
+  useEffect(() => {
+    if (type === 'exchange' && productSlug && variantId) {
+      productService.getProduct(productSlug)
+        .then((r) => setVariants(
+          r.data.variants.filter((v) => v.id !== variantId && v.is_active && v.stock_quantity > 0),
+        ))
+        .catch(() => {});
+    }
+  }, [type, productSlug, variantId]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    setPhotos((prev) => [...prev, ...files].slice(0, 3));
+  };
+
+  const handleSubmit = async () => {
+    if (!reason) { setError('Please select a reason.'); return; }
+    if (type === 'exchange' && !exVariant) { setError('Please select an exchange variant.'); return; }
+    setError('');
+    setSubmitting(true);
+    try {
+      const resp = await returnsService.createRequest({
+        order_item_id:       orderItemId,
+        request_type:        type,
+        return_qty:          qty,
+        exchange_variant_id: type === 'exchange' ? exVariant : undefined,
+        reason,
+        notes,
+      });
+      for (const file of photos) {
+        try { await returnsService.uploadPhoto(resp.data.id, file); } catch { /**/ }
+      }
+      onSuccess(resp.data);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string; order_item_id?: string[] } } })
+        ?.response?.data;
+      setError(detail?.detail ?? detail?.order_item_id?.[0] ?? 'Failed to raise request.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border bg-muted/30 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">New Request</p>
+        <button onClick={onCancel} className="rounded-md p-1 hover:bg-muted"><X size={13} /></button>
+      </div>
+
+      {/* Type */}
+      <div className="flex gap-2">
+        {(['return', 'exchange'] as ReturnRequestType[]).map((t) => (
+          <button
+            key={t}
+            onClick={() => setType(t)}
+            className={`flex-1 rounded-lg border py-2 text-xs font-medium capitalize transition-colors ${
+              type === t
+                ? 'border-purple-500 bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Qty */}
+      {orderItemQty > 1 && (
+        <input
+          type="number" min={1} max={orderItemQty} value={qty}
+          onChange={(e) => setQty(Math.min(orderItemQty, Math.max(1, Number(e.target.value))))}
+          className="w-full rounded-lg border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+          placeholder={`Qty (max ${orderItemQty})`}
+        />
+      )}
+
+      {/* Exchange variant */}
+      {type === 'exchange' && (
+        variants.length === 0
+          ? <p className="text-xs text-muted-foreground">No other variants available.</p>
+          : (
+            <select
+              value={exVariant} onChange={(e) => setExVariant(e.target.value)}
+              className="w-full rounded-lg border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+            >
+              <option value="">Select variant…</option>
+              {variants.map((v) => (
+                <option key={v.id} value={v.id}>{v.name} (stock: {v.stock_quantity})</option>
+              ))}
+            </select>
+          )
+      )}
+
+      {/* Reason */}
+      <select
+        value={reason} onChange={(e) => setReason(e.target.value)}
+        className="w-full rounded-lg border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-400"
+      >
+        <option value="">Select reason…</option>
+        {settings.predefined_reasons.map((r) => (
+          <option key={r} value={r}>{r}</option>
+        ))}
+      </select>
+
+      {/* Notes */}
+      <textarea
+        value={notes} onChange={(e) => setNotes(e.target.value)}
+        placeholder="Additional details (optional)…"
+        rows={2}
+        className="w-full rounded-lg border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-purple-400"
+      />
+
+      {/* Photos */}
+      <div>
+        <p className="text-[10px] text-muted-foreground mb-1">Photos (optional, max 3)</p>
+        <input type="file" accept="image/*" multiple onChange={handleFileChange} className="text-xs text-muted-foreground" />
+        {photos.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap mt-1">
+            {photos.map((f, i) => (
+              <div key={i} className="relative">
+                <img src={URL.createObjectURL(f)} alt="" className="h-10 w-10 rounded-md object-cover border" />
+                <button
+                  onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}
+                  className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-destructive text-white flex items-center justify-center"
+                >
+                  <X size={8} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>}
+
+      <button
+        onClick={handleSubmit}
+        disabled={submitting}
+        className="w-full rounded-lg bg-purple-600 px-3 py-2 text-xs font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
+      >
+        {submitting ? 'Submitting…' : 'Raise Request'}
+      </button>
+    </div>
+  );
+}
+
 // ── Request Card ─────────────────────────────────────────────────────────────
 
-function RequestCard({ rr }: { rr: ReturnRequest }) {
+function RequestCard({
+  rr,
+  settings,
+  onUpdated,
+}: {
+  rr:        ReturnRequest;
+  settings:  ReturnSettings | null;
+  onUpdated: (updated: ReturnRequest) => void;
+}) {
+  const [replyOpen,   setReplyOpen]   = useState(false);
+  const [replyNotes,  setReplyNotes]  = useState('');
+  const [replyPhotos, setReplyPhotos] = useState<File[]>([]);
+  const [sending,     setSending]     = useState(false);
+  const [replyError,  setReplyError]  = useState('');
+  const [raiseOpen,   setRaiseOpen]   = useState(false);
+
+  const rejectionCount = rr.order_item.return_rejection_count;
+
   const showRefund =
     rr.request_type === 'return' &&
     (rr.status === 'approved' || rr.status === 'completed') &&
     rr.refund_amount != null;
+
+  const handleReplyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const remaining = 3 - rr.photos.length;
+    const files = Array.from(e.target.files ?? []);
+    setReplyPhotos((prev) => [...prev, ...files].slice(0, remaining));
+  };
+
+  const handleSendReply = async () => {
+    if (!replyNotes.trim()) { setReplyError('Please enter a reply.'); return; }
+    setReplyError('');
+    setSending(true);
+    try {
+      const resp = await returnsService.userReply(rr.id, replyNotes.trim());
+      for (const file of replyPhotos) {
+        try { await returnsService.uploadPhoto(rr.id, file); } catch { /**/ }
+      }
+      setReplyOpen(false);
+      setReplyNotes('');
+      setReplyPhotos([]);
+      onUpdated(resp.data);
+    } catch {
+      setReplyError('Failed to send reply. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
@@ -122,10 +343,111 @@ function RequestCard({ rr }: { rr: ReturnRequest }) {
           Your note: {rr.notes}
         </p>
       )}
-      {rr.admin_notes && (
-        <p className="text-xs bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2 text-amber-800 dark:text-amber-300">
-          Admin: {rr.admin_notes}
-        </p>
+
+      {/* Under review — admin info request + reply form */}
+      {rr.status === 'under_review' && rr.admin_notes && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300 space-y-2">
+          <p><span className="font-semibold">Admin needs more info:</span> {rr.admin_notes}</p>
+          {!replyOpen && (
+            <button
+              onClick={() => setReplyOpen(true)}
+              className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-600 transition-colors"
+            >
+              Reply
+            </button>
+          )}
+          {replyOpen && (
+            <div className="space-y-2 pt-1">
+              <textarea
+                value={replyNotes}
+                onChange={(e) => setReplyNotes(e.target.value)}
+                placeholder="Provide additional details…"
+                rows={3}
+                className="w-full rounded-lg border bg-background px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-amber-400 text-foreground"
+              />
+              {(3 - rr.photos.length) > 0 && (
+                <div>
+                  <p className="text-[10px] text-amber-700 dark:text-amber-400 mb-1">
+                    Attach photos (up to {3 - rr.photos.length} more)
+                  </p>
+                  <input
+                    type="file" accept="image/*" multiple
+                    onChange={handleReplyFileChange}
+                    className="text-[11px] text-amber-700 dark:text-amber-400"
+                  />
+                  {replyPhotos.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap mt-1">
+                      {replyPhotos.map((f, i) => (
+                        <div key={i} className="relative">
+                          <img src={URL.createObjectURL(f)} alt="" className="h-10 w-10 rounded-md object-cover border" />
+                          <button
+                            onClick={() => setReplyPhotos((p) => p.filter((_, j) => j !== i))}
+                            className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-destructive text-white flex items-center justify-center"
+                          >
+                            <X size={8} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {replyError && (
+                <p className="text-[11px] text-destructive">{replyError}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSendReply}
+                  disabled={sending}
+                  className="flex-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 transition-colors disabled:opacity-60"
+                >
+                  {sending ? 'Sending…' : 'Send Reply'}
+                </button>
+                <button
+                  onClick={() => { setReplyOpen(false); setReplyNotes(''); setReplyPhotos([]); setReplyError(''); }}
+                  className="rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rejected — admin rejection reason + re-raise option */}
+      {rr.status === 'rejected' && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-3 py-2.5 text-xs text-red-800 dark:text-red-300 space-y-2">
+          {rr.admin_notes && (
+            <p><span className="font-semibold">Rejection reason:</span> {rr.admin_notes}</p>
+          )}
+          {rejectionCount < 2 ? (
+            !raiseOpen ? (
+              <button
+                onClick={() => setRaiseOpen(true)}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 dark:text-red-400 hover:underline"
+              >
+                <RotateCcw size={10} />
+                You can raise a new request
+              </button>
+            ) : null
+          ) : (
+            <p className="text-[11px] text-muted-foreground">No further requests allowed for this item.</p>
+          )}
+        </div>
+      )}
+
+      {/* Re-raise form */}
+      {rr.status === 'rejected' && raiseOpen && settings && rejectionCount < 2 && (
+        <RaiseReturnInlineForm
+          orderItemId={rr.order_item.id}
+          orderItemQty={rr.order_item.quantity}
+          productSlug={rr.order_item.product_slug}
+          variantId={rr.order_item.variant_id}
+          settings={settings}
+          onSuccess={(newRr) => { setRaiseOpen(false); onUpdated(newRr); }}
+          onCancel={() => setRaiseOpen(false)}
+        />
       )}
 
       {/* Photo thumbnails */}
@@ -149,15 +471,22 @@ function RequestCard({ rr }: { rr: ReturnRequest }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export function ReturnsTab() {
-  const [requests, setRequests] = useState<ReturnRequest[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [total,    setTotal]    = useState(0);
-  const [next,     setNext]     = useState<string | null>(null);
+  const [requests,  setRequests]  = useState<ReturnRequest[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [total,     setTotal]     = useState(0);
+  const [next,      setNext]      = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page,     setPage]     = useState(1);
+  const [page,      setPage]      = useState(1);
+  const [settings,  setSettings]  = useState<ReturnSettings | null>(null);
 
   const [typeFilter,   setTypeFilter]   = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+
+  useEffect(() => {
+    returnsService.getSettings()
+      .then((r) => setSettings(r.data))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async (pg: number, type: string, status: string) => {
     try {
@@ -186,6 +515,19 @@ export function ReturnsTab() {
     setLoadingMore(true);
     await load(nextPage, typeFilter, statusFilter).finally(() => setLoadingMore(false));
     setPage(nextPage);
+  };
+
+  const handleUpdated = (updated: ReturnRequest) => {
+    setRequests((prev) => {
+      const idx = prev.findIndex((r) => r.id === updated.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = updated;
+        return next;
+      }
+      // New request raised after rejection — reload list
+      return [updated, ...prev];
+    });
   };
 
   return (
@@ -262,7 +604,12 @@ export function ReturnsTab() {
       {!loading && requests.length > 0 && (
         <div className="space-y-3">
           {requests.map((rr) => (
-            <RequestCard key={rr.id} rr={rr} />
+            <RequestCard
+              key={rr.id}
+              rr={rr}
+              settings={settings}
+              onUpdated={handleUpdated}
+            />
           ))}
         </div>
       )}

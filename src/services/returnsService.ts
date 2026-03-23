@@ -29,6 +29,9 @@ export const returnsService = {
   getRequest: (id: string) =>
     axiosInstance.get<ReturnRequest>(`/api/v1/returns/${id}/`),
 
+  userReply: (id: string, notes: string) =>
+    axiosInstance.post<ReturnRequest>(`/api/v1/returns/${id}/user-reply/`, { notes }),
+
   uploadPhoto: (id: string, file: File) => {
     const form = new FormData();
     form.append('photo', file);

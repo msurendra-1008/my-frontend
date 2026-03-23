@@ -101,18 +101,21 @@ export type OrderItemStatus =
   | 'exchanged';
 
 export interface OrderItem {
-  id:           string;
-  product_name: string;
-  variant_name: string;
-  sku:          string;
-  mrp:          string;
-  upa_price:    string;
-  quantity:     number;
-  line_total:   string;
-  status:       OrderItemStatus;
-  delivered_at: string | null;
-  variant_id:   string | null;
-  product_slug: string | null;
+  id:                     string;
+  product_name:           string;
+  variant_name:           string;
+  sku:                    string;
+  mrp:                    string;
+  upa_price:              string;
+  quantity:               number;
+  line_total:             string;
+  status:                 OrderItemStatus;
+  delivered_at:           string | null;
+  variant_id:             string | null;
+  product_slug:           string | null;
+  return_rejection_count: number;
+  return_status:          string | null;
+  return_admin_notes:     string;
 }
 
 export interface OrderListItem {

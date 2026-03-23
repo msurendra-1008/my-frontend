@@ -121,10 +121,23 @@ function ReturnDetailSheet({
         ) : rr ? (
           <div className="p-5 space-y-5">
             {/* Type + Status */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={rr.request_type === 'return' ? 'info' : 'secondary'}>
                 {rr.request_type}
               </Badge>
+              {/* Attempt counter */}
+              {(() => {
+                const attempt = (rr.order_item.return_rejection_count ?? 0) + 1;
+                return (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                    attempt >= 2
+                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                  }`}>
+                    Attempt {attempt} of 2
+                  </span>
+                );
+              })()}
               <OrderItemStatusBadge
                 status={
                   rr.request_type === 'return'
