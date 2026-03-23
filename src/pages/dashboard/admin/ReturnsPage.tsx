@@ -5,6 +5,7 @@ import { FilterToolbar } from '@/components/admin/FilterToolbar';
 import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
 import { Badge } from '@/components/ui/Badge';
 import { returnsService } from '@/services/returnsService';
+import { ReturnRequestTimeline } from '@/components/returns/ReturnRequestTimeline';
 import type { ReturnRequest, ReturnSettings } from '@/types/returns.types';
 import { cn } from '@utils/cn';
 
@@ -126,33 +127,40 @@ function ReturnDetailSheet({
                 {rr.request_type}
               </Badge>
               {/* Attempt counter */}
-              {(() => {
-                const attempt = (rr.order_item.return_rejection_count ?? 0) + 1;
-                return (
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    attempt >= 2
-                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                  }`}>
-                    Attempt {attempt} of 2
-                  </span>
-                );
-              })()}
+              <span className={cn(
+                'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                rr.attempt_count >= 2
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+              )}>
+                Attempt {rr.attempt_count}
+              </span>
+              {/* Waiting for indicator */}
+              {rr.waiting_for === 'user' && (
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                  Waiting for user
+                </span>
+              )}
+              {rr.waiting_for === 'admin' && (rr.status === 'raised' || rr.status === 'under_review') && (
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  Waiting for admin
+                </span>
+              )}
               <OrderItemStatusBadge
                 status={
                   rr.request_type === 'return'
                     ? rr.status === 'raised'
                       ? 'return_requested'
-                      : rr.status === 'approved' || rr.status === 'completed'
+                      : (rr.status === 'approved' || rr.status === 'completed')
                       ? 'return_approved'
-                      : rr.status === 'rejected'
+                      : (rr.status === 'rejected' || rr.status === 'rejected_final')
                       ? 'return_rejected'
                       : 'return_requested'
                     : rr.status === 'raised'
                     ? 'exchange_requested'
-                    : rr.status === 'approved' || rr.status === 'completed'
+                    : (rr.status === 'approved' || rr.status === 'completed')
                     ? 'exchange_approved'
-                    : rr.status === 'rejected'
+                    : (rr.status === 'rejected' || rr.status === 'rejected_final')
                     ? 'exchange_rejected'
                     : 'exchange_requested'
                 }
@@ -195,15 +203,23 @@ function ReturnDetailSheet({
                 <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Photos</p>
                 <div className="flex gap-2 flex-wrap">
                   {rr.photos.map((p) => (
-                    <a key={p.id} href={p.photo} target="_blank" rel="noreferrer">
+                    <a key={p.id} href={p.photo_url ?? p.photo} target="_blank" rel="noreferrer">
                       <img
-                        src={p.photo}
+                        src={p.photo_url ?? p.photo}
                         alt="return photo"
                         className="h-16 w-16 rounded-md object-cover border hover:opacity-80 transition-opacity"
                       />
                     </a>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Timeline */}
+            {rr.logs.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase text-muted-foreground mb-3">Activity Timeline</p>
+                <ReturnRequestTimeline logs={rr.logs} />
               </div>
             )}
 
@@ -263,18 +279,20 @@ function ReturnDetailSheet({
 
 function ReturnSettingsCard() {
   const toast = useToast();
-  const [settings, setSettings]   = useState<ReturnSettings | null>(null);
-  const [loading,  setLoading]    = useState(true);
-  const [saving,   setSaving]     = useState(false);
-  const [days,     setDays]       = useState(7);
-  const [reasons,  setReasons]    = useState<string[]>([]);
-  const [newReason, setNewReason] = useState('');
+  const [settings,    setSettings]    = useState<ReturnSettings | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [saving,      setSaving]      = useState(false);
+  const [days,        setDays]        = useState(7);
+  const [maxAttempts, setMaxAttempts] = useState(2);
+  const [reasons,     setReasons]     = useState<string[]>([]);
+  const [newReason,   setNewReason]   = useState('');
 
   useEffect(() => {
     returnsService.getSettings()
       .then((r) => {
         setSettings(r.data);
         setDays(r.data.return_window_days);
+        setMaxAttempts(r.data.max_attempts);
         setReasons(r.data.predefined_reasons);
       })
       .catch(() => {})
@@ -286,6 +304,7 @@ function ReturnSettingsCard() {
     try {
       const r = await returnsService.updateSettings({
         return_window_days: days,
+        max_attempts:       maxAttempts,
         predefined_reasons: reasons,
       });
       setSettings(r.data);
@@ -327,16 +346,29 @@ function ReturnSettingsCard() {
       ) : settings ? (
         <>
           {/* Window days */}
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1">Return window (days)</label>
-            <input
-              type="number"
-              min={1}
-              max={90}
-              value={days}
-              onChange={(e) => setDays(Number(e.target.value))}
-              className="w-32 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-            />
+          <div className="flex gap-4 flex-wrap">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Return window (days)</label>
+              <input
+                type="number"
+                min={1}
+                max={90}
+                value={days}
+                onChange={(e) => setDays(Number(e.target.value))}
+                className="w-28 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Max return attempts</label>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={maxAttempts}
+                onChange={(e) => setMaxAttempts(Number(e.target.value))}
+                className="w-28 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+            </div>
           </div>
 
           {/* Predefined reasons */}
@@ -535,11 +567,12 @@ export function AdminReturnsPage() {
                 onChange:    setStatusFilter,
                 width:       'w-[150px]',
                 options: [
-                  { label: 'Raised',       value: 'raised'       },
-                  { label: 'Under Review', value: 'under_review' },
-                  { label: 'Approved',     value: 'approved'     },
-                  { label: 'Rejected',     value: 'rejected'     },
-                  { label: 'Completed',    value: 'completed'    },
+                  { label: 'Raised',           value: 'raised'         },
+                  { label: 'Under Review',     value: 'under_review'   },
+                  { label: 'Approved',         value: 'approved'       },
+                  { label: 'Rejected',         value: 'rejected'       },
+                  { label: 'Rejected (Final)', value: 'rejected_final' },
+                  { label: 'Completed',        value: 'completed'      },
                 ],
               },
             ]}
@@ -588,11 +621,11 @@ export function AdminReturnsPage() {
                             rr.request_type === 'return'
                               ? rr.status === 'raised' ? 'return_requested'
                                 : (rr.status === 'approved' || rr.status === 'completed') ? 'return_approved'
-                                : rr.status === 'rejected' ? 'return_rejected'
+                                : (rr.status === 'rejected' || rr.status === 'rejected_final') ? 'return_rejected'
                                 : 'return_requested'
                               : rr.status === 'raised' ? 'exchange_requested'
                                 : (rr.status === 'approved' || rr.status === 'completed') ? 'exchange_approved'
-                                : rr.status === 'rejected' ? 'exchange_rejected'
+                                : (rr.status === 'rejected' || rr.status === 'rejected_final') ? 'exchange_rejected'
                                 : 'exchange_requested'
                           }
                         />

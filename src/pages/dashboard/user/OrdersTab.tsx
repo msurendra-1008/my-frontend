@@ -350,10 +350,11 @@ function OrderDetailSheet({
                   <p className="text-xs font-semibold uppercase text-muted-foreground">Items</p>
                 </div>
                 {order.items.map((item) => {
-                  const rejCount = item.return_rejection_count ?? 0;
+                  const rejCount    = item.return_rejection_count ?? 0;
+                  const maxAttempts = retSettings?.max_attempts ?? 2;
                   const eligible = (() => {
                     try {
-                      if (rejCount >= 2) return false;
+                      if (rejCount >= maxAttempts) return false;
                       if (item.status !== 'delivered') return false;
                       if (!item.delivered_at) return false;
                       const deliveredDate = new Date(item.delivered_at);
@@ -372,9 +373,9 @@ function OrderDetailSheet({
                           <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <OrderItemStatusBadge status={item.status} />
-                            {eligible && rejCount > 0 && rejCount < 2 && (
+                            {eligible && rejCount > 0 && rejCount < maxAttempts && (
                               <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                                Previous request rejected. You can raise 1 more request.
+                                Previous request rejected. You can raise {maxAttempts - rejCount} more request{maxAttempts - rejCount > 1 ? 's' : ''}.
                               </span>
                             )}
                             {eligible && (
@@ -385,7 +386,7 @@ function OrderDetailSheet({
                                 <RotateCcw size={9} /> Return/Exchange
                               </button>
                             )}
-                            {!eligible && rejCount >= 2 && item.status === 'delivered' && (
+                            {!eligible && rejCount >= maxAttempts && item.status === 'delivered' && (
                               <span className="text-[10px] text-muted-foreground">
                                 Maximum return attempts reached
                               </span>
@@ -534,7 +535,9 @@ export function OrdersTab() {
 
   useEffect(() => {
     returnsService.getSettings()
-      .then((res) => setReturnWindowDays(res.data.return_window_days))
+      .then((res) => {
+        setReturnWindowDays(res.data.return_window_days);
+      })
       .catch(() => setReturnWindowDays(7));
   }, []);
 
