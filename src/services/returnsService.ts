@@ -13,7 +13,7 @@ export const returnsService = {
     axiosInstance.get<ReturnSettings>('/api/v1/return-settings/'),
 
   updateSettings: (data: Partial<ReturnSettings>) =>
-    axiosInstance.patch<ReturnSettings>('/api/v1/return-settings/', data),
+    axiosInstance.patch<ReturnSettings>('/api/v1/return-settings/update/', data),
 
   // ── User ────────────────────────────────────────────────────────────────────
   getMyRequests: (params: Record<string, string> = {}) => {
@@ -32,9 +32,10 @@ export const returnsService = {
   userReply: (id: string, notes: string) =>
     axiosInstance.post<ReturnRequest>(`/api/v1/returns/${id}/user-reply/`, { notes }),
 
-  uploadPhoto: (id: string, file: File) => {
+  uploadPhoto: (id: string, file: File, logId?: string) => {
     const form = new FormData();
     form.append('photo', file);
+    if (logId) form.append('log_id', logId);
     return axiosInstance.post<ReturnPhoto>(`/api/v1/returns/${id}/upload-photo/`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
@@ -51,8 +52,8 @@ export const returnsService = {
   adminDetail: (id: string) =>
     axiosInstance.get<ReturnRequest>(`/api/v1/returns/${id}/admin/`),
 
-  approve: (id: string) =>
-    axiosInstance.patch<ReturnRequest>(`/api/v1/returns/${id}/approve/`),
+  approve: (id: string, adminNotes = '') =>
+    axiosInstance.patch<ReturnRequest>(`/api/v1/returns/${id}/approve/`, { admin_notes: adminNotes }),
 
   reject: (id: string, adminNotes: string) =>
     axiosInstance.patch<ReturnRequest>(`/api/v1/returns/${id}/reject/`, { admin_notes: adminNotes }),
