@@ -1,4 +1,4 @@
-export type UserRole = 'superadmin' | 'admin' | 'employee' | 'upa_user';
+export type UserRole = 'superadmin' | 'admin' | 'employee' | 'upa_user' | 'vendor';
 
 export interface UpaLegUser {
   name: string;

@@ -25,13 +25,16 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo }: Protected
   }
 
   if (!isAuthenticated) {
-    const loginPath = redirectTo ?? (allowedRoles?.includes('upa_user') ? '/login' : '/admin/login');
+    let loginPath = redirectTo ?? '/admin/login';
+    if (allowedRoles?.includes('upa_user')) loginPath = '/login';
+    else if (allowedRoles?.includes('vendor')) loginPath = '/vendor/login';
     return <Navigate to={loginPath} state={{ from: location.pathname }} replace />;
   }
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    const dest = user.role === 'upa_user' ? '/dashboard' : '/admin/dashboard';
-    return <Navigate to={dest} replace />;
+    if (user.role === 'upa_user') return <Navigate to="/dashboard" replace />;
+    if (user.role === 'vendor') return <Navigate to="/vendor/dashboard" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
   }
 
   return <>{children}</>;
