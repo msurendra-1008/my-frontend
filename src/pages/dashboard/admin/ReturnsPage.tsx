@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Menu, X, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { Menu, X, ChevronRight, Plus } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { FilterToolbar } from '@/components/admin/FilterToolbar';
 import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
@@ -473,11 +473,16 @@ function ReturnDetailSheet({
   );
 }
 
-// ── Settings Card ─────────────────────────────────────────────────────────────
+// ── Settings Sheet ────────────────────────────────────────────────────────────
 
-function ReturnSettingsCard() {
+function SettingsSheet({
+  onClose,
+  onSaved,
+}: {
+  onClose:  () => void;
+  onSaved:  (s: ReturnSettings) => void;
+}) {
   const toast = useToast();
-  const [settings,    setSettings]    = useState<ReturnSettings | null>(null);
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
   const [days,        setDays]        = useState(7);
@@ -488,7 +493,6 @@ function ReturnSettingsCard() {
   useEffect(() => {
     returnsService.getSettings()
       .then((r) => {
-        setSettings(r.data);
         setDays(r.data.return_window_days);
         setMaxAttempts(r.data.max_attempts);
         setReasons(r.data.predefined_reasons);
@@ -505,8 +509,9 @@ function ReturnSettingsCard() {
         max_attempts:       maxAttempts,
         predefined_reasons: reasons,
       });
-      setSettings(r.data);
       toast.show('Settings saved');
+      onSaved(r.data);
+      onClose();
     } catch {
       toast.show('Failed to save', true);
     } finally {
@@ -522,100 +527,131 @@ function ReturnSettingsCard() {
   };
 
   const removeReason = (idx: number) => {
+    if (reasons.length <= 1) return; // enforce minimum 1
     setReasons((prev) => prev.filter((_, i) => i !== idx));
   };
 
   return (
-    <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
-      <h2 className="font-semibold text-base">Return Settings</h2>
-
-      {/* Toast */}
-      {toast.msg && (
-        <div className={cn('rounded-lg px-3 py-2 text-xs text-white', toast.msg.err ? 'bg-red-500' : 'bg-foreground')}>
-          {toast.msg.text}
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-[420px] bg-background shadow-2xl flex flex-col h-full">
+        {/* Header */}
+        <div className="sticky top-0 bg-background border-b px-5 py-4 flex items-center justify-between">
+          <h3 className="font-semibold">Return Settings</h3>
+          <button onClick={onClose} className="rounded-md p-1 hover:bg-muted transition-colors">
+            <X size={16} />
+          </button>
         </div>
-      )}
 
-      {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-8 w-full" />
-        </div>
-      ) : settings ? (
-        <>
-          {/* Window days */}
-          <div className="flex gap-4 flex-wrap">
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Return window (days)</label>
-              <input
-                type="number"
-                min={1}
-                max={90}
-                value={days}
-                onChange={(e) => setDays(Number(e.target.value))}
-                className="w-28 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">Max return attempts</label>
-              <input
-                type="number"
-                min={1}
-                max={5}
-                value={maxAttempts}
-                onChange={(e) => setMaxAttempts(Number(e.target.value))}
-                className="w-28 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
-            </div>
+        {/* Toast */}
+        {toast.msg && (
+          <div className={cn('mx-5 mt-3 rounded-lg px-3 py-2 text-xs text-white', toast.msg.err ? 'bg-red-500' : 'bg-foreground')}>
+            {toast.msg.text}
           </div>
+        )}
 
-          {/* Predefined reasons */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-2">Predefined reasons</p>
-            <div className="space-y-1.5 mb-2">
-              {reasons.map((r, i) => (
-                <div key={i} className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2 text-sm">
-                  <span>{r}</span>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : (
+            <>
+              {/* Return window */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">
+                  Return window (days)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={days}
+                  onChange={(e) => setDays(Number(e.target.value))}
+                  className="w-32 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">1–90 days</p>
+              </div>
+
+              {/* Max attempts */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">
+                  Max return attempts per item
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={maxAttempts}
+                  onChange={(e) => setMaxAttempts(Number(e.target.value))}
+                  className="w-32 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">1–5 attempts</p>
+              </div>
+
+              {/* Predefined reasons */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  Predefined reasons ({reasons.length})
+                </p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {reasons.map((r, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 pl-3 pr-2 py-1 text-xs"
+                    >
+                      {r}
+                      <button
+                        onClick={() => removeReason(i)}
+                        disabled={reasons.length <= 1}
+                        className="text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-30"
+                        title={reasons.length <= 1 ? 'At least 1 reason required' : 'Remove'}
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newReason}
+                    onChange={(e) => setNewReason(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') addReason(); }}
+                    placeholder="Add a reason…"
+                    className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  />
                   <button
-                    onClick={() => removeReason(i)}
-                    className="text-muted-foreground hover:text-red-500 transition-colors"
+                    onClick={addReason}
+                    className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors"
                   >
-                    <Trash2 size={13} />
+                    <Plus size={13} />
+                    Add
                   </button>
                 </div>
-              ))}
-            </div>
-            {/* Add reason */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newReason}
-                onChange={(e) => setNewReason(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addReason(); }}
-                placeholder="Add a reason…"
-                className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
-              <button
-                onClick={addReason}
-                className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors"
-              >
-                <Plus size={13} />
-                Add
-              </button>
-            </div>
-          </div>
+              </div>
+            </>
+          )}
+        </div>
 
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-background border-t px-5 py-4 flex gap-3">
           <button
             onClick={handleSave}
-            disabled={saving}
-            className="rounded-lg bg-purple-600 px-5 py-2 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
+            disabled={saving || loading}
+            className="flex-1 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">Failed to load settings.</p>
-      )}
+          <button
+            onClick={onClose}
+            className="rounded-lg border px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -623,7 +659,8 @@ function ReturnSettingsCard() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function AdminReturnsPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen,  setSidebarOpen]  = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const toast = useToast();
 
   const [requests,    setRequests]    = useState<ReturnRequest[]>([]);
@@ -632,11 +669,13 @@ export function AdminReturnsPage() {
   const [page,        setPage]        = useState(1);
   const [next,        setNext]        = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [viewId,          setViewId]          = useState<string | null>(null);
-  const [pageMaxAttempts, setPageMaxAttempts] = useState(2);
+  const [viewId,      setViewId]      = useState<string | null>(null);
 
-  // Stats
-  const [stats, setStats] = useState({ total: 0, raised: 0, under_review: 0, approved: 0 });
+  // Settings (summary bar + maxAttempts for detail sheet)
+  const [settings, setSettings] = useState<ReturnSettings | null>(null);
+
+  // Stats — now sourced from every admin_list response
+  const [stats, setStats] = useState({ total: 0, pending_review: 0, approved: 0, rejected: 0 });
 
   // Filters
   const [search,       setSearch]       = useState('');
@@ -660,6 +699,8 @@ export function AdminReturnsPage() {
       setTotal(r.data.count);
       setNext(r.data.next);
       setPage(pg);
+      // Update stats from every response (stats are global, unfiltered)
+      if (r.data.stats) setStats(r.data.stats);
     } catch {
       toast.show('Failed to load requests', true);
     } finally {
@@ -669,29 +710,10 @@ export function AdminReturnsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, typeFilter, statusFilter]);
 
-  // Fetch stats (all requests without pagination)
-  const fetchStats = useCallback(async () => {
-    try {
-      const [all, raised, under_review, approved] = await Promise.all([
-        returnsService.adminList({ page: '1' }),
-        returnsService.adminList({ status: 'raised',       page: '1' }),
-        returnsService.adminList({ status: 'under_review', page: '1' }),
-        returnsService.adminList({ status: 'approved',     page: '1' }),
-      ]);
-      setStats({
-        total:        all.data.count,
-        raised:       raised.data.count,
-        under_review: under_review.data.count,
-        approved:     approved.data.count,
-      });
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => { fetchStats(); }, [fetchStats]);
-
+  // Fetch settings once on mount
   useEffect(() => {
     returnsService.getSettings()
-      .then((r) => setPageMaxAttempts(r.data.max_attempts))
+      .then((r) => setSettings(r.data))
       .catch(() => {});
   }, []);
 
@@ -703,14 +725,17 @@ export function AdminReturnsPage() {
 
   const handleUpdated = (updated: ReturnRequest) => {
     setRequests((prev) => prev.map((r) => r.id === updated.id ? updated : r));
-    fetchStats();
+    // Refresh global stats from a silent page-1 fetch
+    returnsService.adminList({ page: '1' })
+      .then((r) => { if (r.data.stats) setStats(r.data.stats); })
+      .catch(() => {});
   };
 
   const STAT_CARDS = [
-    { label: 'Total',        value: stats.total,        color: 'text-foreground'                              },
-    { label: 'Raised',       value: stats.raised,       color: 'text-amber-600 dark:text-amber-400'          },
-    { label: 'Under Review', value: stats.under_review, color: 'text-blue-600 dark:text-blue-400'            },
-    { label: 'Approved',     value: stats.approved,     color: 'text-emerald-600 dark:text-emerald-400'      },
+    { label: 'Total',          value: stats.total,          color: 'text-foreground'                        },
+    { label: 'Pending Review', value: stats.pending_review, color: 'text-amber-600 dark:text-amber-400'    },
+    { label: 'Approved',       value: stats.approved,       color: 'text-emerald-600 dark:text-emerald-400'},
+    { label: 'Rejected',       value: stats.rejected,       color: 'text-red-600 dark:text-red-400'        },
   ];
 
   return (
@@ -737,6 +762,36 @@ export function AdminReturnsPage() {
               {toast.msg.text}
             </div>
           )}
+
+          {/* Settings summary bar */}
+          <div className="flex items-center justify-between bg-muted/40 rounded-lg px-4 py-2.5">
+            <div className="flex items-center gap-6 text-sm flex-wrap">
+              <span className="text-muted-foreground">
+                Return window:
+                <span className="font-medium text-foreground ml-1">
+                  {settings ? `${settings.return_window_days} days` : '—'}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Max attempts:
+                <span className="font-medium text-foreground ml-1">
+                  {settings ? settings.max_attempts : '—'}
+                </span>
+              </span>
+              <span className="text-muted-foreground">
+                Reasons:
+                <span className="font-medium text-foreground ml-1">
+                  {settings ? `${settings.predefined_reasons.length} defined` : '—'}
+                </span>
+              </span>
+            </div>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="shrink-0 rounded-lg border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+            >
+              Manage settings
+            </button>
+          </div>
 
           {/* Stats row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -866,8 +921,6 @@ export function AdminReturnsPage() {
             </div>
           )}
 
-          {/* Settings card */}
-          <ReturnSettingsCard />
         </main>
       </div>
 
@@ -875,9 +928,17 @@ export function AdminReturnsPage() {
       {viewId && (
         <ReturnDetailSheet
           rrId={viewId}
-          maxAttempts={pageMaxAttempts}
+          maxAttempts={settings?.max_attempts ?? 2}
           onClose={() => setViewId(null)}
           onUpdated={handleUpdated}
+        />
+      )}
+
+      {/* Settings sheet */}
+      {settingsOpen && (
+        <SettingsSheet
+          onClose={() => setSettingsOpen(false)}
+          onSaved={(s) => setSettings(s)}
         />
       )}
     </div>

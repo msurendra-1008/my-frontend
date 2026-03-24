@@ -99,9 +99,17 @@ export interface ReturnRequestCreate {
   notes?:               string;
 }
 
+export interface ReturnRequestStats {
+  total:          number;
+  pending_review: number;
+  approved:       number;
+  rejected:       number;
+}
+
 export interface PaginatedReturnRequests {
   count:    number;
   next:     string | null;
   previous: string | null;
   results:  ReturnRequest[];
+  stats:    ReturnRequestStats;
 }
