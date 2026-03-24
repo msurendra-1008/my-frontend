@@ -22,6 +22,10 @@ import { OrderSuccessPage }   from '@/pages/checkout/OrderSuccessPage';
 import { CartPage }           from '@/pages/cart/CartPage';
 import { AdminOrdersPage }    from '@/pages/dashboard/admin/OrdersPage';
 import { AdminReturnsPage }   from '@/pages/dashboard/admin/ReturnsPage';
+import { AdminVendorsPage }   from '@/pages/dashboard/admin/VendorsPage';
+import { VendorLogin }        from '@/pages/vendor/VendorLogin';
+import { VendorRegister }     from '@/pages/vendor/VendorRegister';
+import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
 
 function GuestRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -113,7 +117,29 @@ function AppRoutes() {
         }
       />
 
+      {/* Admin vendors */}
+      <Route
+        path="/admin/vendors"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <AdminVendorsPage />
+          </ProtectedRoute>
+        }
+      />
+
       <Route path="/admin/*" element={<Navigate to="/admin/dashboard" replace />} />
+
+      {/* Vendor portal */}
+      <Route path="/vendor/login"    element={<VendorLogin />} />
+      <Route path="/vendor/register" element={<VendorRegister />} />
+      <Route
+        path="/vendor/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={['vendor']}>
+            <VendorDashboard />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Public shop */}
       <Route path="/shop"       element={<StoreFront />} />
