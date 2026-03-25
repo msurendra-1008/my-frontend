@@ -11,7 +11,7 @@ import type {
 export const vendorService = {
   // ── Public auth ───────────────────────────────────────────────────────────
   register: (data: VendorRegisterData) =>
-    axiosInstance.post<VendorProfile>('/api/v1/vendor/register/', data),
+    axiosInstance.post<VendorLoginResponse>('/api/v1/vendor/register/', data),
 
   login: (identifier: string, password: string) =>
     axiosInstance.post<VendorLoginResponse>('/api/v1/vendor/login/', { identifier, password }),

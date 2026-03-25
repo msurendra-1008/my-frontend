@@ -3,12 +3,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Eye, EyeOff, Loader2, CheckCircle2, X, Upload, AlertTriangle } from 'lucide-react';
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
 import { vendorService } from '@/services/vendorService';
 import { productService } from '@/services/productService';
 import type { Category } from '@/types/product.types';
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
 const schema = z.object({
   company_name:  z.string().min(1, 'Required'),
@@ -35,16 +38,37 @@ interface DocEntry { label: string; file: File }
 
 function SuccessScreen({
   identifier,
-  uploadedCount,
+  accessToken,
+  initialDocCount,
 }: {
-  identifier: string;
-  uploadedCount: number;
+  identifier:    string;
+  accessToken:   string;
+  initialDocCount: number;
 }) {
   const navigate = useNavigate();
   const [showUpload, setShowUpload]     = useState(false);
-  const [docsUploaded, setDocsUploaded] = useState(uploadedCount);
+  const [docsUploaded, setDocsUploaded] = useState(initialDocCount);
   const [docLabel, setDocLabel]         = useState('');
   const [uploading, setUploading]       = useState(false);
+
+  // Upload using the registration access token directly (not the global axiosInstance,
+  // which reads from localStorage — the vendor hasn't "logged in" yet)
+  const uploadWithToken = async (label: string, file: File): Promise<boolean> => {
+    const form = new FormData();
+    form.append('label', label);
+    form.append('file', file);
+    try {
+      await axios.post(
+        `${BASE_URL}/api/v1/vendor/profile/me/documents/`,
+        form,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      return true;
+    } catch (err) {
+      console.error('Doc upload failed:', err);
+      return false;
+    }
+  };
 
   const handleFileAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -52,12 +76,8 @@ function SuccessScreen({
     setUploading(true);
     for (const file of files) {
       const label = docLabel.trim() || file.name;
-      try {
-        await vendorService.uploadDocument(label, file);
-        setDocsUploaded((n) => n + 1);
-      } catch {
-        // silently skip — no auth token yet, vendor can upload after login
-      }
+      const ok = await uploadWithToken(label, file);
+      if (ok) setDocsUploaded((n) => n + 1);
     }
     setDocLabel('');
     setUploading(false);
@@ -117,8 +137,7 @@ function SuccessScreen({
                     <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm hover:bg-accent">
                       {uploading
                         ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Upload className="h-4 w-4" />
-                      }
+                        : <Upload className="h-4 w-4" />}
                       Add
                       <input
                         type="file"
@@ -175,9 +194,10 @@ export function VendorRegister() {
   const [apiError, setApiError]           = useState('');
   const [loading, setLoading]             = useState(false);
   // Success state
-  const [successIdentifier, setSuccessIdentifier]   = useState('');
+  const [showSuccess, setShowSuccess]       = useState(false);
+  const [successIdentifier, setSuccessIdentifier] = useState('');
+  const [successAccessToken, setSuccessAccessToken] = useState('');
   const [successDocCount, setSuccessDocCount]       = useState(0);
-  const [showSuccess, setShowSuccess]               = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -211,7 +231,7 @@ export function VendorRegister() {
     setApiError('');
     setLoading(true);
     try {
-      await vendorService.register({
+      const res = await vendorService.register({
         company_name:  data.company_name,
         gst_number:    data.gst_number,
         contact_name:  data.contact_name,
@@ -226,21 +246,32 @@ export function VendorRegister() {
         password:      data.password,
       });
 
-      // Registration succeeded — attempt doc uploads best-effort (no auth token yet)
+      const { access } = res.data;
+
+      // Upload any pre-selected documents using the registration token directly
       let uploadedCount = 0;
       if (docs.length > 0) {
         for (const doc of docs) {
+          const form = new FormData();
+          form.append('label', doc.label);
+          form.append('file', doc.file);
           try {
-            await vendorService.uploadDocument(doc.label, doc.file);
+            await axios.post(
+              `${BASE_URL}/api/v1/vendor/profile/me/documents/`,
+              form,
+              { headers: { Authorization: `Bearer ${access}` } },
+            );
             uploadedCount++;
-          } catch {
-            // skip — vendor can upload from dashboard after login
+          } catch (err) {
+            console.error('Doc upload failed:', err);
+            // continue — do not block success screen
           }
         }
       }
 
-      // Always show success screen regardless of doc upload outcome
+      // Always show success screen after registration succeeds
       setSuccessIdentifier(data.mobile || data.email);
+      setSuccessAccessToken(access);
       setSuccessDocCount(uploadedCount);
       setShowSuccess(true);
     } catch (err: unknown) {
@@ -258,7 +289,13 @@ export function VendorRegister() {
   };
 
   if (showSuccess) {
-    return <SuccessScreen identifier={successIdentifier} uploadedCount={successDocCount} />;
+    return (
+      <SuccessScreen
+        identifier={successIdentifier}
+        accessToken={successAccessToken}
+        initialDocCount={successDocCount}
+      />
+    );
   }
 
   return (
