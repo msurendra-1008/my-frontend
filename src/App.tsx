@@ -22,7 +22,8 @@ import { OrderSuccessPage }   from '@/pages/checkout/OrderSuccessPage';
 import { CartPage }           from '@/pages/cart/CartPage';
 import { AdminOrdersPage }    from '@/pages/dashboard/admin/OrdersPage';
 import { AdminReturnsPage }   from '@/pages/dashboard/admin/ReturnsPage';
-import { AdminVendorsPage }   from '@/pages/dashboard/admin/VendorsPage';
+import { AdminVendorsPage }        from '@/pages/dashboard/admin/VendorsPage';
+import { AdminVendorProductsPage } from '@/pages/dashboard/admin/VendorProductsPage';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -123,6 +124,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <AdminVendorsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/vendor-products"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <AdminVendorProductsPage />
           </ProtectedRoute>
         }
       />

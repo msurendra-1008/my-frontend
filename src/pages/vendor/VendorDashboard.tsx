@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Clock, XCircle, AlertTriangle, FileText,
-  LogOut, Upload, Pencil, Download, Trash2, Loader2, X,
+  Clock, XCircle, AlertTriangle, FileText, Package,
+  LogOut, Upload, Pencil, Download, Trash2, Loader2, X, Plus,
 } from 'lucide-react';
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
 import { useAuthStore } from '@/store/authStore';
 import { vendorService } from '@/services/vendorService';
 import { productService } from '@/services/productService';
-import type { VendorProfile, VendorDocument } from '@/types/vendor.types';
+import { AddVendorProductSheet } from '@/components/vendor/AddVendorProductSheet';
+import type { VendorProfile, VendorDocument, VendorProductListItem, VendorProduct, VendorProductStatus } from '@/types/vendor.types';
 import type { Category } from '@/types/product.types';
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -19,8 +20,139 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   docs_requested:{ label: 'Docs Requested', className: 'bg-blue-100 text-blue-800 border-blue-300' },
 };
 
-const TABS = ['Tenders', 'Purchase Orders', 'Chat', 'Profile'] as const;
+const TABS = ['My Products', 'Tenders', 'Purchase Orders', 'Chat', 'Profile'] as const;
 type Tab = typeof TABS[number];
+
+// ── My Products Tab ───────────────────────────────────────────────────────────
+
+const VP_STATUS_BADGE: Record<VendorProductStatus, { label: string; className: string }> = {
+  pending_approval: { label: 'Pending Review', className: 'bg-amber-100 text-amber-800 border-amber-300' },
+  approved:         { label: 'Approved',       className: 'bg-green-100 text-green-800 border-green-300' },
+  rejected:         { label: 'Rejected',       className: 'bg-red-100 text-red-800 border-red-300' },
+  not_continued:    { label: 'Deactivated',    className: 'bg-gray-100 text-gray-600 border-gray-300' },
+};
+
+function MyProductsTab() {
+  const [products, setProducts] = useState<VendorProductListItem[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [showSheet, setShowSheet] = useState(false);
+  const [editProduct, setEditProduct] = useState<VendorProduct | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await vendorService.listMyProducts();
+      setProducts(res.data.results);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleEdit = async (id: string) => {
+    try {
+      const res = await vendorService.getProduct(id);
+      setEditProduct(res.data);
+      setShowSheet(true);
+    } catch { /* ignore */ }
+  };
+
+  const handleSaved = () => {
+    setShowSheet(false);
+    setEditProduct(null);
+    load();
+  };
+
+  return (
+    <>
+      {showSheet && (
+        <AddVendorProductSheet
+          product={editProduct}
+          onClose={() => { setShowSheet(false); setEditProduct(null); }}
+          onSaved={handleSaved}
+        />
+      )}
+
+      <div className="rounded-xl border bg-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-semibold">My Product Submissions</h3>
+          <Button size="sm" onClick={() => { setEditProduct(null); setShowSheet(true); }}>
+            <Plus className="mr-1 h-4 w-4" /> Add Product
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : products.length === 0 ? (
+          <div className="py-12 text-center text-muted-foreground">
+            <Package className="mx-auto mb-2 h-10 w-10 opacity-30" />
+            No products submitted yet. Click "Add Product" to get started.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-3 pr-4 w-12"></th>
+                  <th className="pb-3 pr-4">Product</th>
+                  <th className="pb-3 pr-4">SKU</th>
+                  <th className="pb-3 pr-4">Category</th>
+                  <th className="pb-3 pr-4">Variants</th>
+                  <th className="pb-3 pr-4">MRP Range</th>
+                  <th className="pb-3 pr-4">Status</th>
+                  <th className="pb-3">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {products.map((p) => {
+                  const badge = VP_STATUS_BADGE[p.status];
+                  return (
+                    <tr key={p.id} className="hover:bg-muted/40">
+                      <td className="py-3 pr-4">
+                        {p.primary_image ? (
+                          <img src={p.primary_image} alt="" className="h-10 w-10 rounded object-cover" />
+                        ) : (
+                          <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 font-medium">{p.name}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{p.sku}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">{p.category_name ?? '—'}</td>
+                      <td className="py-3 pr-4 text-center">{p.variant_count}</td>
+                      <td className="py-3 pr-4 text-muted-foreground">
+                        {p.mrp_range ? `₹${p.mrp_range.min}${p.mrp_range.min !== p.mrp_range.max ? ` – ₹${p.mrp_range.max}` : ''}` : '—'}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        {p.status !== 'not_continued' && (
+                          <button
+                            onClick={() => handleEdit(p.id)}
+                            className="text-xs font-medium text-primary hover:underline"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
 
 // ── Stub Tables ───────────────────────────────────────────────────────────────
 
@@ -473,6 +605,7 @@ export function VendorDashboard() {
             ))}
           </div>
 
+          {activeTab === 'My Products'       && <MyProductsTab />}
           {activeTab === 'Tenders'          && <TendersTab />}
           {activeTab === 'Purchase Orders'  && <POsTab />}
           {activeTab === 'Chat'             && <ChatTab />}

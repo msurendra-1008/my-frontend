@@ -23,17 +23,19 @@ export function VendorLogin() {
   const [showPw, setShowPw]     = useState(false);
   const [apiError, setApiError] = useState('');
 
-  // Pre-fill identifier if coming from registration success screen
-  const prefillIdentifier = (location.state as { identifier?: string } | null)?.identifier ?? '';
-
   useEffect(() => {
     if (isAuthenticated && user?.role === 'vendor') navigate('/vendor/dashboard', { replace: true });
   }, [isAuthenticated, user, navigate]);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { identifier: prefillIdentifier },
   });
+
+  // Pre-fill identifier if coming from registration success screen
+  useEffect(() => {
+    const identifier = (location.state as { identifier?: string } | null)?.identifier;
+    if (identifier) setValue('identifier', identifier);
+  }, [location.state, setValue]);
 
   const onSubmit = async (data: FormData) => {
     setApiError('');
