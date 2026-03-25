@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, CheckCircle2, X, Upload } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Loader2, CheckCircle2, X, Upload, AlertTriangle } from 'lucide-react';
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
 import { vendorService } from '@/services/vendorService';
@@ -31,17 +31,153 @@ type FormData = z.infer<typeof schema>;
 
 interface DocEntry { label: string; file: File }
 
+// ── Success screen ────────────────────────────────────────────────────────────
+
+function SuccessScreen({
+  identifier,
+  uploadedCount,
+}: {
+  identifier: string;
+  uploadedCount: number;
+}) {
+  const navigate = useNavigate();
+  const [showUpload, setShowUpload]     = useState(false);
+  const [docsUploaded, setDocsUploaded] = useState(uploadedCount);
+  const [docLabel, setDocLabel]         = useState('');
+  const [uploading, setUploading]       = useState(false);
+
+  const handleFileAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setUploading(true);
+    for (const file of files) {
+      const label = docLabel.trim() || file.name;
+      try {
+        await vendorService.uploadDocument(label, file);
+        setDocsUploaded((n) => n + 1);
+      } catch {
+        // silently skip — no auth token yet, vendor can upload after login
+      }
+    }
+    setDocLabel('');
+    setUploading(false);
+    e.target.value = '';
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-sm">
+        {/* Icon + title */}
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+            <CheckCircle2 className="h-12 w-12 text-green-600" />
+          </div>
+          <h2 className="text-2xl font-bold">Registration submitted!</h2>
+          <p className="mt-2 text-muted-foreground">
+            Your application is under review. We'll notify you once approved.
+          </p>
+        </div>
+
+        {/* Documents section */}
+        <div className="mb-6">
+          {docsUploaded > 0 ? (
+            <div className="flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-medium text-green-800">
+              <CheckCircle2 className="h-4 w-4" />
+              {docsUploaded} document{docsUploaded > 1 ? 's' : ''} uploaded
+            </div>
+          ) : (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+              <div className="mb-1 flex items-center gap-2 font-medium text-amber-800">
+                <AlertTriangle className="h-4 w-4" />
+                No documents uploaded yet
+              </div>
+              <p className="mb-3 text-sm text-amber-700">
+                Documents help speed up approval. You can upload them now or after login from
+                your dashboard.
+              </p>
+              {!showUpload ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowUpload(true)}
+                  className="border-amber-400 text-amber-800 hover:bg-amber-100"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload documents now
+                </Button>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={docLabel}
+                      onChange={(e) => setDocLabel(e.target.value)}
+                      placeholder="Document name (e.g. GST Certificate)"
+                      className="flex-1 text-sm"
+                    />
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm hover:bg-accent">
+                      {uploading
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Upload className="h-4 w-4" />
+                      }
+                      Add
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        disabled={uploading}
+                        onChange={handleFileAdd}
+                      />
+                    </label>
+                  </div>
+                  {docsUploaded > 0 && (
+                    <p className="flex items-center gap-1 text-xs text-green-700">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {docsUploaded} document{docsUploaded > 1 ? 's' : ''} uploaded
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="space-y-2">
+          <Button
+            className="w-full"
+            onClick={() => navigate('/vendor/login', { state: { identifier } })}
+          >
+            Login to dashboard →
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => navigate('/')}>
+            Back to home
+          </Button>
+        </div>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          After login you can upload documents and track your approval status from the dashboard.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Registration form ─────────────────────────────────────────────────────────
+
 export function VendorRegister() {
-  const [showPw, setShowPw]         = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCats, setSelectedCats] = useState<string[]>([]);
-  const [catError, setCatError]     = useState('');
-  const [docs, setDocs]             = useState<DocEntry[]>([]);
+  const [showPw, setShowPw]               = useState(false);
+  const [showConfirm, setShowConfirm]     = useState(false);
+  const [categories, setCategories]       = useState<Category[]>([]);
+  const [selectedCats, setSelectedCats]   = useState<string[]>([]);
+  const [catError, setCatError]           = useState('');
+  const [docs, setDocs]                   = useState<DocEntry[]>([]);
   const [docLabelInput, setDocLabelInput] = useState('');
-  const [apiError, setApiError]     = useState('');
-  const [success, setSuccess]       = useState(false);
-  const [loading, setLoading]       = useState(false);
+  const [apiError, setApiError]           = useState('');
+  const [loading, setLoading]             = useState(false);
+  // Success state
+  const [successIdentifier, setSuccessIdentifier]   = useState('');
+  const [successDocCount, setSuccessDocCount]       = useState(0);
+  const [showSuccess, setShowSuccess]               = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -90,17 +226,23 @@ export function VendorRegister() {
         password:      data.password,
       });
 
-      // Upload documents — best effort (no auth token yet after registration)
-      // Failures are silently skipped; vendor can upload docs after login
-      for (const doc of docs) {
-        try {
-          await vendorService.uploadDocument(doc.label, doc.file);
-        } catch {
-          // skip
+      // Registration succeeded — attempt doc uploads best-effort (no auth token yet)
+      let uploadedCount = 0;
+      if (docs.length > 0) {
+        for (const doc of docs) {
+          try {
+            await vendorService.uploadDocument(doc.label, doc.file);
+            uploadedCount++;
+          } catch {
+            // skip — vendor can upload from dashboard after login
+          }
         }
       }
 
-      setSuccess(true);
+      // Always show success screen regardless of doc upload outcome
+      setSuccessIdentifier(data.mobile || data.email);
+      setSuccessDocCount(uploadedCount);
+      setShowSuccess(true);
     } catch (err: unknown) {
       const e = err as { response?: { data?: Record<string, string | string[]> } };
       const d = e?.response?.data;
@@ -115,22 +257,8 @@ export function VendorRegister() {
     }
   };
 
-  if (success) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md rounded-xl border bg-card p-8 text-center shadow-sm">
-          <CheckCircle2 className="mx-auto mb-4 h-16 w-16 text-green-500" />
-          <h2 className="mb-2 text-2xl font-bold">Registration Submitted!</h2>
-          <p className="text-muted-foreground">
-            Your application is under review. We'll notify you once approved. You can login to
-            check your status.
-          </p>
-          <Button asChild className="mt-6 w-full">
-            <Link to="/vendor/login">Go to Login</Link>
-          </Button>
-        </div>
-      </div>
-    );
+  if (showSuccess) {
+    return <SuccessScreen identifier={successIdentifier} uploadedCount={successDocCount} />;
   }
 
   return (
@@ -171,7 +299,8 @@ export function VendorRegister() {
 
             <div className="mt-4">
               <label className="mb-2 block text-sm font-medium">
-                Product Categories * {catError && <span className="text-destructive">— {catError}</span>}
+                Product Categories *{' '}
+                {catError && <span className="text-destructive">— {catError}</span>}
               </label>
               <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => (
@@ -287,7 +416,6 @@ export function VendorRegister() {
             <p className="mb-4 text-sm text-muted-foreground">
               Upload GST certificate, PAN card, etc. (optional — can also be added later)
             </p>
-
             <div className="mb-3 flex gap-2">
               <Input
                 value={docLabelInput}
@@ -301,7 +429,6 @@ export function VendorRegister() {
                 <input type="file" className="hidden" onChange={handleFileAdd} multiple />
               </label>
             </div>
-
             {docs.length > 0 && (
               <ul className="space-y-2">
                 {docs.map((doc, i) => (

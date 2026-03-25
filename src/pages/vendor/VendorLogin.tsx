@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, Building2 } from 'lucide-react';
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
@@ -17,10 +17,14 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export function VendorLogin() {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const { setAuth, isAuthenticated, user } = useAuthStore();
   const [showPw, setShowPw]     = useState(false);
   const [apiError, setApiError] = useState('');
+
+  // Pre-fill identifier if coming from registration success screen
+  const prefillIdentifier = (location.state as { identifier?: string } | null)?.identifier ?? '';
 
   useEffect(() => {
     if (isAuthenticated && user?.role === 'vendor') navigate('/vendor/dashboard', { replace: true });
@@ -28,6 +32,7 @@ export function VendorLogin() {
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { identifier: prefillIdentifier },
   });
 
   const onSubmit = async (data: FormData) => {
