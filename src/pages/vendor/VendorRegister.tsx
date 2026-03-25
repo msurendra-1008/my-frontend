@@ -75,7 +75,7 @@ export function VendorRegister() {
     setApiError('');
     setLoading(true);
     try {
-      const regRes = await vendorService.register({
+      await vendorService.register({
         company_name:  data.company_name,
         gst_number:    data.gst_number,
         contact_name:  data.contact_name,
@@ -90,15 +90,16 @@ export function VendorRegister() {
         password:      data.password,
       });
 
-      // Upload documents one by one
+      // Upload documents — best effort (no auth token yet after registration)
+      // Failures are silently skipped; vendor can upload docs after login
       for (const doc of docs) {
-        await vendorService.uploadDocument(doc.label, doc.file);
-        // Note: uploadDocument for registration requires auth;
-        // documents can be uploaded after login from the dashboard instead
-        // This is a best-effort attempt — silently skip failures
+        try {
+          await vendorService.uploadDocument(doc.label, doc.file);
+        } catch {
+          // skip
+        }
       }
 
-      void regRes; // registration succeeded
       setSuccess(true);
     } catch (err: unknown) {
       const e = err as { response?: { data?: Record<string, string | string[]> } };
