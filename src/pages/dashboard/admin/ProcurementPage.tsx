@@ -190,7 +190,7 @@ function RequirementDetailSheet({
             </div>
           ) : req ? (
             <div className="flex-1 space-y-6 overflow-y-auto p-6">
-              {msg && <div className={cn('rounded-md px-4 py-3 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-50 text-green-800')}>{msg.text}</div>}
+              {msg && <div className={cn('rounded-md px-4 py-3 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-700 dark:text-green-400')}>{msg.text}</div>}
 
               {/* Requirement details */}
               <section>
@@ -240,22 +240,22 @@ function RequirementDetailSheet({
                     const diffStr = `${higher ? '+' : diff < 0 ? '-' : ''}₹${Math.abs(diff).toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit`;
                     return (
                       <div className={cn(
-                        'mt-3 rounded-md border px-4 py-3 text-sm',
-                        higher ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50',
+                        'mt-3 rounded-md border px-4 py-3 text-sm bg-muted/50',
+                        higher ? 'border-red-400/40' : 'border-green-400/40',
                       )}>
-                        <p className="mb-2 font-medium">Price Comparison</p>
+                        <p className="mb-2 font-medium text-foreground">Price Comparison</p>
                         <div className="grid grid-cols-3 gap-3 text-xs">
                           <div>
                             <p className="text-muted-foreground">Target</p>
-                            <p className="font-medium">₹{target.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit</p>
+                            <p className="font-medium text-foreground">₹{target.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">Vendor</p>
-                            <p className="font-medium">₹{vendor.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit</p>
+                            <p className="font-medium text-foreground">₹{vendor.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">Difference</p>
-                            <p className={cn('font-semibold', higher ? 'text-red-700' : 'text-green-700')}>{diffStr}</p>
+                            <p className={cn('font-semibold', higher ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')}>{diffStr}</p>
                           </div>
                         </div>
                       </div>
@@ -266,7 +266,7 @@ function RequirementDetailSheet({
 
               {/* Negotiation notes */}
               {s === 'negotiating' && req.negotiation_notes && (
-                <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
                   <p className="font-medium mb-1">Your negotiation notes:</p>
                   <p>{req.negotiation_notes}</p>
                 </div>
@@ -274,15 +274,15 @@ function RequirementDetailSheet({
 
               {/* PO link */}
               {req.po && (
-                <div className="rounded-md border border-green-200 bg-green-50 p-4">
-                  <p className="text-sm font-medium text-green-800">PO Generated: <span className="font-mono">{req.po.po_number}</span></p>
-                  <p className="text-xs text-green-700 mt-1">Qty: {req.po.quantity} × {formatMoney(req.po.price_per_unit)} = {formatMoney(req.po.total_amount)}</p>
+                <div className="rounded-md border border-green-400/40 bg-green-500/10 p-4">
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">PO Generated: <span className="font-mono">{req.po.po_number}</span></p>
+                  <p className="text-xs text-green-600 dark:text-green-500 mt-1">Qty: {req.po.quantity} × {formatMoney(req.po.price_per_unit)} = {formatMoney(req.po.total_amount)}</p>
                 </div>
               )}
 
               {/* Cancellation */}
               {s === 'cancelled' && req.cancellation_reason && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <div className="rounded-md border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400">
                   <p className="font-medium">Cancelled</p>
                   <p>{req.cancellation_reason}</p>
                 </div>
@@ -369,7 +369,7 @@ function PODetailSheet({ poId, onClose }: { poId: string; onClose: () => void; o
           </div>
         ) : po ? (
           <div className="flex-1 space-y-6 overflow-y-auto p-6">
-            {msg && <div className={cn('rounded-md px-4 py-3 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-50 text-green-800')}>{msg.text}</div>}
+            {msg && <div className={cn('rounded-md px-4 py-3 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-700 dark:text-green-400')}>{msg.text}</div>}
             <section>
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">PO Details</h3>
               <dl className="space-y-2 text-sm">
@@ -478,7 +478,7 @@ function RequirementsTab() {
       )}
 
       <div className="space-y-4">
-        {msg && <div className={cn('rounded-md px-4 py-3 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-50 text-green-800')}>{msg.text}</div>}
+        {msg && <div className={cn('rounded-md px-4 py-3 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-700 dark:text-green-400')}>{msg.text}</div>}
 
         {stats && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
