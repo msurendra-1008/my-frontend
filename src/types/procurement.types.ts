@@ -48,6 +48,10 @@ export interface PurchaseOrder {
   generated_at: string;
   acknowledged_at: string | null;
   dispatched_at: string | null;
+  // Shipment / inspection info (populated from backend)
+  shipment_status: 'awaiting_inspection' | 'completed' | 'cancelled' | null;
+  has_debit_note: boolean;
+  debit_note_url: string | null;
 }
 
 export interface ProcurementRequirement {

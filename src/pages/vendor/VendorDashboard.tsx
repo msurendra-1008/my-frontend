@@ -588,6 +588,42 @@ function POsTab() {
               </div>
             )}
 
+            {/* Shipment / inspection status pills */}
+            {po.shipment_status && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {po.shipment_status === 'awaiting_inspection' && (
+                  <span className="inline-flex items-center rounded-full border border-blue-400/40 bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400">
+                    Awaiting inspection
+                  </span>
+                )}
+                {po.shipment_status === 'completed' && !po.has_debit_note && (
+                  <span className="inline-flex items-center rounded-full border border-green-400/40 bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                    <CheckCircle className="mr-1 h-3 w-3" /> Inspection complete
+                  </span>
+                )}
+                {po.shipment_status === 'completed' && po.has_debit_note && (
+                  <span className="inline-flex items-center rounded-full border border-green-400/40 bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                    <CheckCircle className="mr-1 h-3 w-3" /> Inspection done
+                  </span>
+                )}
+                {po.has_debit_note && (
+                  <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    Debit note issued
+                  </span>
+                )}
+                {po.debit_note_url && (
+                  <a
+                    href={po.debit_note_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Download debit note
+                  </a>
+                )}
+              </div>
+            )}
+
             <div className="mt-3 flex gap-2">
               {po.status === 'generated' && (
                 <Button size="sm" onClick={() => handleAcknowledge(po.id)}>
@@ -599,8 +635,8 @@ function POsTab() {
                   Mark as Dispatched
                 </Button>
               )}
-              {po.status === 'dispatched' && (
-                <span className="inline-flex items-center gap-1 text-sm text-green-700">
+              {po.status === 'dispatched' && !po.shipment_status && (
+                <span className="inline-flex items-center gap-1 text-sm text-green-700 dark:text-green-400">
                   <CheckCircle className="h-4 w-4" /> Dispatched — awaiting inspection
                 </span>
               )}
