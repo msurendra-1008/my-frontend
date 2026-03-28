@@ -1,5 +1,39 @@
 # Frontend Development Rules
 
+## API Response Shape — Paginated Lists
+
+**All list endpoints return paginated responses**, not plain arrays:
+
+```json
+{ "count": 10, "next": null, "previous": null, "results": [...] }
+```
+
+**NEVER** use `response.data` directly as an array. **ALWAYS** extract the results:
+
+```ts
+// ✅ Correct
+setState(response.data.results ?? [])
+
+// ❌ Wrong — crashes with "items.filter is not a function"
+setState(response.data)
+```
+
+This applies to every service call that returns a list:
+```ts
+warehouseService.getWarehouses().then(r => setWarehouses(r.data.results ?? []))
+warehouseService.getZones(params).then(r => setZones(r.data.results ?? []))
+warehouseService.getRacks(params).then(r => setRacks(r.data.results ?? []))
+warehouseService.getStock(params).then(r => setItems(r.data.results ?? []))
+warehouseService.getMovements(params).then(r => setItems(r.data.results ?? []))
+warehouseService.getTransfers().then(r => setItems(r.data.results ?? []))
+```
+
+Service type annotations must use a `Paginated<T>` wrapper:
+```ts
+interface Paginated<T> { count: number; next: string | null; previous: string | null; results: T[]; }
+axiosInstance.get<Paginated<Warehouse>>('/api/v1/warehouse/warehouses/')
+```
+
 ## Admin Layout
 
 All admin pages that use `AdminSidebar` must use this exact outer wrapper structure to ensure the sidebar fills the full viewport height and the content area scrolls independently:

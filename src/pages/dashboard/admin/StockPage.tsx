@@ -37,7 +37,7 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
       if (warehouseFilter) params.warehouse = warehouseFilter;
       if (search) params.search = search;
       const res = await warehouseService.getStock(params);
-      setItems(res.data);
+      setItems(res.data.results ?? []);
     } finally {
       setLoading(false);
     }
@@ -148,7 +148,7 @@ function MovementsTab({ warehouses }: { warehouses: Warehouse[] }) {
       if (typeFilter) params.movement_type = typeFilter;
       if (search) params.search = search;
       const res = await warehouseService.getMovements(params);
-      setItems(res.data);
+      setItems(res.data.results ?? []);
     } finally {
       setLoading(false);
     }
@@ -246,7 +246,7 @@ function TransfersTab() {
   useEffect(() => {
     setLoading(true);
     warehouseService.getTransfers()
-      .then((r) => setItems(r.data))
+      .then((r) => setItems(r.data.results ?? []))
       .finally(() => setLoading(false));
   }, []);
 
@@ -325,7 +325,7 @@ export function AdminStockPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
 
   useEffect(() => {
-    warehouseService.getWarehouses().then((r) => setWarehouses(r.data)).catch(() => {});
+    warehouseService.getWarehouses().then((r) => setWarehouses(r.data.results ?? [])).catch(() => {});
   }, []);
 
   return (

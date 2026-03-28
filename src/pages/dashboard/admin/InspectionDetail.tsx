@@ -292,19 +292,19 @@ function InspectionLedger({
   const [selRack, setSelRack]           = useState('');
 
   useEffect(() => {
-    warehouseService.getWarehouses().then((r) => setWarehouses(r.data)).catch(() => {});
+    warehouseService.getWarehouses().then((r) => setWarehouses(r.data.results ?? [])).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!selWarehouse) { setZones([]); setSelZone(''); return; }
-    warehouseService.getZones({ warehouse: selWarehouse }).then((r) => setZones(r.data)).catch(() => {});
+    warehouseService.getZones({ warehouse: selWarehouse }).then((r) => setZones(r.data.results ?? [])).catch(() => {});
     setSelZone('');
     setSelRack('');
   }, [selWarehouse]);
 
   useEffect(() => {
     if (!selZone) { setRacks([]); setSelRack(''); return; }
-    warehouseService.getRacks({ zone: selZone }).then((r) => setRacks(r.data)).catch(() => {});
+    warehouseService.getRacks({ zone: selZone }).then((r) => setRacks(r.data.results ?? [])).catch(() => {});
     setSelRack('');
   }, [selZone]);
 
