@@ -50,7 +50,7 @@ function WarehousesTab() {
     setLoading(true);
     try {
       const res = await warehouseService.getWarehouses();
-      setItems(res.data);
+      setItems(res.data.results ?? []);
     } finally {
       setLoading(false);
     }
@@ -182,7 +182,7 @@ function ZonesTab({ warehouses }: { warehouses: Warehouse[] }) {
       const params: Record<string, string> = {};
       if (warehouseFilter) params.warehouse = warehouseFilter;
       const res = await warehouseService.getZones(params);
-      setItems(res.data);
+      setItems(res.data.results ?? []);
     } finally {
       setLoading(false);
     }
@@ -334,8 +334,8 @@ function RacksTab({ warehouses }: { warehouses: Warehouse[] }) {
         warehouseService.getRacks(params),
         warehouseService.getZones(),
       ]);
-      setItems(rRes.data);
-      setZones(zRes.data);
+      setItems(rRes.data.results ?? []);
+      setZones(zRes.data.results ?? []);
     } finally {
       setLoading(false);
     }
@@ -512,7 +512,7 @@ export function AdminWarehousePage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
 
   useEffect(() => {
-    warehouseService.getWarehouses().then((r) => setWarehouses(r.data)).catch(() => {});
+    warehouseService.getWarehouses().then((r) => setWarehouses(r.data.results ?? [])).catch(() => {});
   }, []);
 
   return (

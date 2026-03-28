@@ -3,10 +3,13 @@ import type { Warehouse, Zone, Rack, RackStock, StockMovement, StockTransfer } f
 
 const BASE = '/api/v1/warehouse';
 
+// All list endpoints return paginated responses: { count, next, previous, results: T[] }
+interface Paginated<T> { count: number; next: string | null; previous: string | null; results: T[]; }
+
 export const warehouseService = {
   // ── Warehouses ──────────────────────────────────────────────────────────────
   getWarehouses: () =>
-    axiosInstance.get<Warehouse[]>(`${BASE}/warehouses/`),
+    axiosInstance.get<Paginated<Warehouse>>(`${BASE}/warehouses/`),
 
   createWarehouse: (data: { name: string; location?: string }) =>
     axiosInstance.post<Warehouse>(`${BASE}/warehouses/`, data),
@@ -17,7 +20,7 @@ export const warehouseService = {
   // ── Zones ───────────────────────────────────────────────────────────────────
   getZones: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return axiosInstance.get<Zone[]>(`${BASE}/zones/${qs ? '?' + qs : ''}`);
+    return axiosInstance.get<Paginated<Zone>>(`${BASE}/zones/${qs ? '?' + qs : ''}`);
   },
 
   createZone: (data: { warehouse: string; name: string }) =>
@@ -29,7 +32,7 @@ export const warehouseService = {
   // ── Racks ───────────────────────────────────────────────────────────────────
   getRacks: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return axiosInstance.get<Rack[]>(`${BASE}/racks/${qs ? '?' + qs : ''}`);
+    return axiosInstance.get<Paginated<Rack>>(`${BASE}/racks/${qs ? '?' + qs : ''}`);
   },
 
   createRack: (data: { zone: string; code: string; capacity?: number }) =>
@@ -41,7 +44,7 @@ export const warehouseService = {
   // ── Stock ───────────────────────────────────────────────────────────────────
   getStock: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return axiosInstance.get<RackStock[]>(`${BASE}/stock/${qs ? '?' + qs : ''}`);
+    return axiosInstance.get<Paginated<RackStock>>(`${BASE}/stock/${qs ? '?' + qs : ''}`);
   },
 
   assignStock: (data: { rack: string; variant: string; quantity: number; reference?: string; notes?: string }) =>
@@ -55,9 +58,9 @@ export const warehouseService = {
 
   getMovements: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
-    return axiosInstance.get<StockMovement[]>(`${BASE}/stock/movements/${qs ? '?' + qs : ''}`);
+    return axiosInstance.get<Paginated<StockMovement>>(`${BASE}/stock/movements/${qs ? '?' + qs : ''}`);
   },
 
   getTransfers: () =>
-    axiosInstance.get<StockTransfer[]>(`${BASE}/stock/transfers/`),
+    axiosInstance.get<Paginated<StockTransfer>>(`${BASE}/stock/transfers/`),
 };
