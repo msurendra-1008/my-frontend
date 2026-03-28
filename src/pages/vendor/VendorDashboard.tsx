@@ -188,8 +188,16 @@ function VendorResponseForm({
   const isUpdate = req.vendor_response !== null;
   const existing = req.vendor_response;
 
-  const [qty, setQty]             = useState(existing?.supply_quantity?.toString() ?? '');
-  const [price, setPrice]         = useState(existing?.price_per_unit ?? '');
+  // Start in edit mode for new responses or when admin requests revision
+  const [isEditMode, setIsEditMode] = useState(() => !isUpdate || req.status === 'negotiating');
+
+  // Smart pre-fills: new response uses admin values; update uses submitted values
+  const [qty, setQty]             = useState(
+    isUpdate ? existing!.supply_quantity.toString() : req.required_quantity.toString(),
+  );
+  const [price, setPrice]         = useState<string>(
+    isUpdate ? String(existing!.price_per_unit) : (req.target_price ? String(req.target_price) : ''),
+  );
   const [dispatchDate, setDispatch] = useState(existing?.dispatch_date ?? '');
   const [breakdown, setBreakdown] = useState<MonthlyBreakdown[]>(existing?.monthly_breakdown ?? []);
   const [notes, setNotes]         = useState(existing?.notes ?? '');
@@ -244,72 +252,134 @@ function VendorResponseForm({
   };
 
   return (
-    <div className="mt-4 rounded-md border bg-muted/30 p-4 space-y-3">
-      <h4 className="text-sm font-semibold">{isUpdate ? 'Update Response' : 'Submit Response'}</h4>
-      {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-xs font-medium">Supply Quantity *</label>
-          <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="500" className="text-sm" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium">Price / Unit (₹) *</label>
-          <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="480" className="text-sm" />
-        </div>
-        <div className="col-span-2">
-          <label className="mb-1 block text-xs font-medium">Dispatch Date *</label>
-          <Input type="date" value={dispatchDate} onChange={(e) => setDispatch(e.target.value)} className="text-sm" />
+    <div className="mt-4 space-y-3">
+      {/* Section 1: What admin requested */}
+      <div className="rounded-md border bg-muted/40 p-4">
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">What admin requested</h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+          <span className="text-muted-foreground">Required Qty</span>
+          <span className="font-medium">{req.required_quantity.toLocaleString()}</span>
+          <span className="text-muted-foreground">Required By</span>
+          <span>{formatDate(req.required_by_date)}</span>
+          <span className="text-muted-foreground">Target Price</span>
+          <span>{req.target_price ? `₹${req.target_price}/unit` : 'Not specified'}</span>
+          {req.notes && (
+            <>
+              <span className="text-muted-foreground">Notes</span>
+              <span>{req.notes}</span>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Monthly breakdown */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium">Monthly Breakdown</span>
-          <button type="button" onClick={addMonth} className="text-xs font-medium text-primary hover:underline">+ Add Month</button>
-        </div>
-        {breakdown.map((b, i) => (
-          <div key={i} className="mb-2 flex items-center gap-2">
-            <Input
-              type="month"
-              value={b.month}
-              onChange={(e) => updateMonth(i, 'month', e.target.value)}
-              className="flex-1 text-sm"
-            />
-            <Input
-              type="number"
-              value={b.quantity.toString()}
-              onChange={(e) => updateMonth(i, 'quantity', e.target.value)}
-              placeholder="Qty"
-              className="w-24 text-sm"
-            />
-            <button type="button" onClick={() => removeMonth(i)} className="text-destructive hover:text-destructive/70">
-              <X className="h-4 w-4" />
+      {/* Section 2: Vendor response */}
+      <div className="rounded-md border bg-muted/30 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-semibold">Your Response</h4>
+          {isUpdate && !isEditMode && (
+            <button
+              type="button"
+              onClick={() => setIsEditMode(true)}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Edit response
             </button>
+          )}
+        </div>
+
+        {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
+
+        {!isEditMode && existing ? (
+          /* Read-only view of submitted response */
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+            <span className="text-muted-foreground">Supply Qty</span>
+            <span className="font-medium">{existing.supply_quantity.toLocaleString()}</span>
+            <span className="text-muted-foreground">Price / Unit</span>
+            <span>₹{existing.price_per_unit}/unit</span>
+            <span className="text-muted-foreground">Dispatch Date</span>
+            <span>{formatDate(existing.dispatch_date)}</span>
+            {existing.notes && (
+              <>
+                <span className="text-muted-foreground">Notes</span>
+                <span>{existing.notes}</span>
+              </>
+            )}
+            <span className="col-span-2 text-xs text-muted-foreground">Updated {existing.update_count}×</span>
           </div>
-        ))}
-        {breakdown.length > 0 && (
-          <p className={`text-xs ${allocated === totalQty ? 'text-green-600' : 'text-amber-600'}`}>
-            {allocated} of {totalQty} qty allocated
-          </p>
+        ) : (
+          /* Editable form */
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium">Supply Quantity *</label>
+                <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="500" className="text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium">Price / Unit (₹) *</label>
+                <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="480" className="text-sm" />
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-xs font-medium">Dispatch Date *</label>
+                <Input type="date" value={dispatchDate} onChange={(e) => setDispatch(e.target.value)} className="text-sm" />
+              </div>
+            </div>
+
+            {/* Monthly breakdown */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-medium">Monthly Breakdown</span>
+                <button type="button" onClick={addMonth} className="text-xs font-medium text-primary hover:underline">+ Add Month</button>
+              </div>
+              {breakdown.map((b, i) => (
+                <div key={i} className="mb-2 flex items-center gap-2">
+                  <Input
+                    type="month"
+                    value={b.month}
+                    onChange={(e) => updateMonth(i, 'month', e.target.value)}
+                    className="flex-1 text-sm"
+                  />
+                  <Input
+                    type="number"
+                    value={b.quantity.toString()}
+                    onChange={(e) => updateMonth(i, 'quantity', e.target.value)}
+                    placeholder="Qty"
+                    className="w-24 text-sm"
+                  />
+                  <button type="button" onClick={() => removeMonth(i)} className="text-destructive hover:text-destructive/70">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              {breakdown.length > 0 && (
+                <p className={`text-xs ${allocated === totalQty ? 'text-green-600' : 'text-amber-600'}`}>
+                  {allocated} of {totalQty} qty allocated
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium">Notes (optional)</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSubmit} disabled={saving}>
+                {saving && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                {isUpdate ? 'Update Response' : 'Submit Response'}
+              </Button>
+              {isUpdate && (
+                <Button size="sm" variant="outline" onClick={() => setIsEditMode(false)} disabled={saving}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </>
         )}
-      </div>
-
-      <div>
-        <label className="mb-1 block text-xs font-medium">Notes (optional)</label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-        />
-      </div>
-
-      <div className="flex gap-2">
-        <Button size="sm" onClick={handleSubmit} disabled={saving}>
-          {saving && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
-          {isUpdate ? 'Update Response' : 'Submit Response'}
-        </Button>
       </div>
     </div>
   );
@@ -320,7 +390,7 @@ function VendorResponseForm({
 function RequirementsTab() {
   const [requirements, setRequirements] = useState<ProcurementRequirement[]>([]);
   const [loading, setLoading]           = useState(true);
-  const [editingId, setEditingId]       = useState<string | null>(null);
+  const [expandedId, setExpandedId]     = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -350,9 +420,9 @@ function RequirementsTab() {
   return (
     <div className="space-y-4">
       {requirements.map((req) => {
-        const cfg       = REQ_STATUS_CFG[req.status];
+        const cfg        = REQ_STATUS_CFG[req.status];
         const canRespond = req.status === 'sent' || req.status === 'negotiating';
-        const isEditing  = editingId === req.id;
+        const isExpanded = expandedId === req.id;
 
         return (
           <div key={req.id} className="rounded-xl border bg-card p-5">
@@ -369,17 +439,25 @@ function RequirementsTab() {
                   </p>
                 </div>
               </div>
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.className}`}>
-                {cfg.label}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.className}`}>
+                  {cfg.label}
+                </span>
+                {canRespond && (
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : req.id)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
+                )}
+              </div>
             </div>
-
-            {req.notes && <p className="mt-2 text-sm text-muted-foreground">{req.notes}</p>}
 
             {/* Status banners */}
             {req.status === 'sent' && (
               <div className="mt-3 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                Admin is requesting supply — please respond below.
+                Admin is requesting supply — expand to respond.
               </div>
             )}
             {req.status === 'negotiating' && req.negotiation_notes && (
@@ -406,31 +484,12 @@ function RequirementsTab() {
               </div>
             )}
 
-            {/* Response form or view */}
-            {canRespond && (
-              isEditing
-                ? <VendorResponseForm req={req} onDone={() => { setEditingId(null); load(); }} />
-                : (
-                  <Button size="sm" className="mt-3" onClick={() => setEditingId(req.id)}>
-                    {req.vendor_response ? 'Edit Response' : 'Submit Response'}
-                  </Button>
-                )
+            {/* Response form: collapsible for sent/negotiating; always shown for vendor_responded */}
+            {canRespond && isExpanded && (
+              <VendorResponseForm req={req} onDone={() => { setExpandedId(null); load(); }} />
             )}
-
-            {/* Submitted response view (not in edit mode) */}
-            {req.status === 'vendor_responded' && req.vendor_response && !isEditing && (
-              <div className="mt-3 rounded-md border bg-muted/30 p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Your Response</span>
-                  <button onClick={() => setEditingId(req.id)} className="text-xs text-primary hover:underline">Edit</button>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <span>Qty: {req.vendor_response.supply_quantity.toLocaleString()}</span>
-                  <span>Price: ₹{req.vendor_response.price_per_unit}/unit</span>
-                  <span>Dispatch: {formatDate(req.vendor_response.dispatch_date)}</span>
-                  <span>Updated {req.vendor_response.update_count}× </span>
-                </div>
-              </div>
+            {req.status === 'vendor_responded' && req.vendor_response && (
+              <VendorResponseForm req={req} onDone={load} />
             )}
           </div>
         );

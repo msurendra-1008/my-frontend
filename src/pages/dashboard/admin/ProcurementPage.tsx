@@ -230,6 +230,37 @@ function RequirementDetailSheet({
                   )}
                   {req.vendor_response.notes && <p className="mt-2 text-sm text-muted-foreground">{req.vendor_response.notes}</p>}
                   <p className="mt-1 text-xs text-muted-foreground">Updated {req.vendor_response.update_count} time(s)</p>
+
+                  {/* Price comparison */}
+                  {req.target_price && (() => {
+                    const target = Number(req.target_price);
+                    const vendor = Number(req.vendor_response.price_per_unit);
+                    const diff   = vendor - target;
+                    const higher = diff > 0;
+                    const diffStr = `${higher ? '+' : diff < 0 ? '-' : ''}₹${Math.abs(diff).toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit`;
+                    return (
+                      <div className={cn(
+                        'mt-3 rounded-md border px-4 py-3 text-sm',
+                        higher ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50',
+                      )}>
+                        <p className="mb-2 font-medium">Price Comparison</p>
+                        <div className="grid grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">Target</p>
+                            <p className="font-medium">₹{target.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Vendor</p>
+                            <p className="font-medium">₹{vendor.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/unit</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Difference</p>
+                            <p className={cn('font-semibold', higher ? 'text-red-700' : 'text-green-700')}>{diffStr}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </section>
               )}
 
@@ -652,7 +683,7 @@ export function AdminProcurementPage() {
   const [activeTab, setActiveTab]     = useState<PageTab>('Requirements');
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen((v) => !v)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
