@@ -63,6 +63,8 @@ const MENU: NavItem[] = [
       { label: 'Vendor Products', path: '/admin/vendor-products',  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'   },
       { label: 'Procurement',     path: '/admin/procurement',      allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'      },
       { label: 'Inspection',      path: '/admin/inspection',       allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inspection.perform' },
+      { label: 'Warehouse',      path: '/admin/warehouse',        allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view'     },
+      { label: 'Stock',          path: '/admin/stock',            allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view'     },
       { label: 'Tenders',   path: '/admin/tenders',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view'   },
       { label: 'Inventory', path: '/admin/inventory', allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
       { label: 'Orders',    path: '/admin/orders',    allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view'    },
