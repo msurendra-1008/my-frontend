@@ -14,6 +14,7 @@ import {
   type RejectionBreakdown,
 } from '@/types/inspection.types';
 import type { Warehouse, Zone, Rack } from '@/types/warehouse.types';
+import { CapacityBar } from '@/components/warehouse/CapacityBar';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -391,6 +392,14 @@ function InspectionLedger({
                       </option>
                     ))}
                   </select>
+                  {selRack && (() => {
+                    const rack = racks.find((r) => r.id === selRack);
+                    return rack ? (
+                      <div className="mt-2">
+                        <CapacityBar current={rack.current_stock} max={rack.capacity} />
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               )}
             </div>
