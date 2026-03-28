@@ -456,30 +456,30 @@ function RequirementsTab() {
 
             {/* Status banners */}
             {req.status === 'sent' && (
-              <div className="mt-3 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              <div className="mt-3 rounded-md border border-blue-400/40 bg-blue-500/10 px-3 py-2 text-sm text-blue-700 dark:text-blue-400">
                 Admin is requesting supply — expand to respond.
               </div>
             )}
             {req.status === 'negotiating' && req.negotiation_notes && (
-              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
                 <p className="font-medium">Admin has requested revision:</p>
                 <p>{req.negotiation_notes}</p>
               </div>
             )}
             {req.status === 'vendor_responded' && (
-              <div className="mt-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+              <div className="mt-3 rounded-md border border-green-400/40 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
                 <CheckCircle className="inline mr-1 h-4 w-4" />
                 Response submitted — awaiting admin confirmation.
               </div>
             )}
             {req.status === 'po_generated' && (
-              <div className="mt-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+              <div className="mt-3 rounded-md border border-green-400/40 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
                 <CheckCircle className="inline mr-1 h-4 w-4" />
                 PO generated — check Purchase Orders tab.
               </div>
             )}
             {req.status === 'cancelled' && (
-              <div className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+              <div className="mt-3 rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
                 Requirement cancelled.
               </div>
             )}
@@ -957,10 +957,10 @@ export function VendorDashboard() {
     if (profile.status === 'docs_requested') {
       return (
         <div className="mx-auto max-w-2xl px-4 py-8">
-          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-            <p className="font-medium text-amber-800">Admin has requested additional documents</p>
+          <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-500/10 px-4 py-3">
+            <p className="font-medium text-amber-700 dark:text-amber-400">Admin has requested additional documents</p>
             {profile.admin_notes && (
-              <p className="mt-1 text-sm text-amber-700">{profile.admin_notes}</p>
+              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400/80">{profile.admin_notes}</p>
             )}
           </div>
           <div className="rounded-xl border bg-card p-6">
@@ -978,7 +978,7 @@ export function VendorDashboard() {
             <XCircle className="mx-auto mb-4 h-16 w-16 text-red-500" />
             <h2 className="mb-2 text-xl font-bold">Application Rejected</h2>
             {profile.rejection_reason && (
-              <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mb-3 rounded-md border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400">
                 {profile.rejection_reason}
               </div>
             )}
