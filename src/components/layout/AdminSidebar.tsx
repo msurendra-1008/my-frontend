@@ -61,6 +61,7 @@ const MENU: NavItem[] = [
       { label: 'Products',  path: '/admin/products',  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit'  },
       { label: 'Vendors',          path: '/admin/vendors',          allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'   },
       { label: 'Vendor Products', path: '/admin/vendor-products',  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'   },
+      { label: 'Procurement',     path: '/admin/procurement',      allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'   },
       { label: 'Tenders',   path: '/admin/tenders',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view'   },
       { label: 'Inventory', path: '/admin/inventory', allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
       { label: 'Orders',    path: '/admin/orders',    allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view'    },
@@ -291,7 +292,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
                             key={child.path}
                             to={child.path}
                             className={cn(
-                              'flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors',
+                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors',
                               isActive
                                 ? 'bg-accent text-accent-foreground font-medium'
                                 : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -308,7 +309,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
                       {lockedChildren.map((child) => (
                         <div
                           key={child.path}
-                          className="flex cursor-not-allowed items-center gap-2 rounded-md px-2 py-1.5 text-xs opacity-35"
+                          className="flex w-full cursor-not-allowed items-center gap-2 rounded-md px-2 py-1.5 text-xs opacity-35"
                         >
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/25" />
                           <span className="flex-1">{child.label}</span>
