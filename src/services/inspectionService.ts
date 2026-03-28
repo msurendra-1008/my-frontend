@@ -28,8 +28,8 @@ export const inspectionService = {
   submitReport: (id: string, data: InspectionReportWriteData) =>
     axiosInstance.post<InspectionReport>(`${BASE}/shipments/${id}/submit-report/`, data),
 
-  updateStock: (id: string) =>
-    axiosInstance.patch<InspectionReport>(`${BASE}/shipments/${id}/update-stock/`),
+  updateStock: (id: string, rackId?: string) =>
+    axiosInstance.patch<InspectionReport>(`${BASE}/shipments/${id}/update-stock/`, rackId ? { rack_id: rackId } : {}),
 
   downloadDebitNote: (id: string) =>
     axiosInstance.get(`${BASE}/shipments/${id}/debit-note/`, { responseType: 'blob' }),

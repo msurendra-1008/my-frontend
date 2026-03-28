@@ -4,6 +4,7 @@ import { ArrowLeft, CheckCircle, AlertTriangle, XCircle, Download, Loader2 } fro
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
 import { inspectionService } from '@/services/inspectionService';
+import { warehouseService } from '@/services/warehouseService';
 import { cn } from '@utils/cn';
 import {
   REJECTION_REASON_KEYS,
@@ -12,6 +13,7 @@ import {
   type InspectionReportWriteData,
   type RejectionBreakdown,
 } from '@/types/inspection.types';
+import type { Warehouse, Zone, Rack } from '@/types/warehouse.types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -281,10 +283,35 @@ function InspectionLedger({
   const [downloading, setDownloading]     = useState(false);
   const { msg, show } = useToast();
 
+  // Rack selection state
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [zones, setZones]           = useState<Zone[]>([]);
+  const [racks, setRacks]           = useState<Rack[]>([]);
+  const [selWarehouse, setSelWarehouse] = useState('');
+  const [selZone, setSelZone]           = useState('');
+  const [selRack, setSelRack]           = useState('');
+
+  useEffect(() => {
+    warehouseService.getWarehouses().then((r) => setWarehouses(r.data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selWarehouse) { setZones([]); setSelZone(''); return; }
+    warehouseService.getZones({ warehouse: selWarehouse }).then((r) => setZones(r.data)).catch(() => {});
+    setSelZone('');
+    setSelRack('');
+  }, [selWarehouse]);
+
+  useEffect(() => {
+    if (!selZone) { setRacks([]); setSelRack(''); return; }
+    warehouseService.getRacks({ zone: selZone }).then((r) => setRacks(r.data)).catch(() => {});
+    setSelRack('');
+  }, [selZone]);
+
   const handleUpdateStock = async () => {
     setUpdatingStock(true);
     try {
-      await inspectionService.updateStock(shipment.id);
+      await inspectionService.updateStock(shipment.id, selRack || undefined);
       onStockUpdated();
     } catch {
       show('Failed to update stock.', true);
@@ -315,12 +342,59 @@ function InspectionLedger({
     <>
       {stockDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-sm rounded-xl border bg-background p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-semibold">Update product stock?</h3>
+          <div className="w-full max-w-md rounded-xl border bg-background p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-semibold">Update product stock?</h3>
             <p className="mb-4 text-sm text-muted-foreground">
-              Add <span className="font-semibold">{report.accepted_quantity.toLocaleString()} units</span> to{' '}
-              <span className="font-semibold">{shipment.product_name}</span>?
+              Add <span className="font-semibold">{report.accepted_quantity.toLocaleString()} units</span> of{' '}
+              <span className="font-semibold">{shipment.product_name}</span> to inventory.
             </p>
+
+            {/* Rack assignment (optional) */}
+            <div className="mb-4 rounded-lg border bg-muted/30 p-4 space-y-3">
+              <p className="text-sm font-medium">Assign to rack <span className="font-normal text-muted-foreground">(optional)</span></p>
+              <div>
+                <label className="text-xs text-muted-foreground">Warehouse</label>
+                <select
+                  value={selWarehouse}
+                  onChange={(e) => setSelWarehouse(e.target.value)}
+                  className="mt-0.5 w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">No rack (direct stock update)</option>
+                  {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+              {selWarehouse && (
+                <div>
+                  <label className="text-xs text-muted-foreground">Zone</label>
+                  <select
+                    value={selZone}
+                    onChange={(e) => setSelZone(e.target.value)}
+                    className="mt-0.5 w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select zone…</option>
+                    {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {selZone && (
+                <div>
+                  <label className="text-xs text-muted-foreground">Rack</label>
+                  <select
+                    value={selRack}
+                    onChange={(e) => setSelRack(e.target.value)}
+                    className="mt-0.5 w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select rack…</option>
+                    {racks.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.code} — {r.capacity === 0 ? '∞' : `${r.current_stock}/${r.capacity}`} units
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setStockDialog(false)} disabled={updatingStock}>Cancel</Button>
               <Button className="flex-1" onClick={handleUpdateStock} disabled={updatingStock}>
