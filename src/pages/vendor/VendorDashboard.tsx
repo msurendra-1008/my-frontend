@@ -2,15 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock, XCircle, AlertTriangle, FileText, Package,
-  LogOut, Upload, Pencil, Download, Trash2, Loader2, X, Plus,
+  LogOut, Upload, Pencil, Download, Trash2, Loader2, X, Plus, CheckCircle, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { Button } from '@components/ui/Button';
 import { Input } from '@components/ui/Input';
 import { useAuthStore } from '@/store/authStore';
 import { vendorService } from '@/services/vendorService';
 import { productService } from '@/services/productService';
+import { procurementService } from '@/services/procurementService';
 import { AddVendorProductSheet } from '@/components/vendor/AddVendorProductSheet';
 import type { VendorProfile, VendorDocument, VendorProductListItem, VendorProduct, VendorProductStatus } from '@/types/vendor.types';
+import type { ProcurementRequirement, PurchaseOrder, POStatus, RequirementStatus, MonthlyBreakdown, VendorResponseWriteData } from '@/types/procurement.types';
 import type { Category } from '@/types/product.types';
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -20,7 +22,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   docs_requested:{ label: 'Docs Requested', className: 'bg-blue-100 text-blue-800 border-blue-300' },
 };
 
-const TABS = ['My Products', 'Tenders', 'Purchase Orders', 'Chat', 'Profile'] as const;
+const TABS = ['My Products', 'Requirements', 'Purchase Orders', 'Tenders', 'Chat', 'Profile'] as const;
 type Tab = typeof TABS[number];
 
 // ── My Products Tab ───────────────────────────────────────────────────────────
@@ -154,6 +156,403 @@ function MyProductsTab() {
   );
 }
 
+// ── Procurement Helpers ───────────────────────────────────────────────────────
+
+function formatDate(iso: string) {
+  return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(iso));
+}
+
+const REQ_STATUS_CFG: Record<RequirementStatus, { label: string; className: string }> = {
+  draft:            { label: 'Draft',              className: 'bg-gray-100 text-gray-600 border-gray-300' },
+  sent:             { label: 'Awaiting Response',  className: 'bg-blue-100 text-blue-800 border-blue-300' },
+  vendor_responded: { label: 'Response Submitted', className: 'bg-green-100 text-green-800 border-green-300' },
+  negotiating:      { label: 'Revision Requested', className: 'bg-amber-100 text-amber-800 border-amber-300' },
+  po_generated:     { label: 'PO Generated',       className: 'bg-green-100 text-green-800 border-green-300' },
+  cancelled:        { label: 'Cancelled',           className: 'bg-red-100 text-red-800 border-red-300' },
+};
+
+const PO_STATUS_CFG: Record<POStatus, { label: string; className: string }> = {
+  generated:         { label: 'Awaiting Acknowledgement', className: 'bg-blue-100 text-blue-800 border-blue-300' },
+  acknowledged:      { label: 'Acknowledged',             className: 'bg-amber-100 text-amber-800 border-amber-300' },
+  dispatched:        { label: 'Dispatched',                className: 'bg-purple-100 text-purple-800 border-purple-300' },
+  inspection_pending:{ label: 'Inspection Pending',       className: 'bg-orange-100 text-orange-800 border-orange-300' },
+  completed:         { label: 'Completed',                 className: 'bg-green-100 text-green-800 border-green-300' },
+  cancelled:         { label: 'Cancelled',                  className: 'bg-red-100 text-red-800 border-red-300' },
+};
+
+// ── Response Form ─────────────────────────────────────────────────────────────
+
+function VendorResponseForm({
+  req, onDone,
+}: { req: ProcurementRequirement; onDone: () => void }) {
+  const isUpdate = req.vendor_response !== null;
+  const existing = req.vendor_response;
+
+  const [qty, setQty]             = useState(existing?.supply_quantity?.toString() ?? '');
+  const [price, setPrice]         = useState(existing?.price_per_unit ?? '');
+  const [dispatchDate, setDispatch] = useState(existing?.dispatch_date ?? '');
+  const [breakdown, setBreakdown] = useState<MonthlyBreakdown[]>(existing?.monthly_breakdown ?? []);
+  const [notes, setNotes]         = useState(existing?.notes ?? '');
+  const [saving, setSaving]       = useState(false);
+  const [error, setError]         = useState('');
+
+  const addMonth = () => setBreakdown((b) => [...b, { month: '', quantity: 0 }]);
+  const removeMonth = (i: number) => setBreakdown((b) => b.filter((_, j) => j !== i));
+  const updateMonth = (i: number, field: 'month' | 'quantity', val: string) =>
+    setBreakdown((b) => b.map((x, j) => j === i ? { ...x, [field]: field === 'quantity' ? Number(val) : val } : x));
+
+  const allocated = breakdown.reduce((s, b) => s + b.quantity, 0);
+  const totalQty  = Number(qty) || 0;
+
+  const handleSubmit = async () => {
+    setError('');
+    if (!qty || totalQty < 1) { setError('Supply quantity is required.'); return; }
+    if (!price)               { setError('Price per unit is required.'); return; }
+    if (!dispatchDate)        { setError('Dispatch date is required.'); return; }
+    if (breakdown.length > 0 && allocated !== totalQty) {
+      setError(`Monthly breakdown total (${allocated}) must equal supply quantity (${totalQty}).`);
+      return;
+    }
+
+    const data: VendorResponseWriteData = {
+      supply_quantity: totalQty,
+      price_per_unit: price,
+      dispatch_date: dispatchDate,
+      monthly_breakdown: breakdown,
+      notes,
+    };
+
+    setSaving(true);
+    try {
+      if (isUpdate) {
+        await procurementService.updateResponse(req.id, data);
+      } else {
+        await procurementService.submitResponse(req.id, data);
+      }
+      onDone();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: Record<string, unknown> } };
+      const d = e?.response?.data;
+      if (d && typeof d === 'object') {
+        setError(Object.values(d).flat().join(' ') || 'Something went wrong.');
+      } else {
+        setError('Something went wrong.');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-md border bg-muted/30 p-4 space-y-3">
+      <h4 className="text-sm font-semibold">{isUpdate ? 'Update Response' : 'Submit Response'}</h4>
+      {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</div>}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium">Supply Quantity *</label>
+          <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="500" className="text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium">Price / Unit (₹) *</label>
+          <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="480" className="text-sm" />
+        </div>
+        <div className="col-span-2">
+          <label className="mb-1 block text-xs font-medium">Dispatch Date *</label>
+          <Input type="date" value={dispatchDate} onChange={(e) => setDispatch(e.target.value)} className="text-sm" />
+        </div>
+      </div>
+
+      {/* Monthly breakdown */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-medium">Monthly Breakdown</span>
+          <button type="button" onClick={addMonth} className="text-xs font-medium text-primary hover:underline">+ Add Month</button>
+        </div>
+        {breakdown.map((b, i) => (
+          <div key={i} className="mb-2 flex items-center gap-2">
+            <Input
+              type="month"
+              value={b.month}
+              onChange={(e) => updateMonth(i, 'month', e.target.value)}
+              className="flex-1 text-sm"
+            />
+            <Input
+              type="number"
+              value={b.quantity.toString()}
+              onChange={(e) => updateMonth(i, 'quantity', e.target.value)}
+              placeholder="Qty"
+              className="w-24 text-sm"
+            />
+            <button type="button" onClick={() => removeMonth(i)} className="text-destructive hover:text-destructive/70">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        {breakdown.length > 0 && (
+          <p className={`text-xs ${allocated === totalQty ? 'text-green-600' : 'text-amber-600'}`}>
+            {allocated} of {totalQty} qty allocated
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="mb-1 block text-xs font-medium">Notes (optional)</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Button size="sm" onClick={handleSubmit} disabled={saving}>
+          {saving && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+          {isUpdate ? 'Update Response' : 'Submit Response'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Requirements Tab ──────────────────────────────────────────────────────────
+
+function RequirementsTab() {
+  const [requirements, setRequirements] = useState<ProcurementRequirement[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [editingId, setEditingId]       = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await procurementService.getVendorRequirements();
+      setRequirements(res.data.results as unknown as ProcurementRequirement[]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  }
+
+  if (requirements.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-12 text-center text-muted-foreground">
+        <FileText className="mx-auto mb-2 h-10 w-10 opacity-30" />
+        No procurement requirements yet
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {requirements.map((req) => {
+        const cfg       = REQ_STATUS_CFG[req.status];
+        const canRespond = req.status === 'sent' || req.status === 'negotiating';
+        const isEditing  = editingId === req.id;
+
+        return (
+          <div key={req.id} className="rounded-xl border bg-card p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex gap-3">
+                {req.product_image && (
+                  <img src={req.product_image} alt="" className="h-12 w-12 rounded-md border object-cover" />
+                )}
+                <div>
+                  <p className="font-medium">{req.product_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Qty: {req.required_quantity.toLocaleString()} · Due {formatDate(req.required_by_date)}
+                    {req.target_price && ` · Target: ₹${req.target_price}/unit`}
+                  </p>
+                </div>
+              </div>
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.className}`}>
+                {cfg.label}
+              </span>
+            </div>
+
+            {req.notes && <p className="mt-2 text-sm text-muted-foreground">{req.notes}</p>}
+
+            {/* Status banners */}
+            {req.status === 'sent' && (
+              <div className="mt-3 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                Admin is requesting supply — please respond below.
+              </div>
+            )}
+            {req.status === 'negotiating' && req.negotiation_notes && (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <p className="font-medium">Admin has requested revision:</p>
+                <p>{req.negotiation_notes}</p>
+              </div>
+            )}
+            {req.status === 'vendor_responded' && (
+              <div className="mt-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+                <CheckCircle className="inline mr-1 h-4 w-4" />
+                Response submitted — awaiting admin confirmation.
+              </div>
+            )}
+            {req.status === 'po_generated' && (
+              <div className="mt-3 rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+                <CheckCircle className="inline mr-1 h-4 w-4" />
+                PO generated — check Purchase Orders tab.
+              </div>
+            )}
+            {req.status === 'cancelled' && (
+              <div className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                Requirement cancelled.
+              </div>
+            )}
+
+            {/* Response form or view */}
+            {canRespond && (
+              isEditing
+                ? <VendorResponseForm req={req} onDone={() => { setEditingId(null); load(); }} />
+                : (
+                  <Button size="sm" className="mt-3" onClick={() => setEditingId(req.id)}>
+                    {req.vendor_response ? 'Edit Response' : 'Submit Response'}
+                  </Button>
+                )
+            )}
+
+            {/* Submitted response view (not in edit mode) */}
+            {req.status === 'vendor_responded' && req.vendor_response && !isEditing && (
+              <div className="mt-3 rounded-md border bg-muted/30 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Your Response</span>
+                  <button onClick={() => setEditingId(req.id)} className="text-xs text-primary hover:underline">Edit</button>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <span>Qty: {req.vendor_response.supply_quantity.toLocaleString()}</span>
+                  <span>Price: ₹{req.vendor_response.price_per_unit}/unit</span>
+                  <span>Dispatch: {formatDate(req.vendor_response.dispatch_date)}</span>
+                  <span>Updated {req.vendor_response.update_count}× </span>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Purchase Orders Tab (Procurement) ─────────────────────────────────────────
+
+function POsTab() {
+  const [pos, setPos]         = useState<PurchaseOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await procurementService.getVendorPOs();
+      setPos(res.data.results);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleAcknowledge = async (poId: string) => {
+    await procurementService.acknowledgePO(poId);
+    load();
+  };
+
+  const handleDispatch = async (poId: string) => {
+    await procurementService.dispatchPO(poId);
+    load();
+  };
+
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+  }
+
+  if (pos.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-12 text-center text-muted-foreground">
+        <FileText className="mx-auto mb-2 h-10 w-10 opacity-30" />
+        No purchase orders yet
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {pos.map((po) => {
+        const cfg        = PO_STATUS_CFG[po.status];
+        const isExpanded = expandedId === po.id;
+
+        return (
+          <div key={po.id} className="rounded-xl border bg-card p-5">
+            <div className="flex items-start justify-between">
+              <div className="flex gap-3">
+                {po.product_image && (
+                  <img src={po.product_image} alt="" className="h-12 w-12 rounded-md border object-cover" />
+                )}
+                <div>
+                  <p className="font-mono font-semibold text-sm">{po.po_number}</p>
+                  <p className="font-medium">{po.product_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {po.quantity.toLocaleString()} units · ₹{po.price_per_unit}/unit · Total: ₹{Number(po.total_amount).toLocaleString('en-IN')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Dispatch by {formatDate(po.dispatch_date)}</p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cfg.className}`}>
+                  {cfg.label}
+                </span>
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : po.id)}
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                >
+                  Monthly Breakdown {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+              </div>
+            </div>
+
+            {isExpanded && po.monthly_breakdown.length > 0 && (
+              <div className="mt-3 overflow-x-auto rounded-md border text-xs">
+                <table className="w-full">
+                  <thead><tr className="border-b bg-muted/50"><th className="px-3 py-2 text-left">Month</th><th className="px-3 py-2 text-right">Quantity</th></tr></thead>
+                  <tbody className="divide-y">
+                    {po.monthly_breakdown.map((b) => (
+                      <tr key={b.month}><td className="px-3 py-2">{b.month}</td><td className="px-3 py-2 text-right">{b.quantity.toLocaleString()}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-3 flex gap-2">
+              {po.status === 'generated' && (
+                <Button size="sm" onClick={() => handleAcknowledge(po.id)}>
+                  <CheckCircle className="mr-1 h-4 w-4" /> Acknowledge PO
+                </Button>
+              )}
+              {po.status === 'acknowledged' && (
+                <Button size="sm" onClick={() => handleDispatch(po.id)}>
+                  Mark as Dispatched
+                </Button>
+              )}
+              {po.status === 'dispatched' && (
+                <span className="inline-flex items-center gap-1 text-sm text-green-700">
+                  <CheckCircle className="h-4 w-4" /> Dispatched — awaiting inspection
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Stub Tables ───────────────────────────────────────────────────────────────
 
 function TendersTab() {
@@ -176,34 +575,6 @@ function TendersTab() {
               <td colSpan={6} className="py-12 text-center text-muted-foreground">
                 <Clock className="mx-auto mb-2 h-10 w-10 opacity-30" />
                 No tenders assigned yet
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function POsTab() {
-  return (
-    <div className="rounded-xl border bg-card p-6">
-      <div className="mb-4 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-muted-foreground">
-              <th className="pb-3 pr-4">PO Number</th>
-              <th className="pb-3 pr-4">Product</th>
-              <th className="pb-3 pr-4">Qty</th>
-              <th className="pb-3 pr-4">Delivery Schedule</th>
-              <th className="pb-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan={5} className="py-12 text-center text-muted-foreground">
-                <FileText className="mx-auto mb-2 h-10 w-10 opacity-30" />
-                No purchase orders yet
               </td>
             </tr>
           </tbody>
@@ -605,11 +976,12 @@ export function VendorDashboard() {
             ))}
           </div>
 
-          {activeTab === 'My Products'       && <MyProductsTab />}
-          {activeTab === 'Tenders'          && <TendersTab />}
-          {activeTab === 'Purchase Orders'  && <POsTab />}
-          {activeTab === 'Chat'             && <ChatTab />}
-          {activeTab === 'Profile'          && (
+          {activeTab === 'My Products'     && <MyProductsTab />}
+          {activeTab === 'Requirements'    && <RequirementsTab />}
+          {activeTab === 'Purchase Orders' && <POsTab />}
+          {activeTab === 'Tenders'         && <TendersTab />}
+          {activeTab === 'Chat'            && <ChatTab />}
+          {activeTab === 'Profile'         && (
             <ProfileTab profile={profile} onRefresh={fetchProfile} />
           )}
         </main>

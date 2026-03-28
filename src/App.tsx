@@ -24,6 +24,7 @@ import { AdminOrdersPage }    from '@/pages/dashboard/admin/OrdersPage';
 import { AdminReturnsPage }   from '@/pages/dashboard/admin/ReturnsPage';
 import { AdminVendorsPage }        from '@/pages/dashboard/admin/VendorsPage';
 import { AdminVendorProductsPage } from '@/pages/dashboard/admin/VendorProductsPage';
+import { AdminProcurementPage }    from '@/pages/dashboard/admin/ProcurementPage';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -132,6 +133,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <AdminVendorProductsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/procurement"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <AdminProcurementPage />
           </ProtectedRoute>
         }
       />
