@@ -242,7 +242,7 @@ export function AdminInspectionPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
-                      <th className="pb-3 pl-5 pr-4 pt-4 w-10"></th>
+                      <th className="pb-3 pl-5 pr-4 pt-4" style={{ width: '64px' }}></th>
                       <th className="pb-3 pr-4 pt-4">PO Number</th>
                       <th className="pb-3 pr-4 pt-4">Vendor</th>
                       <th className="pb-3 pr-4 pt-4">Product</th>
@@ -255,14 +255,25 @@ export function AdminInspectionPage() {
                   <tbody className="divide-y">
                     {shipments.map((s) => (
                       <tr key={s.id} className="hover:bg-muted/40">
-                        <td className="py-3 pl-5 pr-4">
-                          {s.product_image_url ? (
-                            <img src={s.product_image_url} alt="" className="h-10 w-10 rounded border object-cover" />
-                          ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
-                              <Package className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                          )}
+                        <td className="py-3 pl-5 pr-4" style={{ width: '64px' }}>
+                          <div
+                            className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0"
+                            style={{ minWidth: '48px', minHeight: '48px' }}
+                          >
+                            {s.product_image_url ? (
+                              <img
+                                src={s.product_image_url}
+                                alt=""
+                                className="w-full h-full"
+                                style={{ objectFit: 'cover', display: 'block' }}
+                                onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <Package className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 pr-4 font-mono font-semibold">{s.po_number}</td>
                         <td className="py-3 pr-4">{s.vendor_company}</td>

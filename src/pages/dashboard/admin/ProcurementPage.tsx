@@ -535,8 +535,25 @@ function RequirementsTab() {
                   </td></tr>
                 ) : items.map((r) => (
                   <tr key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedId(r.id)}>
-                    <td className="px-4 py-3">
-                      {r.product_image ? <img src={r.product_image} alt="" className="h-10 w-10 rounded object-cover" /> : <div className="h-10 w-10 rounded bg-muted flex items-center justify-center"><Package className="h-5 w-5 text-muted-foreground" /></div>}
+                    <td className="px-4 py-3" style={{ width: '64px' }}>
+                      <div
+                        className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0"
+                        style={{ minWidth: '48px', minHeight: '48px' }}
+                      >
+                        {r.product_image ? (
+                          <img
+                            src={r.product_image}
+                            alt=""
+                            className="w-full h-full"
+                            style={{ objectFit: 'cover', display: 'block' }}
+                            onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-medium">{r.product_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.vendor_company}</td>
