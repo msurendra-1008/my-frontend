@@ -27,7 +27,16 @@ export interface Rack {
   capacity: number;
   is_active: boolean;
   current_stock: number;
+  capacity_percentage: number | null;
   created_at: string;
+}
+
+export interface ProductVariantLite {
+  id: string;
+  name: string;
+  sku: string;
+  product_name: string;
+  stock_quantity: number;
 }
 
 export interface RackStock {

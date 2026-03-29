@@ -3,6 +3,7 @@ import { Menu, Warehouse as WarehouseIcon, MapPin, Layers } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { FilterToolbar } from '@/components/admin/FilterToolbar';
 import { Button } from '@components/ui/Button';
+import { CapacityBar } from '@/components/warehouse/CapacityBar';
 import { warehouseService } from '@/services/warehouseService';
 import { cn } from '@utils/cn';
 import type { Warehouse, Zone, Rack } from '@/types/warehouse.types';
@@ -469,7 +470,6 @@ function RacksTab({ warehouses }: { warehouses: Warehouse[] }) {
                   <th className="pb-3 pr-4 pt-4">Zone</th>
                   <th className="pb-3 pr-4 pt-4">Warehouse</th>
                   <th className="pb-3 pr-4 pt-4">Capacity</th>
-                  <th className="pb-3 pr-4 pt-4">Current Stock</th>
                   <th className="pb-3 pr-4 pt-4">Status</th>
                 </tr>
               </thead>
@@ -479,11 +479,8 @@ function RacksTab({ warehouses }: { warehouses: Warehouse[] }) {
                     <td className="py-3 pl-5 pr-4 font-mono font-semibold">{r.code}</td>
                     <td className="py-3 pr-4">{r.zone_name}</td>
                     <td className="py-3 pr-4 text-muted-foreground">{r.warehouse_name}</td>
-                    <td className="py-3 pr-4">{r.capacity === 0 ? '∞' : r.capacity.toLocaleString()}</td>
                     <td className="py-3 pr-4">
-                      <span className={cn('font-medium', r.capacity > 0 && r.current_stock > r.capacity ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
-                        {r.current_stock.toLocaleString()}
-                      </span>
+                      <CapacityBar current={r.current_stock} max={r.capacity} />
                     </td>
                     <td className="py-3 pr-4">
                       <span className={cn('rounded-full border px-2 py-0.5 text-xs font-medium', r.is_active ? 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-400/40' : 'bg-muted/50 text-muted-foreground border-muted')}>

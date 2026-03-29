@@ -1,5 +1,5 @@
 import axiosInstance from '@/utils/axiosInstance';
-import type { Warehouse, Zone, Rack, RackStock, StockMovement, StockTransfer } from '@/types/warehouse.types';
+import type { Warehouse, Zone, Rack, RackStock, StockMovement, StockTransfer, ProductVariantLite } from '@/types/warehouse.types';
 
 const BASE = '/api/v1/warehouse';
 
@@ -50,8 +50,8 @@ export const warehouseService = {
   assignStock: (data: { rack: string; variant: string; quantity: number; reference?: string; notes?: string }) =>
     axiosInstance.post<{ rack_stock: RackStock; capacity_warning: boolean }>(`${BASE}/stock/assign/`, data),
 
-  adjustStock: (data: { rack: string; variant: string; new_quantity: number; notes?: string }) =>
-    axiosInstance.post<RackStock>(`${BASE}/stock/adjust/`, data),
+  manualAdjust: (data: { rack: string; variant: string; adjustment_type: 'add' | 'remove'; quantity: number; reason: string }) =>
+    axiosInstance.post<{ rack_stock: RackStock; variant_stock_quantity: number }>(`${BASE}/stock/adjust/`, data),
 
   transferStock: (data: { from_rack: string; to_rack: string; variant: string; quantity: number; notes?: string }) =>
     axiosInstance.post<{ transfer: StockTransfer; capacity_warning: boolean }>(`${BASE}/stock/transfer/`, data),
@@ -63,4 +63,7 @@ export const warehouseService = {
 
   getTransfers: () =>
     axiosInstance.get<Paginated<StockTransfer>>(`${BASE}/stock/transfers/`),
+
+  searchVariants: (search: string) =>
+    axiosInstance.get<ProductVariantLite[]>(`${BASE}/stock/variants/${search ? '?search=' + encodeURIComponent(search) : ''}`),
 };

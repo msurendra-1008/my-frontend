@@ -1,10 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Menu, Package, ArrowRightLeft } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Menu, Package, ArrowRightLeft, Plus, Pencil } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { FilterToolbar } from '@/components/admin/FilterToolbar';
+import { Button } from '@components/ui/Button';
+import { CapacityBar } from '@/components/warehouse/CapacityBar';
 import { warehouseService } from '@/services/warehouseService';
 import { cn } from '@utils/cn';
-import type { RackStock, StockMovement, StockTransfer, MovementType, Warehouse } from '@/types/warehouse.types';
+import type {
+  RackStock, StockMovement, StockTransfer,
+  MovementType, Warehouse, Zone, Rack, ProductVariantLite,
+} from '@/types/warehouse.types';
 import { MOVEMENT_TYPE_LABELS } from '@/types/warehouse.types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -22,13 +27,477 @@ const MOVEMENT_COLORS: Record<MovementType, string> = {
   return_in:    'bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-400/40',
 };
 
+function useToast() {
+  const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null);
+  const show = (text: string, err = false) => {
+    setMsg({ text, err });
+    setTimeout(() => setMsg(null), 3500);
+  };
+  return { msg, show };
+}
+
+// ── Right-side Sheet (drawer) ─────────────────────────────────────────────────
+
+function Sheet({ open, onClose, title, children }: {
+  open: boolean; onClose: () => void; title: string; children: React.ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/40" onClick={onClose} />
+      <div className="w-full max-w-md bg-background border-l shadow-2xl flex flex-col">
+        <div className="flex items-center justify-between border-b px-5 py-4">
+          <h2 className="font-semibold text-base">{title}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Confirm Dialog ────────────────────────────────────────────────────────────
+
+function ConfirmDialog({ message, onConfirm, onCancel, saving }: {
+  message: React.ReactNode; onConfirm: () => void; onCancel: () => void; saving: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-sm rounded-xl border bg-background p-6 shadow-xl">
+        <h3 className="mb-3 font-semibold">Confirm adjustment</h3>
+        <div className="mb-5 text-sm text-muted-foreground">{message}</div>
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onCancel} disabled={saving}>Cancel</Button>
+          <Button className="flex-1" onClick={onConfirm} disabled={saving}>
+            {saving ? 'Applying…' : 'Apply'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Adjust Sheet (existing rack stock entry) ──────────────────────────────────
+
+function AdjustSheet({ item, onClose, onSuccess }: {
+  item: RackStock | null; onClose: () => void; onSuccess: () => void;
+}) {
+  const [adjType, setAdjType]   = useState<'add' | 'remove'>('add');
+  const [qty, setQty]           = useState('');
+  const [reason, setReason]     = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState('');
+  const { msg, show } = useToast();
+
+  // Reset form when item changes
+  useEffect(() => {
+    setAdjType('add');
+    setQty('');
+    setReason('');
+    setError('');
+    setConfirming(false);
+  }, [item?.id]);
+
+  if (!item) return null;
+
+  const qtyNum    = parseInt(qty) || 0;
+  const newQty    = adjType === 'add' ? item.quantity + qtyNum : item.quantity - qtyNum;
+  const canSubmit = qtyNum > 0 && reason.trim().length >= 10 && newQty >= 0;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    if (adjType === 'remove' && qtyNum > item.quantity) {
+      setError(`Cannot remove more than current stock (${item.quantity} units).`);
+      return;
+    }
+    setError('');
+    setConfirming(true);
+  };
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    try {
+      await warehouseService.manualAdjust({
+        rack: item.rack,
+        variant: item.variant,
+        adjustment_type: adjType,
+        quantity: qtyNum,
+        reason: reason.trim(),
+      });
+      show('Stock adjusted successfully.');
+      setTimeout(() => { onSuccess(); onClose(); }, 800);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      setError(err?.response?.data?.detail ?? 'Adjustment failed.');
+      setConfirming(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Sheet open title="Manual Stock Adjustment" onClose={onClose}>
+      {confirming && (
+        <ConfirmDialog
+          message={
+            <span>
+              {adjType === 'add' ? 'Add' : 'Remove'}{' '}
+              <strong>{qtyNum.toLocaleString()} units</strong>{' '}
+              {adjType === 'add' ? 'to' : 'from'} rack{' '}
+              <strong>{item.rack_code}</strong>?<br />
+              New total: <strong>{newQty.toLocaleString()} units</strong>
+            </span>
+          }
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirming(false)}
+          saving={saving}
+        />
+      )}
+
+      {msg && (
+        <div className={cn('mb-4 rounded-md px-3 py-2 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-700 dark:text-green-400')}>
+          {msg.text}
+        </div>
+      )}
+
+      {/* Read-only info */}
+      <div className="mb-5 rounded-lg border bg-muted/30 p-4 text-sm space-y-1.5">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Product</span>
+          <span className="font-medium text-right max-w-[60%]">{item.product_name} — {item.variant_name}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Location</span>
+          <span className="font-mono text-xs">{item.warehouse_name} / {item.zone_name} / {item.rack_code}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Current qty</span>
+          <span className="font-semibold">{item.quantity.toLocaleString()} units</span>
+        </div>
+      </div>
+
+      {/* Adjustment type */}
+      <div className="mb-4">
+        <p className="mb-2 text-sm font-medium">Adjustment type</p>
+        <div className="flex gap-4">
+          {(['add', 'remove'] as const).map((t) => (
+            <label key={t} className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="adjType"
+                value={t}
+                checked={adjType === t}
+                onChange={() => { setAdjType(t); setQty(''); setError(''); }}
+                className="accent-primary"
+              />
+              <span className={adjType === t ? 'font-medium' : 'text-muted-foreground'}>
+                {t === 'add' ? 'Add stock' : 'Remove stock'}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Quantity */}
+      <div className="mb-4">
+        <label className="mb-1.5 block text-sm font-medium">Quantity *</label>
+        <input
+          type="number"
+          min={1}
+          max={adjType === 'remove' ? item.quantity : undefined}
+          value={qty}
+          onChange={(e) => { setQty(e.target.value); setError(''); }}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          placeholder="e.g. 50"
+        />
+        {qtyNum > 0 && (
+          <p className={cn('mt-1 text-xs', newQty < 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}>
+            New qty will be:{' '}
+            <span className="font-semibold">{Math.max(newQty, 0).toLocaleString()} units</span>
+          </p>
+        )}
+      </div>
+
+      {/* Reason */}
+      <div className="mb-5">
+        <label className="mb-1.5 block text-sm font-medium">Reason *</label>
+        <textarea
+          rows={3}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          placeholder="e.g. Opening stock entry, damaged goods write-off, inventory correction…"
+        />
+        {reason.length > 0 && reason.trim().length < 10 && (
+          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Min 10 characters required.</p>
+        )}
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full">
+        Apply adjustment
+      </Button>
+    </Sheet>
+  );
+}
+
+// ── Add Stock Sheet (no existing entry — new rack/variant combination) ─────────
+
+function AddStockSheet({ open, onClose, onSuccess }: {
+  open: boolean; onClose: () => void; onSuccess: () => void;
+}) {
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [zones, setZones]           = useState<Zone[]>([]);
+  const [racks, setRacks]           = useState<Rack[]>([]);
+  const [selWarehouse, setSelWarehouse] = useState('');
+  const [selZone, setSelZone]           = useState('');
+  const [selRack, setSelRack]           = useState('');
+
+  const [variantSearch, setVariantSearch] = useState('');
+  const [variantResults, setVariantResults] = useState<ProductVariantLite[]>([]);
+  const [selVariant, setSelVariant]       = useState<ProductVariantLite | null>(null);
+
+  const [qty, setQty]       = useState('');
+  const [reason, setReason] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { msg, show } = useToast();
+
+  // Load warehouses once
+  useEffect(() => {
+    if (!open) return;
+    warehouseService.getWarehouses().then((r) => setWarehouses(r.data.results ?? [])).catch(() => {});
+  }, [open]);
+
+  // Cascading zone load
+  useEffect(() => {
+    if (!selWarehouse) { setZones([]); setSelZone(''); return; }
+    warehouseService.getZones({ warehouse: selWarehouse }).then((r) => setZones(r.data.results ?? [])).catch(() => {});
+    setSelZone('');
+    setSelRack('');
+  }, [selWarehouse]);
+
+  // Cascading rack load
+  useEffect(() => {
+    if (!selZone) { setRacks([]); setSelRack(''); return; }
+    warehouseService.getRacks({ zone: selZone }).then((r) => setRacks(r.data.results ?? [])).catch(() => {});
+    setSelRack('');
+  }, [selZone]);
+
+  // Variant search with debounce
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!variantSearch.trim()) { setVariantResults([]); return; }
+    searchTimer.current = setTimeout(() => {
+      warehouseService.searchVariants(variantSearch).then((r) => setVariantResults(r.data)).catch(() => {});
+    }, 300);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+  }, [variantSearch]);
+
+  const selectedRack = racks.find((r) => r.id === selRack) ?? null;
+  const qtyNum       = parseInt(qty) || 0;
+  const canSubmit    = selRack && selVariant && qtyNum > 0 && reason.trim().length >= 10;
+
+  const handleConfirm = async () => {
+    if (!selVariant) return;
+    setSaving(true);
+    try {
+      await warehouseService.manualAdjust({
+        rack: selRack,
+        variant: selVariant.id,
+        adjustment_type: 'add',
+        quantity: qtyNum,
+        reason: reason.trim(),
+      });
+      show('Stock added successfully.');
+      setTimeout(() => { onSuccess(); onClose(); }, 800);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { detail?: string } } };
+      setError(err?.response?.data?.detail ?? 'Failed to add stock.');
+      setConfirming(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Sheet open={open} title="Add Stock to Rack" onClose={onClose}>
+      {confirming && selVariant && (
+        <ConfirmDialog
+          message={
+            <span>
+              Add <strong>{qtyNum.toLocaleString()} units</strong> of{' '}
+              <strong>{selVariant.product_name} — {selVariant.name}</strong>{' '}
+              to rack <strong>{selectedRack?.code}</strong>?
+            </span>
+          }
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirming(false)}
+          saving={saving}
+        />
+      )}
+
+      {msg && (
+        <div className={cn('mb-4 rounded-md px-3 py-2 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-700 dark:text-green-400')}>
+          {msg.text}
+        </div>
+      )}
+
+      {/* Cascading location selects */}
+      <div className="mb-5 space-y-3">
+        <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide text-xs">Location</p>
+        <div>
+          <label className="text-sm font-medium">Warehouse *</label>
+          <select
+            value={selWarehouse}
+            onChange={(e) => setSelWarehouse(e.target.value)}
+            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Select warehouse…</option>
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </div>
+        {selWarehouse && (
+          <div>
+            <label className="text-sm font-medium">Zone *</label>
+            <select
+              value={selZone}
+              onChange={(e) => setSelZone(e.target.value)}
+              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Select zone…</option>
+              {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+            </select>
+          </div>
+        )}
+        {selZone && (
+          <div>
+            <label className="text-sm font-medium">Rack *</label>
+            <select
+              value={selRack}
+              onChange={(e) => setSelRack(e.target.value)}
+              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Select rack…</option>
+              {racks.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.code} — {r.capacity === 0 ? '∞' : `${r.current_stock}/${r.capacity}`} units
+                </option>
+              ))}
+            </select>
+            {selectedRack && (
+              <div className="mt-2">
+                <CapacityBar current={selectedRack.current_stock} max={selectedRack.capacity} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Variant search */}
+      <div className="mb-5">
+        <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Product / Variant</p>
+        {selVariant ? (
+          <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+            <div className="text-sm">
+              <p className="font-medium">{selVariant.product_name}</p>
+              <p className="text-xs text-muted-foreground">{selVariant.name} · {selVariant.sku}</p>
+            </div>
+            <button
+              onClick={() => { setSelVariant(null); setVariantSearch(''); }}
+              className="text-xs text-muted-foreground hover:text-foreground ml-2"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <div className="relative">
+            <input
+              value={variantSearch}
+              onChange={(e) => setVariantSearch(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Search by product name or SKU…"
+            />
+            {variantResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border bg-background shadow-lg">
+                {variantResults.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => { setSelVariant(v); setVariantSearch(''); setVariantResults([]); }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted/60 flex justify-between"
+                  >
+                    <span>
+                      <span className="font-medium">{v.product_name}</span>
+                      <span className="text-muted-foreground"> — {v.name}</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono ml-2">{v.sku}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Quantity */}
+      <div className="mb-4">
+        <label className="mb-1.5 block text-sm font-medium">Quantity *</label>
+        <input
+          type="number"
+          min={1}
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          placeholder="e.g. 100"
+        />
+      </div>
+
+      {/* Reason */}
+      <div className="mb-5">
+        <label className="mb-1.5 block text-sm font-medium">Reason *</label>
+        <textarea
+          rows={3}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          placeholder="e.g. Opening stock entry, inventory correction…"
+        />
+        {reason.length > 0 && reason.trim().length < 10 && (
+          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">Min 10 characters required.</p>
+        )}
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      <Button onClick={() => setConfirming(true)} disabled={!canSubmit} className="w-full">
+        Add stock
+      </Button>
+    </Sheet>
+  );
+}
+
 // ── Tab: Stock Levels ─────────────────────────────────────────────────────────
 
 function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
-  const [items, setItems] = useState<RackStock[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems]         = useState<RackStock[]>([]);
+  const [loading, setLoading]     = useState(true);
   const [warehouseFilter, setWarehouseFilter] = useState('');
-  const [search, setSearch] = useState('');
+  const [search, setSearch]       = useState('');
+  const [adjustItem, setAdjustItem] = useState<RackStock | null>(null);
+  const [showAddSheet, setShowAddSheet] = useState(false);
+  const { msg } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +516,15 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
 
   return (
     <div>
+      {msg && (
+        <div className={cn('mb-4 rounded-md px-4 py-3 text-sm', msg.err ? 'bg-destructive/10 text-destructive' : 'bg-green-500/10 text-green-700 dark:text-green-400')}>
+          {msg.text}
+        </div>
+      )}
+
+      <AdjustSheet item={adjustItem} onClose={() => setAdjustItem(null)} onSuccess={load} />
+      <AddStockSheet open={showAddSheet} onClose={() => setShowAddSheet(false)} onSuccess={load} />
+
       <div className="mb-4">
         <FilterToolbar
           searchValue={search}
@@ -62,6 +540,11 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
             },
           ]}
           resultCount={{ showing: items.length, total: items.length, label: 'entries' }}
+          actions={
+            <Button size="sm" onClick={() => setShowAddSheet(true)}>
+              <Plus className="mr-1 h-3.5 w-3.5" />Add stock to rack
+            </Button>
+          }
         />
       </div>
 
@@ -84,10 +567,10 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
                   <th className="pb-3 pr-4 pt-4">Product</th>
                   <th className="pb-3 pr-4 pt-4">SKU</th>
                   <th className="pb-3 pr-4 pt-4">Rack</th>
-                  <th className="pb-3 pr-4 pt-4">Zone</th>
                   <th className="pb-3 pr-4 pt-4">Warehouse</th>
                   <th className="pb-3 pr-4 pt-4">Quantity</th>
                   <th className="pb-3 pr-4 pt-4">Last Updated</th>
+                  <th className="pb-3 pr-4 pt-4"></th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -96,13 +579,9 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
                     <td className="py-3 pl-5 pr-4" style={{ width: '64px' }}>
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0" style={{ minWidth: '48px', minHeight: '48px' }}>
                         {s.product_image ? (
-                          <img
-                            src={s.product_image}
-                            alt=""
-                            className="w-full h-full"
+                          <img src={s.product_image} alt="" className="w-full h-full"
                             style={{ objectFit: 'cover', display: 'block' }}
-                            onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }}
-                          />
+                            onError={(e) => { e.currentTarget.src = ''; e.currentTarget.style.display = 'none'; }} />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
                             <Package className="h-5 w-5 text-muted-foreground" />
@@ -115,11 +594,23 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
                       <p className="text-muted-foreground text-xs">{s.variant_name}</p>
                     </td>
                     <td className="py-3 pr-4 font-mono text-xs text-muted-foreground">{s.sku}</td>
-                    <td className="py-3 pr-4 font-mono font-semibold">{s.rack_code}</td>
-                    <td className="py-3 pr-4 text-muted-foreground">{s.zone_name}</td>
-                    <td className="py-3 pr-4 text-muted-foreground">{s.warehouse_name}</td>
+                    <td className="py-3 pr-4">
+                      <p className="font-mono font-semibold">{s.rack_code}</p>
+                      <p className="text-xs text-muted-foreground">{s.zone_name}</p>
+                    </td>
+                    <td className="py-3 pr-4 text-muted-foreground text-sm">{s.warehouse_name}</td>
                     <td className="py-3 pr-4 font-semibold">{s.quantity.toLocaleString()}</td>
                     <td className="py-3 pr-4 text-muted-foreground text-xs">{formatDate(s.last_updated)}</td>
+                    <td className="py-3 pr-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setAdjustItem(s)}
+                        className="h-7 px-2 text-xs"
+                      >
+                        <Pencil className="mr-1 h-3 w-3" />Adjust
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -134,7 +625,7 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
 // ── Tab: Movements ────────────────────────────────────────────────────────────
 
 function MovementsTab({ warehouses }: { warehouses: Warehouse[] }) {
-  const [items, setItems] = useState<StockMovement[]>([]);
+  const [items, setItems]   = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -348,7 +839,6 @@ export function AdminStockPage() {
             <p className="text-muted-foreground text-sm">View stock levels, movements, and transfers across all warehouses.</p>
           </div>
 
-          {/* Tabs */}
           <div className="mb-6 flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
             {TABS.map((t) => (
               <button
@@ -364,9 +854,9 @@ export function AdminStockPage() {
             ))}
           </div>
 
-          {tab === 'Stock Levels'  && <StockLevelsTab warehouses={warehouses} />}
-          {tab === 'Movements'     && <MovementsTab warehouses={warehouses} />}
-          {tab === 'Transfers'     && <TransfersTab />}
+          {tab === 'Stock Levels' && <StockLevelsTab warehouses={warehouses} />}
+          {tab === 'Movements'    && <MovementsTab warehouses={warehouses} />}
+          {tab === 'Transfers'    && <TransfersTab />}
         </main>
       </div>
     </div>
