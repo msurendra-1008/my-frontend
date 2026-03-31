@@ -127,10 +127,13 @@ function AdjustSheet({ item, onClose, onSuccess }: {
       });
       show('Stock adjusted successfully.');
       setTimeout(() => { onSuccess(); onClose(); }, 800);
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } } };
-      setError(err?.response?.data?.detail ?? 'Adjustment failed.');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string; detail?: string } } };
+      const msg = e?.response?.data?.error || e?.response?.data?.detail || 'Something went wrong';
+      show(msg, true);
+      setError(msg);
       setConfirming(false);
+      console.log('DONE: capacity error toast');
     } finally {
       setSaving(false);
     }
@@ -319,10 +322,13 @@ function AddStockSheet({ open, onClose, onSuccess }: {
       });
       show('Stock added successfully.');
       setTimeout(() => { onSuccess(); onClose(); }, 800);
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { detail?: string } } };
-      setError(err?.response?.data?.detail ?? 'Failed to add stock.');
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string; detail?: string } } };
+      const msg = e?.response?.data?.error || e?.response?.data?.detail || 'Something went wrong';
+      show(msg, true);
+      setError(msg);
       setConfirming(false);
+      console.log('DONE: capacity error toast');
     } finally {
       setSaving(false);
     }
