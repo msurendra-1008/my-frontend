@@ -274,10 +274,17 @@ function AddStockSheet({ open, onClose, onSuccess }: {
   const searchTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warehouseRef   = useRef<HTMLDivElement>(null);
   const zoneRef        = useRef<HTMLDivElement>(null);
+  const rackRef        = useRef<HTMLDivElement>(null);
+  const variantRef     = useRef<HTMLDivElement>(null);
   const [warehouseOpen, setWarehouseOpen]     = useState(false);
   const [warehouseSearch, setWarehouseSearch] = useState('');
   const [zoneOpen, setZoneOpen]               = useState(false);
   const [zoneSearch, setZoneSearch]           = useState('');
+  const [rackOpen, setRackOpen]               = useState(false);
+  const [rackSearch, setRackSearch]           = useState('');
+  const [variantOpen, setVariantOpen]         = useState(false);
+  const [currentRackQty, setCurrentRackQty]   = useState<number | null>(null);
+  const [totalStock, setTotalStock]           = useState<number | null>(null);
   const { msg, show } = useToast();
 
   // Load warehouses once; reset combobox state on close
@@ -318,12 +325,32 @@ function AddStockSheet({ open, onClose, onSuccess }: {
     setZoneSearch('');
   }, [selWarehouse]);
 
-  // Cascading rack load
+  // Cascading rack load — reset rack combobox when zone changes
   useEffect(() => {
-    if (!selZone) { setRacks([]); setSelRack(''); return; }
+    if (!selZone) { setRacks([]); setSelRack(''); setRackOpen(false); setRackSearch(''); return; }
     warehouseService.getRacks({ zone: selZone }).then((r) => setRacks((r.data as any).results ?? r.data ?? [])).catch(() => {});
     setSelRack('');
+    setRackOpen(false);
+    setRackSearch('');
   }, [selZone]);
+
+  // Click-outside closes rack dropdown
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (rackRef.current && !rackRef.current.contains(e.target as Node)) setRackOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Click-outside closes variant dropdown
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (variantRef.current && !variantRef.current.contains(e.target as Node)) setVariantOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Variant search with debounce
   useEffect(() => {
@@ -334,6 +361,18 @@ function AddStockSheet({ open, onClose, onSuccess }: {
     }, 300);
     return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [variantSearch]);
+
+  // Fetch stock for selected variant — update whenever variant or rack changes
+  useEffect(() => {
+    if (!selVariant) { setCurrentRackQty(null); setTotalStock(null); return; }
+    warehouseService.getStock({ variant: selVariant.id }).then((r) => {
+      const entries: RackStock[] = (r.data as any).results ?? r.data ?? [];
+      const total = entries.reduce((sum, e) => sum + e.quantity, 0);
+      const inRack = entries.find((e) => e.rack === selRack)?.quantity ?? 0;
+      setTotalStock(total);
+      setCurrentRackQty(selRack ? inRack : null);
+    }).catch(() => {});
+  }, [selVariant?.id, selRack]);
 
   const selectedRack = racks.find((r) => r.id === selRack) ?? null;
   const qtyNum       = parseInt(qty) || 0;
@@ -485,33 +524,71 @@ function AddStockSheet({ open, onClose, onSuccess }: {
             );
           })()}
         </div>
-        {selZone && (
-          <div>
-            <label className="text-sm font-medium">Rack *</label>
-            <select
-              value={selRack}
-              onChange={(e) => setSelRack(e.target.value)}
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Select rack…</option>
-              {racks.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.code} — {r.capacity === 0 ? '∞' : `${r.current_stock}/${r.capacity}`} units
-                </option>
-              ))}
-            </select>
-            {selectedRack && (
-              <div className="mt-2">
-                <CapacityBar current={selectedRack.current_stock} max={selectedRack.capacity} />
+        <div>
+          <label className={cn('text-sm font-medium', !selZone && 'text-muted-foreground')}>Rack *</label>
+          {(() => {
+            const selected = racks.find((r) => r.id === selRack) ?? null;
+            const filtered = racks.filter((r) =>
+              !rackSearch.trim() ||
+              r.code.toLowerCase().includes(rackSearch.toLowerCase())
+            );
+            const displayVal = selected
+              ? `${selected.code} — ${selected.capacity === 0 ? '∞' : `${selected.current_stock}/${selected.capacity}`} units`
+              : '';
+            return (
+              <div ref={rackRef} className="relative mt-1">
+                <input
+                  disabled={!selZone}
+                  value={rackOpen ? rackSearch : displayVal}
+                  placeholder={selZone ? 'Search rack…' : 'Select zone first'}
+                  onFocus={() => { if (selZone) { setRackOpen(true); setRackSearch(''); } }}
+                  onChange={(e) => setRackSearch(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                {rackOpen && selZone && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-background shadow-lg max-h-52 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No racks found.</div>
+                    ) : (
+                      filtered.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          className={cn('block w-full px-3 py-2 text-left text-sm hover:bg-muted/60', selRack === r.id && 'bg-muted/40')}
+                          onClick={() => {
+                            setSelRack(r.id);
+                            setRackOpen(false);
+                            setRackSearch('');
+                            console.log('DONE: rack + variant combobox');
+                          }}
+                        >
+                          <div className={cn('font-medium', selRack === r.id && 'text-primary')}>
+                            {r.code} — {r.capacity === 0 ? '∞' : `${r.current_stock}/${r.capacity}`} units
+                          </div>
+                          {r.capacity > 0 && (
+                            <div className="mt-1">
+                              <CapacityBar current={r.current_stock} max={r.capacity} />
+                            </div>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
+            );
+          })()}
+          {selectedRack && !rackOpen && (
+            <div className="mt-2">
+              <CapacityBar current={selectedRack.current_stock} max={selectedRack.capacity} />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Variant search */}
+      {/* Variant combobox */}
       <div className="mb-5">
-        <p className="mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">Product / Variant</p>
+        <label className="mb-1.5 block text-sm font-medium">Product / Variant *</label>
         {selVariant ? (
           <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
             <div className="text-sm">
@@ -519,26 +596,40 @@ function AddStockSheet({ open, onClose, onSuccess }: {
               <p className="text-xs text-muted-foreground">{selVariant.name} · {selVariant.sku}</p>
             </div>
             <button
-              onClick={() => { setSelVariant(null); setVariantSearch(''); }}
+              onClick={() => {
+                setSelVariant(null);
+                setVariantSearch('');
+                setVariantResults([]);
+                setCurrentRackQty(null);
+                setTotalStock(null);
+              }}
               className="text-xs text-muted-foreground hover:text-foreground ml-2"
             >
               Change
             </button>
           </div>
         ) : (
-          <div className="relative">
+          <div ref={variantRef} className="relative">
             <input
               value={variantSearch}
-              onChange={(e) => setVariantSearch(e.target.value)}
+              onFocus={() => setVariantOpen(true)}
+              onChange={(e) => { setVariantSearch(e.target.value); setVariantOpen(true); }}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Search by product name or SKU…"
             />
-            {variantResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border bg-background shadow-lg">
+            {variantOpen && variantResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-md border bg-background shadow-lg">
                 {variantResults.map((v) => (
                   <button
                     key={v.id}
-                    onClick={() => { setSelVariant(v); setVariantSearch(''); setVariantResults([]); }}
+                    type="button"
+                    onClick={() => {
+                      setSelVariant(v);
+                      setVariantSearch('');
+                      setVariantResults([]);
+                      setVariantOpen(false);
+                      console.log('DONE: rack + variant combobox');
+                    }}
                     className="w-full px-3 py-2 text-left text-sm hover:bg-muted/60 flex justify-between"
                   >
                     <span>
@@ -550,6 +641,21 @@ function AddStockSheet({ open, onClose, onSuccess }: {
                 ))}
               </div>
             )}
+            {variantOpen && variantSearch.trim() && variantResults.length === 0 && (
+              <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-background shadow-lg px-3 py-2 text-xs text-muted-foreground">
+                No results for "{variantSearch}"
+              </div>
+            )}
+          </div>
+        )}
+        {selVariant && (
+          <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+            {totalStock !== null && (
+              <p>Total stock: <span className="font-medium text-foreground">{totalStock} units</span></p>
+            )}
+            {totalStock !== null && selRack && (
+              <p>In selected rack: <span className="font-medium text-foreground">{currentRackQty ?? 0} units</span></p>
+            )}
           </div>
         )}
       </div>
@@ -560,11 +666,22 @@ function AddStockSheet({ open, onClose, onSuccess }: {
         <input
           type="number"
           min={1}
+          max={selectedRack && selectedRack.capacity > 0 ? Math.max(0, selectedRack.capacity - selectedRack.current_stock) : undefined}
           value={qty}
           onChange={(e) => setQty(e.target.value)}
           className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           placeholder="e.g. 100"
         />
+        {selRack && selVariant && selectedRack && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Space available:{' '}
+            <span className="font-medium text-foreground">
+              {selectedRack.capacity === 0
+                ? 'No limit'
+                : `${Math.max(0, selectedRack.capacity - selectedRack.current_stock)} units`}
+            </span>
+          </p>
+        )}
       </div>
 
       {/* Reason */}
