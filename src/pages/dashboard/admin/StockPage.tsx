@@ -273,8 +273,11 @@ function AddStockSheet({ open, onClose, onSuccess }: {
   const [error, setError]   = useState('');
   const searchTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warehouseRef   = useRef<HTMLDivElement>(null);
+  const zoneRef        = useRef<HTMLDivElement>(null);
   const [warehouseOpen, setWarehouseOpen]     = useState(false);
   const [warehouseSearch, setWarehouseSearch] = useState('');
+  const [zoneOpen, setZoneOpen]               = useState(false);
+  const [zoneSearch, setZoneSearch]           = useState('');
   const { msg, show } = useToast();
 
   // Load warehouses once; reset combobox state on close
@@ -294,12 +297,25 @@ function AddStockSheet({ open, onClose, onSuccess }: {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Cascading zone load
+  // Click-outside closes zone dropdown
   useEffect(() => {
-    if (!selWarehouse) { setZones([]); setSelZone(''); return; }
+    const handler = (e: MouseEvent) => {
+      if (zoneRef.current && !zoneRef.current.contains(e.target as Node)) {
+        setZoneOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Cascading zone load — reset zone combobox when warehouse changes
+  useEffect(() => {
+    if (!selWarehouse) { setZones([]); setSelZone(''); setZoneOpen(false); setZoneSearch(''); return; }
     warehouseService.getZones({ warehouse: selWarehouse }).then((r) => setZones((r.data as any).results ?? r.data ?? [])).catch(() => {});
     setSelZone('');
     setSelRack('');
+    setZoneOpen(false);
+    setZoneSearch('');
   }, [selWarehouse]);
 
   // Cascading rack load
@@ -422,19 +438,53 @@ function AddStockSheet({ open, onClose, onSuccess }: {
             );
           })()}
         </div>
-        {selWarehouse && (
-          <div>
-            <label className="text-sm font-medium">Zone *</label>
-            <select
-              value={selZone}
-              onChange={(e) => setSelZone(e.target.value)}
-              className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Select zone…</option>
-              {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
-            </select>
-          </div>
-        )}
+        <div>
+          <label className={cn('text-sm font-medium', !selWarehouse && 'text-muted-foreground')}>Zone *</label>
+          {(() => {
+            const selected = zones.find((z) => z.id === selZone) ?? null;
+            const filtered = zones.filter((z) =>
+              !zoneSearch.trim() ||
+              z.name.toLowerCase().includes(zoneSearch.toLowerCase())
+            );
+            return (
+              <div ref={zoneRef} className="relative mt-1">
+                <input
+                  disabled={!selWarehouse}
+                  value={zoneOpen ? zoneSearch : (selected?.name ?? '')}
+                  placeholder={selWarehouse ? 'Search zone…' : 'Select warehouse first'}
+                  onFocus={() => { if (selWarehouse) { setZoneOpen(true); setZoneSearch(''); } }}
+                  onChange={(e) => setZoneSearch(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                {zoneOpen && selWarehouse && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-background shadow-lg max-h-48 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No zones found.</div>
+                    ) : (
+                      filtered.map((z) => (
+                        <button
+                          key={z.id}
+                          type="button"
+                          className={cn('block w-full px-3 py-2 text-left text-sm hover:bg-muted/60', selZone === z.id && 'bg-muted/40 font-medium')}
+                          onClick={() => {
+                            setSelZone(z.id);
+                            setSelRack('');
+                            setRacks([]);
+                            setZoneOpen(false);
+                            setZoneSearch('');
+                            console.log('DONE: zone combobox');
+                          }}
+                        >
+                          {z.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
         {selZone && (
           <div>
             <label className="text-sm font-medium">Rack *</label>
