@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '@utils/cn';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
@@ -7,75 +7,98 @@ import { tokenStorage } from '@/utils/axiosInstance';
 import type { UserRole } from '@/types/auth';
 import type { LucideIcon } from 'lucide-react';
 import {
-  LayoutDashboard, Users, GitBranch, ShoppingCart, BarChart2,
-  Lock, LogOut, X, ChevronLeft, ChevronRight, ChevronDown,
+  LayoutDashboard, Users, UserCheck, Network, Package,
+  ShoppingCart, RotateCcw, Boxes, Warehouse, BarChart3,
+  Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
+  PieChart, Lock, LogOut, X, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 /* ── Types ── */
-interface SubItem {
+interface SectionItem {
   label:        string;
   path:         string;
-  allowedRoles: UserRole[];
-  permission?:  string;
-}
-
-interface NavItem {
-  label:        string;
   icon:         LucideIcon;
   allowedRoles: UserRole[];
-  path?:        string;
-  children?:    SubItem[];
   permission?:  string;
+  soon?:        boolean;
 }
 
-/* ── Menu config ── */
-const MENU: NavItem[] = [
+interface Section {
+  label:  string;
+  title?: string; // full name tooltip for abbreviated labels (IMS, VM, TM)
+  items:  SectionItem[];
+}
+
+/* ── Menu sections ── */
+const SECTIONS: Section[] = [
   {
-    label:        'Dashboard',
-    path:         '/admin/dashboard',
-    icon:         LayoutDashboard,
-    allowedRoles: ['superadmin', 'admin', 'employee'],
-  },
-  {
-    label:        'People',
-    icon:         Users,
-    allowedRoles: ['superadmin', 'admin', 'employee'],
-    children: [
-      { label: 'Employees', path: '/admin/employees', allowedRoles: ['superadmin', 'admin'] },
-      { label: 'UPA Users', path: '/admin/upa-users', allowedRoles: ['superadmin', 'admin', 'employee'] },
+    label: 'Dashboard',
+    items: [
+      { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard, allowedRoles: ['superadmin', 'admin', 'employee'] },
     ],
   },
   {
-    label:        'Network',
-    icon:         GitBranch,
-    allowedRoles: ['superadmin', 'admin'],
-    children: [
-      { label: 'UPA Tree', path: '/admin/upa-tree', allowedRoles: ['superadmin', 'admin'] },
+    label: 'People',
+    items: [
+      { label: 'Employees', path: '/admin/employees', icon: Users,     allowedRoles: ['superadmin', 'admin'] },
+      { label: 'UPA Users', path: '/admin/upa-users', icon: UserCheck, allowedRoles: ['superadmin', 'admin', 'employee'] },
     ],
   },
   {
-    label:        'Commerce',
-    icon:         ShoppingCart,
-    allowedRoles: ['superadmin', 'admin', 'employee'],
-    children: [
-      { label: 'Products',  path: '/admin/products',  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit'  },
-      { label: 'Vendors',          path: '/admin/vendors',          allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'   },
-      { label: 'Vendor Products', path: '/admin/vendor-products',  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'   },
-      { label: 'Procurement',     path: '/admin/procurement',      allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view'      },
-      { label: 'Inspection',      path: '/admin/inspection',       allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inspection.perform' },
-      { label: 'Warehouse',      path: '/admin/warehouse',        allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view'     },
-      { label: 'Stock',          path: '/admin/stock',            allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view'     },
-      { label: 'Tenders',   path: '/admin/tenders',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view'   },
-      { label: 'Inventory', path: '/admin/inventory', allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
-      { label: 'Orders',    path: '/admin/orders',    allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view'    },
-      { label: 'Returns',   path: '/admin/returns',   allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view'    },
+    label: 'Network',
+    items: [
+      { label: 'UPA Tree', path: '/admin/upa-tree', icon: Network, allowedRoles: ['superadmin', 'admin'] },
     ],
   },
   {
-    label:        'Reports',
-    path:         '/admin/reports',
-    icon:         BarChart2,
-    allowedRoles: ['superadmin', 'admin'],
+    label: 'Master',
+    items: [
+      { label: 'Products', path: '/admin/products', icon: Package, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit' },
+    ],
+  },
+  {
+    label: 'Sales',
+    items: [
+      { label: 'Orders',  path: '/admin/orders',  icon: ShoppingCart, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view' },
+      { label: 'Returns', path: '/admin/returns', icon: RotateCcw,    allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view' },
+    ],
+  },
+  {
+    label: 'IMS',
+    title: 'Inventory Management System',
+    items: [
+      { label: 'Inventory', path: '/admin/inventory', icon: Boxes,     allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view', soon: true },
+      { label: 'Warehouse', path: '/admin/warehouse', icon: Warehouse, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
+      { label: 'Stock',     path: '/admin/stock',     icon: BarChart3, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
+    ],
+  },
+  {
+    label: 'VM',
+    title: 'Vendor Management',
+    items: [
+      { label: 'Vendors',         path: '/admin/vendors',         icon: Building2,     allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
+      { label: 'Vendor Products', path: '/admin/vendor-products', icon: PackageSearch, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
+    ],
+  },
+  {
+    label: 'TM',
+    title: 'Tender Management',
+    items: [
+      { label: 'Tender', path: '/admin/tender', icon: FileText, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view', soon: true },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { label: 'Procurement', path: '/admin/procurement', icon: ClipboardList,  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
+      { label: 'Inspection',  path: '/admin/inspection',  icon: ClipboardCheck, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inspection.perform' },
+    ],
+  },
+  {
+    label: 'Reports',
+    items: [
+      { label: 'Reports', path: '/admin/reports', icon: PieChart, allowedRoles: ['superadmin', 'admin'], soon: true },
+    ],
   },
 ];
 
@@ -101,41 +124,15 @@ function Tip({ label, children, collapsed }: { label: string; children: React.Re
 
 export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) {
   const { user, clearAuth } = useAuthStore();
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
 
   const [collapsed, setCollapsed] = useState<boolean>(() =>
     localStorage.getItem('sidebar_collapsed') === 'true',
   );
 
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    const saved = localStorage.getItem('sidebar_open_groups');
-    if (saved) { try { return JSON.parse(saved) as Record<string, boolean>; } catch { /**/ } }
-    return Object.fromEntries(MENU.filter((m) => m.children).map((m) => [m.label, true]));
-  });
-
   useEffect(() => {
     localStorage.setItem('sidebar_collapsed', String(collapsed));
   }, [collapsed]);
-
-  useEffect(() => {
-    localStorage.setItem('sidebar_open_groups', JSON.stringify(openGroups));
-  }, [openGroups]);
-
-  /* auto-open parent group when navigating to a child route */
-  useEffect(() => {
-    MENU.forEach((item) => {
-      if (item.children) {
-        const hasActive = item.children.some((c) => location.pathname.startsWith(c.path));
-        if (hasActive) setOpenGroups((p) => ({ ...p, [item.label]: true }));
-      }
-    });
-  }, [location.pathname]);
-
-  const toggleGroup = (label: string) => {
-    if (collapsed) { setCollapsed(false); return; } // expand sidebar first on click
-    setOpenGroups((p) => ({ ...p, [label]: !p[label] }));
-  };
 
   const canAccess = (item: { allowedRoles: UserRole[]; permission?: string }): boolean => {
     if (!user) return false;
@@ -144,9 +141,6 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
     if (user.role === 'superadmin' || user.role === 'admin') return true;
     return user.permissions?.includes(item.permission) ?? false;
   };
-
-  const isGroupActive = (item: NavItem): boolean =>
-    !!item.children?.some((c) => location.pathname.startsWith(c.path));
 
   const handleLogout = async () => {
     const refresh = tokenStorage.getRefresh();
@@ -168,7 +162,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       )}
 
       <aside className={cn(
-        'fixed left-0 top-0 z-30 flex h-full flex-col overflow-y-auto border-r bg-card transition-all duration-200 ease-in-out lg:static lg:flex-shrink-0',
+        'fixed left-0 top-0 z-30 flex h-full flex-col border-r bg-card transition-all duration-200 ease-in-out lg:static lg:flex-shrink-0',
         collapsed ? 'w-[60px]' : 'w-[220px]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       )}>
@@ -184,8 +178,6 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
               <p className="text-[10px] text-muted-foreground">Admin Portal</p>
             </div>
           )}
-
-          {/* Desktop: collapse/expand toggle */}
           <button
             onClick={() => setCollapsed((c) => !c)}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -193,8 +185,6 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
           >
             {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
           </button>
-
-          {/* Mobile: close button */}
           <button className="flex lg:hidden text-muted-foreground" onClick={onMobileToggle}>
             <X size={18} />
           </button>
@@ -202,130 +192,76 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
 
         {/* ── Nav ── */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-          {MENU.map((item) => {
-            const Icon = item.icon;
+          {SECTIONS.map((section, sIdx) => {
+            const visibleItems = section.items.filter(
+              (item) => canAccess(item) || !canAccess(item), // show all, locked ones styled differently
+            );
+            if (visibleItems.length === 0) return null;
 
-            /* ─ Direct link (no children) ─ */
-            if (item.path && !item.children) {
-              const accessible = canAccess(item);
+            return (
+              <div key={section.label}>
+                {/* Thin divider between sections */}
+                {sIdx > 0 && <div className="mx-3 my-1 border-t border-border/40" />}
 
-              if (!accessible) {
-                return (
-                  <Tip key={item.path} label={item.label} collapsed={collapsed}>
-                    <div className={cn(
-                      'flex w-full cursor-not-allowed items-center gap-3 px-3 py-2 text-sm opacity-35',
-                      collapsed && 'justify-center px-0',
-                    )}>
-                      <Icon size={16} className="shrink-0" />
-                      {!collapsed && <><span className="flex-1">{item.label}</span><Lock size={12} /></>}
-                    </div>
-                  </Tip>
-                );
-              }
-
-              return (
-                <Tip key={item.path} label={item.label} collapsed={collapsed}>
-                  <NavLink
-                    to={item.path}
-                    end={item.path === '/admin/dashboard'}
-                    className={({ isActive }) => cn(
-                      'flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors',
-                      collapsed && 'justify-center px-0',
-                      isActive
-                        ? 'bg-accent text-accent-foreground font-medium'
-                        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                    )}
+                {/* Section label — hidden when collapsed */}
+                {!collapsed && (
+                  <p
+                    title={section.title}
+                    className="px-3 pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/50 select-none"
                   >
-                    <Icon size={16} className="shrink-0" />
-                    {!collapsed && <span>{item.label}</span>}
-                  </NavLink>
-                </Tip>
-              );
-            }
+                    {section.label}
+                  </p>
+                )}
 
-            /* ─ Group with submenus ─ */
-            if (item.children) {
-              const accessibleChildren = item.children.filter(canAccess);
-              const lockedChildren     = item.children.filter((c) => !canAccess(c));
-              if (accessibleChildren.length === 0 && lockedChildren.length === 0) return null;
+                {/* Items */}
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const accessible = canAccess(item);
 
-              const groupActive = isGroupActive(item);
-              const groupOpen   = openGroups[item.label] ?? true;
-
-              return (
-                <div key={item.label}>
-                  {/* Group header button */}
-                  <Tip label={item.label} collapsed={collapsed}>
-                    <button
-                      onClick={() => toggleGroup(item.label)}
-                      className={cn(
-                        'flex w-full items-center gap-3 px-3 py-2 text-sm transition-colors',
-                        collapsed && 'justify-center px-0',
-                        groupActive
-                          ? 'text-foreground font-medium'
-                          : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                      )}
-                    >
-                      {/* Active indicator dot on icon when collapsed */}
-                      <div className="relative shrink-0">
-                        <Icon size={16} />
-                        {collapsed && groupActive && (
-                          <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1 text-left">{item.label}</span>
-                          <ChevronDown
-                            size={13}
-                            className={cn('shrink-0 transition-transform duration-150', groupOpen && 'rotate-180')}
-                          />
-                        </>
-                      )}
-                    </button>
-                  </Tip>
-
-                  {/* Submenu items — hidden when collapsed or group closed */}
-                  {!collapsed && groupOpen && (
-                    <div className="ml-3 border-l border-border/60 pl-3 pb-1">
-                      {accessibleChildren.map((child) => {
-                        const isActive = location.pathname.startsWith(child.path);
-                        return (
-                          <NavLink
-                            key={child.path}
-                            to={child.path}
-                            className={cn(
-                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors',
-                              isActive
-                                ? 'bg-accent text-accent-foreground font-medium'
-                                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                            )}
-                          >
-                            <span className={cn(
-                              'h-1.5 w-1.5 shrink-0 rounded-full transition-colors',
-                              isActive ? 'bg-primary' : 'bg-muted-foreground/40',
-                            )} />
-                            {child.label}
-                          </NavLink>
-                        );
-                      })}
-                      {lockedChildren.map((child) => (
-                        <div
-                          key={child.path}
-                          className="flex w-full cursor-not-allowed items-center gap-2 rounded-md px-2 py-1.5 text-xs opacity-35"
-                        >
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/25" />
-                          <span className="flex-1">{child.label}</span>
-                          <Lock size={10} />
+                  if (!accessible) {
+                    return (
+                      <Tip key={item.path} label={item.label} collapsed={collapsed}>
+                        <div className={cn(
+                          'flex w-full cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2 text-sm opacity-35',
+                          collapsed && 'justify-center px-0',
+                        )}>
+                          <Icon size={15} className="shrink-0" />
+                          {!collapsed && <><span className="flex-1">{item.label}</span><Lock size={11} /></>}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
+                      </Tip>
+                    );
+                  }
 
-            return null;
+                  return (
+                    <Tip key={item.path} label={item.label} collapsed={collapsed}>
+                      <NavLink
+                        to={item.path}
+                        end={item.path === '/admin/dashboard'}
+                        className={({ isActive }) => cn(
+                          'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150',
+                          collapsed && 'justify-center px-0',
+                          isActive
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                        )}
+                      >
+                        <Icon size={15} className="shrink-0" />
+                        {!collapsed && (
+                          <>
+                            <span className="flex-1">{item.label}</span>
+                            {item.soon && (
+                              <span className="ml-auto text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full leading-none">
+                                Soon
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </NavLink>
+                    </Tip>
+                  );
+                })}
+              </div>
+            );
           })}
         </nav>
 
