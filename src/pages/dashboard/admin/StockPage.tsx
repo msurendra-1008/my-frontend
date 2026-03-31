@@ -274,13 +274,13 @@ function AddStockSheet({ open, onClose, onSuccess }: {
   // Load warehouses once
   useEffect(() => {
     if (!open) return;
-    warehouseService.getWarehouses().then((r) => setWarehouses(r.data.results ?? [])).catch(() => {});
+    warehouseService.getWarehouses().then((r) => setWarehouses((r.data as any).results ?? r.data ?? [])).catch(() => {});
   }, [open]);
 
   // Cascading zone load
   useEffect(() => {
     if (!selWarehouse) { setZones([]); setSelZone(''); return; }
-    warehouseService.getZones({ warehouse: selWarehouse }).then((r) => setZones(r.data.results ?? [])).catch(() => {});
+    warehouseService.getZones({ warehouse: selWarehouse }).then((r) => setZones((r.data as any).results ?? r.data ?? [])).catch(() => {});
     setSelZone('');
     setSelRack('');
   }, [selWarehouse]);
@@ -288,7 +288,7 @@ function AddStockSheet({ open, onClose, onSuccess }: {
   // Cascading rack load
   useEffect(() => {
     if (!selZone) { setRacks([]); setSelRack(''); return; }
-    warehouseService.getRacks({ zone: selZone }).then((r) => setRacks(r.data.results ?? [])).catch(() => {});
+    warehouseService.getRacks({ zone: selZone }).then((r) => setRacks((r.data as any).results ?? r.data ?? [])).catch(() => {});
     setSelRack('');
   }, [selZone]);
 
@@ -506,7 +506,8 @@ function StockLevelsTab({ warehouses }: { warehouses: Warehouse[] }) {
       if (warehouseFilter) params.warehouse = warehouseFilter;
       if (search) params.search = search;
       const res = await warehouseService.getStock(params);
-      setItems(res.data.results ?? []);
+      setItems((res.data as any).results ?? res.data ?? []);
+      console.log('DONE: stock table fix', (res.data as any).results ?? res.data);
     } finally {
       setLoading(false);
     }
@@ -639,7 +640,7 @@ function MovementsTab({ warehouses }: { warehouses: Warehouse[] }) {
       if (typeFilter) params.movement_type = typeFilter;
       if (search) params.search = search;
       const res = await warehouseService.getMovements(params);
-      setItems(res.data.results ?? []);
+      setItems((res.data as any).results ?? res.data ?? []);
     } finally {
       setLoading(false);
     }
@@ -737,7 +738,7 @@ function TransfersTab() {
   useEffect(() => {
     setLoading(true);
     warehouseService.getTransfers()
-      .then((r) => setItems(r.data.results ?? []))
+      .then((r) => setItems((r.data as any).results ?? r.data ?? []))
       .finally(() => setLoading(false));
   }, []);
 
@@ -816,7 +817,7 @@ export function AdminStockPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
 
   useEffect(() => {
-    warehouseService.getWarehouses().then((r) => setWarehouses(r.data.results ?? [])).catch(() => {});
+    warehouseService.getWarehouses().then((r) => setWarehouses((r.data as any).results ?? r.data ?? [])).catch(() => {});
   }, []);
 
   return (
