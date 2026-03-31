@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@utils/cn';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
@@ -8,13 +8,13 @@ import type { UserRole } from '@/types/auth';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard, Users, UserCheck, Network, Package,
-  ShoppingCart, RotateCcw, Boxes, Warehouse, BarChart3,
+  ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
-  PieChart, Lock, LogOut, X, ChevronLeft, ChevronRight,
+  PieChart, LogOut, ChevronDown, X,
 } from 'lucide-react';
 
 /* ── Types ── */
-interface SectionItem {
+interface MenuItem {
   label:        string;
   path:         string;
   icon:         LucideIcon;
@@ -24,78 +24,76 @@ interface SectionItem {
 }
 
 interface Section {
-  label:  string;
-  title?: string; // full name tooltip for abbreviated labels (IMS, VM, TM)
-  items:  SectionItem[];
+  key:    string;
+  label?: string;        // undefined = no section header (Dashboard)
+  title?: string;        // tooltip for abbreviated labels
+  items:  MenuItem[];
 }
 
-/* ── Menu sections ── */
+/* ── Sections config ── */
 const SECTIONS: Section[] = [
   {
-    label: 'Dashboard',
+    key: 'dashboard',
     items: [
       { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard, allowedRoles: ['superadmin', 'admin', 'employee'] },
     ],
   },
   {
-    label: 'People',
+    key: 'people', label: 'People',
     items: [
       { label: 'Employees', path: '/admin/employees', icon: Users,     allowedRoles: ['superadmin', 'admin'] },
       { label: 'UPA Users', path: '/admin/upa-users', icon: UserCheck, allowedRoles: ['superadmin', 'admin', 'employee'] },
     ],
   },
   {
-    label: 'Network',
+    key: 'network', label: 'Network',
     items: [
       { label: 'UPA Tree', path: '/admin/upa-tree', icon: Network, allowedRoles: ['superadmin', 'admin'] },
     ],
   },
   {
-    label: 'Master',
+    key: 'master', label: 'Master',
     items: [
       { label: 'Products', path: '/admin/products', icon: Package, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit' },
     ],
   },
   {
-    label: 'Sales',
+    key: 'sales', label: 'Sales',
     items: [
       { label: 'Orders',  path: '/admin/orders',  icon: ShoppingCart, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view' },
       { label: 'Returns', path: '/admin/returns', icon: RotateCcw,    allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view' },
     ],
   },
   {
-    label: 'IMS',
-    title: 'Inventory Management System',
+    key: 'ims', label: 'IMS', title: 'Inventory Management System',
     items: [
-      { label: 'Inventory', path: '/admin/inventory', icon: Boxes,     allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view', soon: true },
-      { label: 'Warehouse', path: '/admin/warehouse', icon: Warehouse, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
-      { label: 'Stock',     path: '/admin/stock',     icon: BarChart3, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
+      { label: 'Warehouse',  path: '/admin/warehouse',  icon: Warehouse, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
+      { label: 'Stock',      path: '/admin/stock',      icon: BarChart3, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
+      { label: 'Inventory',  path: '/admin/inventory',  icon: Boxes,     allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view', soon: true },
     ],
   },
   {
-    label: 'VM',
-    title: 'Vendor Management',
+    key: 'vm', label: 'VM', title: 'Vendor Management',
     items: [
       { label: 'Vendors',         path: '/admin/vendors',         icon: Building2,     allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
       { label: 'Vendor Products', path: '/admin/vendor-products', icon: PackageSearch, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
     ],
   },
   {
-    label: 'TM',
-    title: 'Tender Management',
+    key: 'tm', label: 'TM', title: 'Tender Management',
     items: [
       { label: 'Tender', path: '/admin/tender', icon: FileText, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view', soon: true },
     ],
   },
   {
-    label: 'Operations',
+    key: 'ops', label: 'Operations',
     items: [
       { label: 'Procurement', path: '/admin/procurement', icon: ClipboardList,  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
       { label: 'Inspection',  path: '/admin/inspection',  icon: ClipboardCheck, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inspection.perform' },
     ],
   },
   {
-    label: 'Reports',
+    key: 'reports', label: 'Reports',
     items: [
       { label: 'Reports', path: '/admin/reports', icon: PieChart, allowedRoles: ['superadmin', 'admin'], soon: true },
     ],
@@ -108,31 +106,29 @@ interface AdminSidebarProps {
   onMobileToggle: () => void;
 }
 
-/* ── Tooltip (only shown in collapsed mode) ── */
-function Tip({ label, children, collapsed }: { label: string; children: React.ReactNode; collapsed: boolean }) {
-  return (
-    <div className="group/tip relative flex w-full">
-      {children}
-      {collapsed && (
-        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md bg-popover px-2.5 py-1.5 text-xs font-medium text-popover-foreground shadow-md opacity-0 transition-opacity group-hover/tip:opacity-100">
-          {label}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) {
   const { user, clearAuth } = useAuthStore();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  const [collapsed, setCollapsed] = useState<boolean>(() =>
-    localStorage.getItem('sidebar_collapsed') === 'true',
-  );
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('sidebar_sections');
+      return saved ? JSON.parse(saved) : {
+        people: true, network: true, master: true,
+        sales: true, ims: true, vm: true,
+        tm: true, ops: true, reports: true,
+      };
+    } catch { return {}; }
+  });
 
-  useEffect(() => {
-    localStorage.setItem('sidebar_collapsed', String(collapsed));
-  }, [collapsed]);
+  const toggleSection = (key: string) => {
+    setOpenSections((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('sidebar_sections', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const canAccess = (item: { allowedRoles: UserRole[]; permission?: string }): boolean => {
     if (!user) return false;
@@ -141,6 +137,11 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
     if (user.role === 'superadmin' || user.role === 'admin') return true;
     return user.permissions?.includes(item.permission) ?? false;
   };
+
+  const isActive = (path: string) =>
+    path === '/admin/dashboard'
+      ? location.pathname === path
+      : location.pathname.startsWith(path);
 
   const handleLogout = async () => {
     const refresh = tokenStorage.getRefresh();
@@ -162,140 +163,105 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       )}
 
       <aside className={cn(
-        'fixed left-0 top-0 z-30 flex h-full flex-col border-r bg-card transition-all duration-200 ease-in-out lg:static lg:flex-shrink-0',
-        collapsed ? 'w-[60px]' : 'w-[220px]',
+        'fixed left-0 top-0 z-30 flex flex-col h-full w-[220px] flex-shrink-0 border-r border-border/50 bg-card transition-transform duration-200 lg:static',
         mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
       )}>
 
         {/* ── Header ── */}
-        <div className={cn(
-          'flex h-[52px] shrink-0 items-center border-b px-3',
-          collapsed ? 'justify-center' : 'justify-between',
-        )}>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-foreground">MyApp</p>
-              <p className="text-[10px] text-muted-foreground">Admin Portal</p>
-            </div>
-          )}
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex"
-          >
-            {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-          </button>
-          <button className="flex lg:hidden text-muted-foreground" onClick={onMobileToggle}>
-            <X size={18} />
+        <div className="px-4 py-3.5 border-b border-border/50 flex-shrink-0 flex items-start justify-between">
+          <div>
+            <h2 className="text-sm font-medium text-foreground">Admin Panel</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Manage your platform</p>
+          </div>
+          <button className="flex lg:hidden text-muted-foreground mt-0.5" onClick={onMobileToggle}>
+            <X size={16} />
           </button>
         </div>
 
-        {/* ── Nav ── */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2">
+        {/* ── Scrollable nav ── */}
+        <div className="flex-1 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-border">
           {SECTIONS.map((section, sIdx) => {
-            const visibleItems = section.items.filter(
-              (item) => canAccess(item) || !canAccess(item), // show all, locked ones styled differently
-            );
-            if (visibleItems.length === 0) return null;
+            const accessibleItems = section.items.filter(canAccess);
+            if (accessibleItems.length === 0) return null;
+
+            const isOpen = openSections[section.key] ?? true;
 
             return (
-              <div key={section.label}>
-                {/* Thin divider between sections */}
+              <div key={section.key}>
+                {/* Divider between sections */}
                 {sIdx > 0 && <div className="mx-3 my-1 border-t border-border/40" />}
 
-                {/* Section label — hidden when collapsed */}
-                {!collapsed && (
-                  <p
-                    title={section.title}
-                    className="px-3 pt-4 pb-1 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground/50 select-none"
+                {/* Section header (collapsible) — skip for dashboard */}
+                {section.label && (
+                  <button
+                    onClick={() => toggleSection(section.key)}
+                    className="flex items-center justify-between w-full px-3 pt-3 pb-1 group"
                   >
-                    {section.label}
-                  </p>
+                    <span
+                      title={section.title}
+                      className="text-[9.5px] font-medium tracking-widest uppercase text-muted-foreground/60 group-hover:text-muted-foreground transition-colors"
+                    >
+                      {section.label}
+                    </span>
+                    <ChevronDown className={cn(
+                      'h-3 w-3 text-muted-foreground/40 transition-transform duration-200',
+                      isOpen && 'rotate-180',
+                    )} />
+                  </button>
                 )}
 
-                {/* Items */}
-                {visibleItems.map((item) => {
-                  const Icon = item.icon;
-                  const accessible = canAccess(item);
-
-                  if (!accessible) {
-                    return (
-                      <Tip key={item.path} label={item.label} collapsed={collapsed}>
-                        <div className={cn(
-                          'flex w-full cursor-not-allowed items-center gap-2.5 rounded-lg px-3 py-2 text-sm opacity-35',
-                          collapsed && 'justify-center px-0',
-                        )}>
-                          <Icon size={15} className="shrink-0" />
-                          {!collapsed && <><span className="flex-1">{item.label}</span><Lock size={11} /></>}
-                        </div>
-                      </Tip>
-                    );
-                  }
-
-                  return (
-                    <Tip key={item.path} label={item.label} collapsed={collapsed}>
-                      <NavLink
-                        to={item.path}
-                        end={item.path === '/admin/dashboard'}
-                        className={({ isActive }) => cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150',
-                          collapsed && 'justify-center px-0',
-                          isActive
-                            ? 'bg-primary/10 text-primary'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                        )}
-                      >
-                        <Icon size={15} className="shrink-0" />
-                        {!collapsed && (
-                          <>
-                            <span className="flex-1">{item.label}</span>
-                            {item.soon && (
-                              <span className="ml-auto text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full leading-none">
-                                Soon
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </NavLink>
-                    </Tip>
-                  );
-                })}
+                {/* Items — always show for dashboard (no label = no toggle) */}
+                {(!section.label || isOpen) && (
+                  <div className="pb-1">
+                    {accessibleItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.path);
+                      return (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          className={cn(
+                            'flex items-center gap-2 mx-2 px-3 py-[5px] rounded-md text-[12.5px] transition-colors duration-150',
+                            active
+                              ? 'font-medium bg-primary/10 text-primary'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          )}
+                        >
+                          <Icon className="h-[14px] w-[14px] flex-shrink-0" />
+                          <span className="flex-1">{item.label}</span>
+                          {item.soon && (
+                            <span className="ml-auto text-[9px] bg-muted text-muted-foreground/70 px-1.5 py-0.5 rounded-full border border-border/50 leading-none">
+                              Soon
+                            </span>
+                          )}
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
-        </nav>
+        </div>
 
         {/* ── Footer ── */}
-        <div className={cn('shrink-0 border-t p-3', collapsed && 'flex justify-center')}>
-          {!collapsed ? (
-            <>
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
-                  {initials}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-foreground">{user?.full_name || user?.email}</p>
-                  <p className="text-[10px] capitalize text-muted-foreground">{user?.role}</p>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="mt-2.5 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <LogOut size={13} />
-                Sign out
-              </button>
-            </>
-          ) : (
-            <Tip label="Sign out" collapsed={collapsed}>
-              <button
-                onClick={handleLogout}
-                className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <LogOut size={15} />
-              </button>
-            </Tip>
-          )}
+        <div className="border-t border-border/50 p-2 flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-0.5">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12px] font-medium text-foreground leading-tight">{user?.full_name || user?.email}</p>
+              <p className="text-[10px] capitalize text-muted-foreground leading-tight">{user?.role}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-md text-[12.5px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <LogOut className="h-[14px] w-[14px]" />
+            Logout
+          </button>
         </div>
       </aside>
     </>
