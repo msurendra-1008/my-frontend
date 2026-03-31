@@ -271,14 +271,28 @@ function AddStockSheet({ open, onClose, onSuccess }: {
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warehouseRef   = useRef<HTMLDivElement>(null);
+  const [warehouseOpen, setWarehouseOpen]     = useState(false);
+  const [warehouseSearch, setWarehouseSearch] = useState('');
   const { msg, show } = useToast();
 
-  // Load warehouses once
+  // Load warehouses once; reset combobox state on close
   useEffect(() => {
-    if (!open) return;
+    if (!open) { setWarehouseOpen(false); setWarehouseSearch(''); return; }
     warehouseService.getWarehouses().then((r) => setWarehouses((r.data as any).results ?? r.data ?? [])).catch(() => {});
   }, [open]);
+
+  // Click-outside closes warehouse dropdown
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (warehouseRef.current && !warehouseRef.current.contains(e.target as Node)) {
+        setWarehouseOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Cascading zone load
   useEffect(() => {
@@ -362,14 +376,51 @@ function AddStockSheet({ open, onClose, onSuccess }: {
         <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide text-xs">Location</p>
         <div>
           <label className="text-sm font-medium">Warehouse *</label>
-          <select
-            value={selWarehouse}
-            onChange={(e) => setSelWarehouse(e.target.value)}
-            className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <option value="">Select warehouse…</option>
-            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
+          {(() => {
+            const selected = warehouses.find((w) => w.id === selWarehouse) ?? null;
+            const filtered = warehouses.filter((w) =>
+              !warehouseSearch.trim() ||
+              w.name.toLowerCase().includes(warehouseSearch.toLowerCase())
+            );
+            return (
+              <div ref={warehouseRef} className="relative mt-1">
+                <input
+                  value={warehouseOpen ? warehouseSearch : (selected?.name ?? '')}
+                  placeholder="Search warehouse…"
+                  onFocus={() => { setWarehouseOpen(true); setWarehouseSearch(''); }}
+                  onChange={(e) => setWarehouseSearch(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                {warehouseOpen && (
+                  <div className="absolute z-50 mt-1 w-full rounded-md border bg-background shadow-lg max-h-48 overflow-y-auto">
+                    {filtered.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">No warehouses found.</div>
+                    ) : (
+                      filtered.map((w) => (
+                        <button
+                          key={w.id}
+                          type="button"
+                          className={cn('block w-full px-3 py-2 text-left text-sm hover:bg-muted/60', selWarehouse === w.id && 'bg-muted/40 font-medium')}
+                          onClick={() => {
+                            setSelWarehouse(w.id);
+                            setSelZone('');
+                            setSelRack('');
+                            setZones([]);
+                            setRacks([]);
+                            setWarehouseOpen(false);
+                            setWarehouseSearch('');
+                            console.log('DONE: warehouse combobox');
+                          }}
+                        >
+                          {w.name}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
         {selWarehouse && (
           <div>
