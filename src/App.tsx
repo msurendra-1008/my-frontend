@@ -29,6 +29,8 @@ import { AdminInspectionPage }    from '@/pages/dashboard/admin/InspectionPage';
 import { InspectionDetailPage }   from '@/pages/dashboard/admin/InspectionDetail';
 import { AdminWarehousePage }     from '@/pages/dashboard/admin/WarehousePage';
 import { AdminStockPage }         from '@/pages/dashboard/admin/StockPage';
+import { TenderPage }             from '@/pages/dashboard/admin/TenderPage';
+import { TenderDetail }           from '@/pages/dashboard/admin/TenderDetail';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -66,7 +68,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {/* UPA Users page */}
       <Route
         path="/admin/upa-users"
         element={
@@ -75,7 +76,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      {/* UPA Tree page */}
       <Route
         path="/admin/upa-tree"
         element={
@@ -84,8 +84,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      {/* Admin products */}
       <Route
         path="/admin/products"
         element={
@@ -102,8 +100,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      {/* Admin orders */}
       <Route
         path="/admin/orders"
         element={
@@ -112,8 +108,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      {/* Admin returns */}
       <Route
         path="/admin/returns"
         element={
@@ -122,8 +116,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
-      {/* Admin vendors */}
       <Route
         path="/admin/vendors"
         element={
@@ -148,7 +140,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/admin/inspection"
         element={
@@ -165,7 +156,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/admin/warehouse"
         element={
@@ -179,6 +169,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <AdminStockPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/tender"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <TenderPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/tender/:id"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <TenderDetail />
           </ProtectedRoute>
         }
       />
