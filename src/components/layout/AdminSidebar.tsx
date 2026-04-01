@@ -25,8 +25,8 @@ interface MenuItem {
 
 interface Section {
   key:    string;
-  label?: string;        // undefined = no section header (Dashboard)
-  title?: string;        // tooltip for abbreviated labels
+  label?: string;
+  title?: string;
   items:  MenuItem[];
 }
 
@@ -82,7 +82,7 @@ const SECTIONS: Section[] = [
   {
     key: 'tm', label: 'TM', title: 'Tender Management',
     items: [
-      { label: 'Tender', path: '/admin/tender', icon: FileText, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view', soon: true },
+      { label: 'Tender', path: '/admin/tender', icon: FileText, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'tenders.view' },
     ],
   },
   {
@@ -188,10 +188,8 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
 
             return (
               <div key={section.key}>
-                {/* Divider between sections */}
                 {sIdx > 0 && <div className="mx-3 my-1 border-t border-border/40" />}
 
-                {/* Section header (collapsible) — skip for dashboard */}
                 {section.label && (
                   <button
                     onClick={() => toggleSection(section.key)}
@@ -210,7 +208,6 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
                   </button>
                 )}
 
-                {/* Items — always show for dashboard (no label = no toggle) */}
                 {(!section.label || isOpen) && (
                   <div className="pb-1">
                     {accessibleItems.map((item) => {
