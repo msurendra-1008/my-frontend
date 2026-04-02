@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, CheckCircle, MessageSquare, X } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@components/ui/Button';
 import { tenderService } from '@/services/tenderService';
 import { cn } from '@utils/cn';
-import type { Tender, TenderStatus, BidStatus, BidComparison } from '@/types/tender.types';
+import { VendorBidCard } from '@/components/tender/VendorBidCard';
+import type { Tender, TenderStatus, BidComparison } from '@/types/tender.types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -45,13 +46,6 @@ const STATUS_CFG: Record<TenderStatus, { label: string; className: string }> = {
   cancelled: { label: 'Cancelled', className: 'bg-red-100    text-red-800    border-red-300' },
 };
 
-const BID_STATUS_CFG: Record<BidStatus, { label: string; className: string }> = {
-  bid_submitted:     { label: 'Bid Submitted',     className: 'bg-blue-100   text-blue-800   border-blue-300' },
-  under_negotiation: { label: 'Under Negotiation', className: 'bg-amber-100  text-amber-800  border-amber-300' },
-  bid_revised:       { label: 'Bid Revised',       className: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
-  awarded:           { label: 'Awarded',           className: 'bg-green-100  text-green-800  border-green-300' },
-  not_awarded:       { label: 'Not Awarded',       className: 'bg-gray-100   text-gray-600   border-gray-300' },
-};
 
 // ── Cancel Dialog ─────────────────────────────────────────────────────────────
 
@@ -110,83 +104,34 @@ function AwardDialog({
   );
 }
 
-// ── Negotiate Panel ───────────────────────────────────────────────────────────
-
-function NegotiatePanel({
-  tenderId, bidId, vendorName, onDone, onClose,
-}: {
-  tenderId: string;
-  bidId: string;
-  vendorName: string;
-  onDone: () => void;
-  onClose: () => void;
-}) {
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSave = async () => {
-    if (!notes.trim()) { setError('Please enter negotiation notes.'); return; }
-    setSaving(true);
-    try {
-      await tenderService.negotiate(tenderId, bidId, notes);
-      onDone();
-    } catch {
-      setError('Failed to send negotiation notes.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-500/5 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-          Negotiate with {vendorName}
-        </p>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
-      <textarea
-        rows={3}
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Enter your negotiation notes for the vendor\u2026"
-        className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-      />
-      <div className="mt-2 flex gap-2">
-        <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <MessageSquare className="mr-1 h-3 w-3" />}
-          Send
-        </Button>
-        <Button size="sm" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-      </div>
-    </div>
-  );
-}
-
 // ── Tab 1: Products & Bids ────────────────────────────────────────────────────
 
 function ProductsBidsTab({
   tender,
-  comparison,
   onRefresh,
+  onSwitchToAward,
 }: {
   tender: Tender;
-  comparison: BidComparison[];
   onRefresh: () => void;
+  onSwitchToAward: (preselectedBid?: string) => void;
 }) {
-  const [negotiatingBid, setNegotiatingBid] = useState<{
-    tenderId: string;
-    bidId: string;
-    vendor: string;
-  } | null>(null);
+  const { show } = useToast();
 
-  const canNegotiate = tender.status === 'open' || tender.status === 'closed';
+  const handleNegotiate = async (bidId: string, notes: string) => {
+    try {
+      await tenderService.negotiate(tender.id, bidId, notes);
+      onRefresh();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      show(e?.response?.data?.error || 'Failed to send note.', true);
+    }
+  };
 
-  if (comparison.length === 0) {
+  const handleQuickAward = (bidId: string) => {
+    onSwitchToAward(bidId);
+  };
+
+  if (tender.bids.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-12 text-center text-muted-foreground">
         No bids received yet.
@@ -195,104 +140,41 @@ function ProductsBidsTab({
   }
 
   return (
-    <div className="space-y-6">
-      {comparison.map((item) => {
-        const { tender_item, bids } = item;
+    <div className="space-y-4">
+      {tender.items.map((item) => {
+        const bidsForItem = tender.bids.filter(b =>
+          b.items.some(i => i.tender_item === item.id));
         return (
-          <div key={tender_item.id} className="rounded-xl border bg-card overflow-hidden">
-            {/* Item header */}
-            <div className="border-b bg-muted/30 px-5 py-3">
-              <h3 className="font-semibold">{tender_item.product_name}</h3>
-              <p className="text-xs text-muted-foreground">
-                Required: {tender_item.required_quantity.toLocaleString()} units
-                {tender_item.target_price && ` \u00b7 Target: ${formatMoney(tender_item.target_price)}/unit`}
-              </p>
+          <div key={item.id} className="rounded-xl border bg-card overflow-hidden">
+            {/* Product header */}
+            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between bg-muted/20">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{item.product_name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Required: {item.required_quantity} units
+                  {item.target_price && ` · Target: ₹${item.target_price}/unit`}
+                </p>
+              </div>
+              <span className="text-xs bg-muted/50 px-2 py-1 rounded-full text-muted-foreground">
+                {bidsForItem.length} bid{bidsForItem.length !== 1 ? 's' : ''}
+              </span>
             </div>
 
-            {bids.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">No bids for this item.</p>
-            ) : (
-              <div className="divide-y">
-                {bids.map((bid) => {
-                  const bidCfg = BID_STATUS_CFG[bid.bid_status];
-                  const isNeg = negotiatingBid?.bidId === bid.bid_id;
-                  const vsTarget = bid.vs_target;
-                  const vsClass =
-                    vsTarget === null
-                      ? ''
-                      : vsTarget <= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400';
-
-                  return (
-                    <div key={bid.bid_id} className="px-5 py-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-sm">{bid.vendor_name}</p>
-                          <div className="mt-1 flex flex-wrap gap-3 text-sm">
-                            <span>Qty: {bid.supply_quantity.toLocaleString()}</span>
-                            <span>Price: {formatMoney(bid.price_per_unit)}/unit</span>
-                            <span>Total: {formatMoney(bid.total_value)}</span>
-                            {vsTarget !== null && (
-                              <span className={cn('font-medium', vsClass)}>
-                                {vsTarget > 0 ? '+' : ''}{vsTarget.toFixed(1)}% vs target
-                              </span>
-                            )}
-                            <span className="text-muted-foreground">
-                              Dispatch: {formatDate(bid.dispatch_date)}
-                            </span>
-                          </div>
-                          {bid.notes && (
-                            <p className="mt-1 text-xs text-muted-foreground">{bid.notes}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${bidCfg.className}`}
-                          >
-                            {bidCfg.label}
-                          </span>
-                          {canNegotiate &&
-                            bid.bid_status !== 'awarded' &&
-                            bid.bid_status !== 'not_awarded' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  setNegotiatingBid(
-                                    isNeg
-                                      ? null
-                                      : {
-                                          tenderId: tender.id,
-                                          bidId: bid.bid_id,
-                                          vendor: bid.vendor_name,
-                                        },
-                                  )
-                                }
-                              >
-                                <MessageSquare className="mr-1 h-3 w-3" />
-                                Negotiate
-                              </Button>
-                            )}
-                        </div>
-                      </div>
-
-                      {isNeg && negotiatingBid && (
-                        <NegotiatePanel
-                          tenderId={negotiatingBid.tenderId}
-                          bidId={negotiatingBid.bidId}
-                          vendorName={negotiatingBid.vendor}
-                          onDone={() => {
-                            setNegotiatingBid(null);
-                            onRefresh();
-                          }}
-                          onClose={() => setNegotiatingBid(null)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+            {bidsForItem.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No bids received for this product yet.
               </div>
+            ) : (
+              bidsForItem.map(bid => (
+                <VendorBidCard
+                  key={bid.id}
+                  bid={bid}
+                  tenderItem={item}
+                  tenderStatus={tender.status}
+                  onNegotiate={handleNegotiate}
+                  onQuickAward={handleQuickAward}
+                />
+              ))
             )}
           </div>
         );
@@ -306,10 +188,12 @@ function ProductsBidsTab({
 function AwardTab({
   tender,
   comparison,
+  preselectedBid: _preselectedBid,
   onAwarded,
 }: {
   tender: Tender;
   comparison: BidComparison[];
+  preselectedBid?: string;
   onAwarded: () => void;
 }) {
   const [selections, setSelections] = useState<Record<string, string>>({});
@@ -542,6 +426,7 @@ export function TenderDetail() {
   const [comparison, setComparison] = useState<BidComparison[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'bids' | 'award'>('bids');
+  const [preselectedBid, setPreselectedBid] = useState<string | undefined>(undefined);
   const [acting, setActing] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const { msg, show } = useToast();
@@ -789,14 +674,18 @@ export function TenderDetail() {
         {activeTab === 'bids' && (
           <ProductsBidsTab
             tender={tender}
-            comparison={comparison}
             onRefresh={load}
+            onSwitchToAward={(bid) => {
+              setPreselectedBid(bid);
+              setActiveTab('award');
+            }}
           />
         )}
         {activeTab === 'award' && showAwardTab && (
           <AwardTab
             tender={tender}
             comparison={comparison}
+            preselectedBid={preselectedBid}
             onAwarded={() => {
               load();
               setActiveTab('bids');
