@@ -13,7 +13,6 @@ import { procurementService } from '@/services/procurementService';
 import { AddVendorProductSheet } from '@/components/vendor/AddVendorProductSheet';
 import { tenderService } from '@/services/tenderService';
 import { VendorBidSheet } from '@/components/tender/VendorBidSheet';
-import { cn } from '@/utils/cn';
 import type { VendorProfile, VendorDocument, VendorProductListItem, VendorProduct, VendorProductStatus } from '@/types/vendor.types';
 import type { ProcurementRequirement, PurchaseOrder, POStatus, RequirementStatus, MonthlyBreakdown, VendorResponseWriteData } from '@/types/procurement.types';
 import type { Category } from '@/types/product.types';
@@ -1102,14 +1101,15 @@ export function VendorDashboard() {
           )}
         </main>
       )}
-      {activeBidTender && (
-        <VendorBidSheet
-          tender={activeBidTender}
-          onClose={() => setActiveBidTender(null)}
-          onSuccess={() => { setActiveBidTender(null); fetchTenders(); }}
-          className={cn('fixed inset-0 z-50')}
-        />
-      )}
+      <VendorBidSheet
+        tender={activeBidTender}
+        open={activeBidTender !== null}
+        onClose={() => setActiveBidTender(null)}
+        onSuccess={() => {
+          setActiveBidTender(null)
+          fetchTenders()
+        }}
+      />
     </div>
   );
 }
