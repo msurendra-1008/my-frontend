@@ -48,4 +48,7 @@ export const tenderService = {
 
   withdrawBid: (tenderId: string) =>
     axiosInstance.delete(`/api/v1/tender/vendor/${tenderId}/bid/`),
+
+  addVendorComment: (tenderId: string, message: string) =>
+    axiosInstance.post(`/api/v1/tender/vendor/${tenderId}/comment/`, { message }),
 }

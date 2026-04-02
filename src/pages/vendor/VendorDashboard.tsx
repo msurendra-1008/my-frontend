@@ -655,10 +655,27 @@ function POsTab() {
 
 // ── Stub Tables ───────────────────────────────────────────────────────────────
 
-function TenderCard({ tender, onBid }: { tender: VendorTender; onBid: (t: VendorTender) => void }) {
+interface TenderCardProps {
+  tender: VendorTender;
+  onBid: (t: VendorTender) => void;
+  replyingTender: string | null;
+  setReplyingTender: (id: string | null) => void;
+  replyText: string;
+  setReplyText: (v: string) => void;
+  replySending: boolean;
+  onReply: (tenderId: string) => void;
+}
+
+function TenderCard({
+  tender, onBid,
+  replyingTender, setReplyingTender,
+  replyText, setReplyText,
+  replySending, onReply,
+}: TenderCardProps) {
   const [open, setOpen] = useState(false);
   const logs = tender.own_bid?.negotiation_logs ?? [];
   const hasLogs = logs.length > 0;
+  const isReplying = replyingTender === tender.id;
 
   const statusLabel = tender.own_bid
     ? tender.own_bid.status.replace(/_/g, ' ')
@@ -676,9 +693,11 @@ function TenderCard({ tender, onBid }: { tender: VendorTender; onBid: (t: Vendor
     ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
     : 'bg-muted text-muted-foreground';
 
-  const canBid = !tender.own_bid && tender.status === 'open';
-  const canEdit = tender.own_bid && tender.status === 'open' &&
-    ['bid_submitted', 'under_negotiation', 'bid_revised'].includes(tender.own_bid.status);
+  const canReply  = tender.own_bid?.status === 'under_negotiation';
+  const canEdit   = tender.own_bid && tender.status === 'open' &&
+    tender.own_bid.status !== 'awarded' &&
+    tender.own_bid.status !== 'not_awarded';
+  const canBid    = !tender.own_bid && tender.status === 'open';
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
@@ -742,24 +761,77 @@ function TenderCard({ tender, onBid }: { tender: VendorTender; onBid: (t: Vendor
           )}
 
           {/* Action buttons */}
-          {(canBid || canEdit) && (
-            <div className="flex gap-2 pt-1">
-              {canBid && (
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {canReply && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReplyingTender(isReplying ? null : tender.id);
+                  setReplyText('');
+                }}
+                className="h-8 px-3 rounded-lg text-xs font-medium
+                           bg-amber-500/10 text-amber-700 dark:text-amber-400
+                           border border-amber-400/40
+                           hover:bg-amber-500/20 transition-colors"
+              >
+                ↩ Reply to admin
+              </button>
+            )}
+            {canEdit && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onBid(tender); }}
+                className="h-8 px-3 rounded-lg text-xs font-medium
+                           border hover:bg-muted transition-colors"
+              >
+                Edit bid details
+              </button>
+            )}
+            {canBid && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onBid(tender); }}
+                className="h-8 px-3 rounded-lg text-xs font-medium
+                           bg-primary text-primary-foreground
+                           hover:bg-primary/90 transition-colors"
+              >
+                View &amp; bid →
+              </button>
+            )}
+          </div>
+
+          {/* Inline reply form */}
+          {isReplying && (
+            <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+              <textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Type your reply to admin…"
+                autoFocus
+                rows={3}
+                className="w-full rounded-lg border bg-background
+                           px-3 py-2 text-xs resize-none
+                           focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <div className="flex gap-2">
                 <button
-                  onClick={() => onBid(tender)}
-                  className="rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                  onClick={() => onReply(tender.id)}
+                  disabled={!replyText.trim() || replySending}
+                  className="h-8 px-3 rounded-lg text-xs font-medium
+                             bg-amber-500/10 text-amber-700 dark:text-amber-400
+                             border border-amber-400/40
+                             hover:bg-amber-500/20
+                             disabled:opacity-50 disabled:cursor-not-allowed
+                             transition-colors"
                 >
-                  View &amp; bid →
+                  {replySending ? 'Sending…' : 'Send reply'}
                 </button>
-              )}
-              {canEdit && (
                 <button
-                  onClick={() => onBid(tender)}
-                  className="rounded-lg border px-4 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                  onClick={() => { setReplyingTender(null); setReplyText(''); }}
+                  className="h-8 px-3 rounded-lg text-xs font-medium
+                             border hover:bg-muted transition-colors"
                 >
-                  Edit bid
+                  Cancel
                 </button>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -768,10 +840,21 @@ function TenderCard({ tender, onBid }: { tender: VendorTender; onBid: (t: Vendor
   );
 }
 
-function TendersTab({ tenders, loading: tendersLoading, onBid }: {
+function TendersTab({
+  tenders, loading: tendersLoading, onBid,
+  replyingTender, setReplyingTender,
+  replyText, setReplyText,
+  replySending, onReply,
+}: {
   tenders: VendorTender[];
   loading: boolean;
   onBid: (t: VendorTender) => void;
+  replyingTender: string | null;
+  setReplyingTender: (id: string | null) => void;
+  replyText: string;
+  setReplyText: (v: string) => void;
+  replySending: boolean;
+  onReply: (tenderId: string) => void;
 }) {
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -786,7 +869,17 @@ function TendersTab({ tenders, loading: tendersLoading, onBid }: {
       ) : (
         <div className="space-y-3">
           {tenders.map((tender) => (
-            <TenderCard key={tender.id} tender={tender} onBid={onBid} />
+            <TenderCard
+              key={tender.id}
+              tender={tender}
+              onBid={onBid}
+              replyingTender={replyingTender}
+              setReplyingTender={setReplyingTender}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              replySending={replySending}
+              onReply={onReply}
+            />
           ))}
         </div>
       )}
@@ -1045,6 +1138,9 @@ export function VendorDashboard() {
   const [tenders, setTenders] = useState<any[]>([]);
   const [tendersLoading, setTendersLoading] = useState(false);
   const [activeBidTender, setActiveBidTender] = useState<any>(null);
+  const [replyingTender, setReplyingTender] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replySending, setReplySending] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -1075,6 +1171,21 @@ export function VendorDashboard() {
     if (activeTab === 'Tenders') fetchTenders();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  const handleVendorReply = async (tenderId: string) => {
+    if (!replyText.trim()) return;
+    setReplySending(true);
+    try {
+      await tenderService.addVendorComment(tenderId, replyText.trim());
+      setReplyText('');
+      setReplyingTender(null);
+      fetchTenders();
+    } catch (err) {
+      console.error('Reply failed', err);
+    } finally {
+      setReplySending(false);
+    }
+  };
 
   const handleLogout = () => {
     clearAuth();
@@ -1207,7 +1318,19 @@ export function VendorDashboard() {
           {activeTab === 'My Products'     && <MyProductsTab />}
           {activeTab === 'Requirements'    && <RequirementsTab />}
           {activeTab === 'Purchase Orders' && <POsTab />}
-          {activeTab === 'Tenders'         && <TendersTab tenders={tenders} loading={tendersLoading} onBid={setActiveBidTender} />}
+          {activeTab === 'Tenders'         && (
+            <TendersTab
+              tenders={tenders}
+              loading={tendersLoading}
+              onBid={setActiveBidTender}
+              replyingTender={replyingTender}
+              setReplyingTender={setReplyingTender}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              replySending={replySending}
+              onReply={handleVendorReply}
+            />
+          )}
           {activeTab === 'Chat'            && <ChatTab />}
           {activeTab === 'Profile'         && (
             <ProfileTab profile={profile} onRefresh={fetchProfile} />
