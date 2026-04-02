@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, CheckCircle, MessageSquare, X } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@components/ui/Button';
 import { tenderService } from '@/services/tenderService';
 import { cn } from '@utils/cn';
-import type { Tender, TenderStatus, BidStatus, BidComparison } from '@/types/tender.types';
+import { VendorBidCard } from '@/components/tender/VendorBidCard';
+import type { Tender, TenderStatus, BidComparison } from '@/types/tender.types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -45,13 +46,6 @@ const STATUS_CFG: Record<TenderStatus, { label: string; className: string }> = {
   cancelled: { label: 'Cancelled', className: 'bg-red-100    text-red-800    border-red-300' },
 };
 
-const BID_STATUS_CFG: Record<BidStatus, { label: string; className: string }> = {
-  bid_submitted:     { label: 'Bid Submitted',     className: 'bg-blue-100   text-blue-800   border-blue-300' },
-  under_negotiation: { label: 'Under Negotiation', className: 'bg-amber-100  text-amber-800  border-amber-300' },
-  bid_revised:       { label: 'Bid Revised',       className: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
-  awarded:           { label: 'Awarded',           className: 'bg-green-100  text-green-800  border-green-300' },
-  not_awarded:       { label: 'Not Awarded',       className: 'bg-gray-100   text-gray-600   border-gray-300' },
-};
 
 // ── Cancel Dialog ─────────────────────────────────────────────────────────────
 
@@ -110,83 +104,34 @@ function AwardDialog({
   );
 }
 
-// ── Negotiate Panel ───────────────────────────────────────────────────────────
-
-function NegotiatePanel({
-  tenderId, bidId, vendorName, onDone, onClose,
-}: {
-  tenderId: string;
-  bidId: string;
-  vendorName: string;
-  onDone: () => void;
-  onClose: () => void;
-}) {
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSave = async () => {
-    if (!notes.trim()) { setError('Please enter negotiation notes.'); return; }
-    setSaving(true);
-    try {
-      await tenderService.negotiate(tenderId, bidId, notes);
-      onDone();
-    } catch {
-      setError('Failed to send negotiation notes.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="mt-3 rounded-md border border-amber-400/40 bg-amber-500/5 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-          Negotiate with {vendorName}
-        </p>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
-      <textarea
-        rows={3}
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Enter your negotiation notes for the vendor\u2026"
-        className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-      />
-      <div className="mt-2 flex gap-2">
-        <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <MessageSquare className="mr-1 h-3 w-3" />}
-          Send
-        </Button>
-        <Button size="sm" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
-      </div>
-    </div>
-  );
-}
-
 // ── Tab 1: Products & Bids ────────────────────────────────────────────────────
 
 function ProductsBidsTab({
   tender,
-  comparison,
   onRefresh,
+  onSwitchToAward,
 }: {
   tender: Tender;
-  comparison: BidComparison[];
   onRefresh: () => void;
+  onSwitchToAward: (preselectedBid?: string) => void;
 }) {
-  const [negotiatingBid, setNegotiatingBid] = useState<{
-    tenderId: string;
-    bidId: string;
-    vendor: string;
-  } | null>(null);
+  const { show } = useToast();
 
-  const canNegotiate = tender.status === 'open' || tender.status === 'closed';
+  const handleNegotiate = async (bidId: string, notes: string) => {
+    try {
+      await tenderService.negotiate(tender.id, bidId, notes);
+      onRefresh();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { error?: string } } };
+      show(e?.response?.data?.error || 'Failed to send note.', true);
+    }
+  };
 
-  if (comparison.length === 0) {
+  const handleQuickAward = (bidId: string) => {
+    onSwitchToAward(bidId);
+  };
+
+  if (tender.bids.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-12 text-center text-muted-foreground">
         No bids received yet.
@@ -195,104 +140,41 @@ function ProductsBidsTab({
   }
 
   return (
-    <div className="space-y-6">
-      {comparison.map((item) => {
-        const { tender_item, bids } = item;
+    <div className="space-y-4">
+      {tender.items.map((item) => {
+        const bidsForItem = tender.bids.filter(b =>
+          b.items.some(i => i.tender_item === item.id));
         return (
-          <div key={tender_item.id} className="rounded-xl border bg-card overflow-hidden">
-            {/* Item header */}
-            <div className="border-b bg-muted/30 px-5 py-3">
-              <h3 className="font-semibold">{tender_item.product_name}</h3>
-              <p className="text-xs text-muted-foreground">
-                Required: {tender_item.required_quantity.toLocaleString()} units
-                {tender_item.target_price && ` \u00b7 Target: ${formatMoney(tender_item.target_price)}/unit`}
-              </p>
+          <div key={item.id} className="rounded-xl border bg-card overflow-hidden">
+            {/* Product header */}
+            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between bg-muted/20">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{item.product_name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Required: {item.required_quantity} units
+                  {item.target_price && ` · Target: ₹${item.target_price}/unit`}
+                </p>
+              </div>
+              <span className="text-xs bg-muted/50 px-2 py-1 rounded-full text-muted-foreground">
+                {bidsForItem.length} bid{bidsForItem.length !== 1 ? 's' : ''}
+              </span>
             </div>
 
-            {bids.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">No bids for this item.</p>
-            ) : (
-              <div className="divide-y">
-                {bids.map((bid) => {
-                  const bidCfg = BID_STATUS_CFG[bid.bid_status];
-                  const isNeg = negotiatingBid?.bidId === bid.bid_id;
-                  const vsTarget = bid.vs_target;
-                  const vsClass =
-                    vsTarget === null
-                      ? ''
-                      : vsTarget <= 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400';
-
-                  return (
-                    <div key={bid.bid_id} className="px-5 py-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium text-sm">{bid.vendor_name}</p>
-                          <div className="mt-1 flex flex-wrap gap-3 text-sm">
-                            <span>Qty: {bid.supply_quantity.toLocaleString()}</span>
-                            <span>Price: {formatMoney(bid.price_per_unit)}/unit</span>
-                            <span>Total: {formatMoney(bid.total_value)}</span>
-                            {vsTarget !== null && (
-                              <span className={cn('font-medium', vsClass)}>
-                                {vsTarget > 0 ? '+' : ''}{vsTarget.toFixed(1)}% vs target
-                              </span>
-                            )}
-                            <span className="text-muted-foreground">
-                              Dispatch: {formatDate(bid.dispatch_date)}
-                            </span>
-                          </div>
-                          {bid.notes && (
-                            <p className="mt-1 text-xs text-muted-foreground">{bid.notes}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${bidCfg.className}`}
-                          >
-                            {bidCfg.label}
-                          </span>
-                          {canNegotiate &&
-                            bid.bid_status !== 'awarded' &&
-                            bid.bid_status !== 'not_awarded' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  setNegotiatingBid(
-                                    isNeg
-                                      ? null
-                                      : {
-                                          tenderId: tender.id,
-                                          bidId: bid.bid_id,
-                                          vendor: bid.vendor_name,
-                                        },
-                                  )
-                                }
-                              >
-                                <MessageSquare className="mr-1 h-3 w-3" />
-                                Negotiate
-                              </Button>
-                            )}
-                        </div>
-                      </div>
-
-                      {isNeg && negotiatingBid && (
-                        <NegotiatePanel
-                          tenderId={negotiatingBid.tenderId}
-                          bidId={negotiatingBid.bidId}
-                          vendorName={negotiatingBid.vendor}
-                          onDone={() => {
-                            setNegotiatingBid(null);
-                            onRefresh();
-                          }}
-                          onClose={() => setNegotiatingBid(null)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+            {bidsForItem.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No bids received for this product yet.
               </div>
+            ) : (
+              bidsForItem.map(bid => (
+                <VendorBidCard
+                  key={bid.id}
+                  bid={bid}
+                  tenderItem={item}
+                  tenderStatus={tender.status}
+                  onNegotiate={handleNegotiate}
+                  onQuickAward={handleQuickAward}
+                />
+              ))
             )}
           </div>
         );
@@ -306,26 +188,44 @@ function ProductsBidsTab({
 function AwardTab({
   tender,
   comparison,
+  preselectedBid: _preselectedBid,
   onAwarded,
 }: {
   tender: Tender;
   comparison: BidComparison[];
+  preselectedBid?: string;
   onAwarded: () => void;
 }) {
-  const [selections, setSelections] = useState<Record<string, string>>({});
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [awarding, setAwarding] = useState(false);
   const { msg, show } = useToast();
 
   const canAward = tender.status === 'closed';
   const isAlreadyAwarded = tender.status === 'awarded';
-  const selectedCount = Object.keys(selections).length;
   const totalItems = comparison.length;
+  const allItemsCovered = comparison.every(c => (selections[c.tender_item.id] ?? []).length > 0);
+  const selectedCount = Object.values(selections).reduce((n, ids) => n + ids.length, 0);
+
+  const toggleBid = (itemId: string, bidId: string) => {
+    setSelections(s => {
+      const curr = s[itemId] ?? [];
+      const next = curr.includes(bidId) ? curr.filter(x => x !== bidId) : [...curr, bidId];
+      if (next.length === 0) {
+        const { [itemId]: _removed, ...rest } = s;
+        return rest;
+      }
+      return { ...s, [itemId]: next };
+    });
+  };
 
   const handleAward = async () => {
     setAwarding(true);
     try {
-      await tenderService.awardTender(tender.id, { awards: selections });
+      const awarded_items = Object.entries(selections).flatMap(([itemId, bidIds]) =>
+        bidIds.map(bidId => ({ tender_item_id: itemId, vendor_bid_id: bidId }))
+      );
+      await tenderService.awardTender(tender.id, { awarded_items });
       setShowConfirm(false);
       onAwarded();
     } catch (e: unknown) {
@@ -388,10 +288,10 @@ function AwardTab({
 
         {comparison.map((item) => {
           const { tender_item, bids } = item;
-          const selected = selections[tender_item.id];
-          const awardedBid = isAlreadyAwarded
-            ? bids.find((b) => b.bid_status === 'awarded')
-            : null;
+          const selectedBids = selections[tender_item.id] ?? [];
+          const awardedBids = isAlreadyAwarded
+            ? bids.filter((b) => b.bid_status === 'awarded')
+            : [];
 
           return (
             <div key={tender_item.id} className="rounded-xl border bg-card overflow-hidden">
@@ -405,9 +305,9 @@ function AwardTab({
               </div>
 
               {isAlreadyAwarded ? (
-                <div className="px-5 py-4">
-                  {awardedBid ? (
-                    <div className="flex items-center gap-3">
+                <div className="px-5 py-4 space-y-2">
+                  {awardedBids.length > 0 ? awardedBids.map(awardedBid => (
+                    <div key={awardedBid.bid_id} className="flex items-center gap-3">
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
                       <div>
                         <p className="font-medium">{awardedBid.vendor_name}</p>
@@ -418,7 +318,7 @@ function AwardTab({
                         </p>
                       </div>
                     </div>
-                  ) : (
+                  )) : (
                     <p className="text-sm text-muted-foreground">Not awarded</p>
                   )}
                 </div>
@@ -430,7 +330,7 @@ function AwardTab({
                     </p>
                   ) : (
                     bids.map((bid) => {
-                      const isSelected = selected === bid.bid_id;
+                      const isSelected = selectedBids.includes(bid.bid_id);
                       const vsTarget = bid.vs_target;
                       const vsClass =
                         vsTarget === null
@@ -450,20 +350,14 @@ function AwardTab({
                         >
                           {canAward ? (
                             <input
-                              type="radio"
-                              name={tender_item.id}
+                              type="checkbox"
                               value={bid.bid_id}
                               checked={isSelected}
-                              onChange={() =>
-                                setSelections((s) => ({
-                                  ...s,
-                                  [tender_item.id]: bid.bid_id,
-                                }))
-                              }
-                              className="mt-1 h-4 w-4 text-primary"
+                              onChange={() => toggleBid(tender_item.id, bid.bid_id)}
+                              className="mt-1 h-4 w-4 rounded text-primary"
                             />
                           ) : (
-                            <div className="mt-1 h-4 w-4 rounded-full border-2 border-border shrink-0" />
+                            <div className="mt-1 h-4 w-4 rounded border-2 border-border shrink-0" />
                           )}
                           <div className="flex-1">
                             <p className="font-medium text-sm">{bid.vendor_name}</p>
@@ -495,35 +389,40 @@ function AwardTab({
           <div className="rounded-xl border bg-card p-5">
             <h3 className="mb-3 font-semibold">Award Summary</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {selectedCount} of {totalItems} product{totalItems !== 1 ? 's' : ''} selected
+              {selectedCount} bid{selectedCount !== 1 ? 's' : ''} selected across {totalItems} product{totalItems !== 1 ? 's' : ''}
             </p>
             {selectedCount > 0 && (
               <div className="mb-4 space-y-2 text-sm">
                 {comparison.map((item) => {
-                  const bidId = selections[item.tender_item.id];
-                  if (!bidId) return null;
-                  const bid = item.bids.find((b) => b.bid_id === bidId);
-                  if (!bid) return null;
+                  const bidIds = selections[item.tender_item.id] ?? [];
+                  if (bidIds.length === 0) return null;
                   return (
-                    <div key={item.tender_item.id} className="flex justify-between">
+                    <div key={item.tender_item.id}>
                       <span className="text-muted-foreground">{item.tender_item.product_name}</span>
-                      <span className="font-medium">
-                        {bid.vendor_name} \u2014 {formatMoney(bid.total_value)}
-                      </span>
+                      {bidIds.map(bidId => {
+                        const bid = item.bids.find(b => b.bid_id === bidId);
+                        if (!bid) return null;
+                        return (
+                          <div key={bidId} className="flex justify-between pl-3 mt-0.5">
+                            <span className="text-muted-foreground text-xs">{bid.vendor_name}</span>
+                            <span className="font-medium text-xs">{formatMoney(bid.total_value)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
               </div>
             )}
             <Button
-              disabled={selectedCount === 0 || selectedCount < totalItems}
+              disabled={!allItemsCovered}
               onClick={() => setShowConfirm(true)}
             >
-              Confirm Award ({selectedCount}/{totalItems})
+              Confirm Award ({selectedCount} bid{selectedCount !== 1 ? 's' : ''})
             </Button>
-            {selectedCount > 0 && selectedCount < totalItems && (
+            {selectedCount > 0 && !allItemsCovered && (
               <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                Select a bid for all {totalItems} products to proceed.
+                Select at least one bid for all {totalItems} products to proceed.
               </p>
             )}
           </div>
@@ -542,6 +441,7 @@ export function TenderDetail() {
   const [comparison, setComparison] = useState<BidComparison[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'bids' | 'award'>('bids');
+  const [preselectedBid, setPreselectedBid] = useState<string | undefined>(undefined);
   const [acting, setActing] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const { msg, show } = useToast();
@@ -789,14 +689,18 @@ export function TenderDetail() {
         {activeTab === 'bids' && (
           <ProductsBidsTab
             tender={tender}
-            comparison={comparison}
             onRefresh={load}
+            onSwitchToAward={(bid) => {
+              setPreselectedBid(bid);
+              setActiveTab('award');
+            }}
           />
         )}
         {activeTab === 'award' && showAwardTab && (
           <AwardTab
             tender={tender}
             comparison={comparison}
+            preselectedBid={preselectedBid}
             onAwarded={() => {
               load();
               setActiveTab('bids');

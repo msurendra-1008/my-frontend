@@ -33,6 +33,14 @@ export interface VendorBidItem {
   notes: string
 }
 
+export interface NegotiationLog {
+  id: string
+  actor_role: 'admin' | 'vendor'
+  actor_name: string
+  message: string
+  created_at: string
+}
+
 export interface VendorBid {
   id: string
   vendor: string
@@ -40,6 +48,7 @@ export interface VendorBid {
   status: BidStatus
   overall_notes: string
   negotiation_notes: string
+  negotiation_logs: NegotiationLog[]
   items: VendorBidItem[]
   submitted_at: string
   updated_at: string
