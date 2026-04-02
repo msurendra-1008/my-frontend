@@ -13,8 +13,10 @@ import { procurementService } from '@/services/procurementService';
 import { AddVendorProductSheet } from '@/components/vendor/AddVendorProductSheet';
 import { tenderService } from '@/services/tenderService';
 import { VendorBidSheet } from '@/components/tender/VendorBidSheet';
+import { NegotiationThread } from '@/components/tender/NegotiationThread';
 import { cn } from '@/utils/cn';
 import type { VendorProfile, VendorDocument, VendorProductListItem, VendorProduct, VendorProductStatus } from '@/types/vendor.types';
+import type { VendorTender } from '@/types/tender.types';
 import type { ProcurementRequirement, PurchaseOrder, POStatus, RequirementStatus, MonthlyBreakdown, VendorResponseWriteData } from '@/types/procurement.types';
 import type { Category } from '@/types/product.types';
 
@@ -653,9 +655,126 @@ function POsTab() {
 
 // ── Stub Tables ───────────────────────────────────────────────────────────────
 
-function TendersTab({ tenders, loading: tendersLoading, onBid: setActiveBidTender }: { tenders: any[]; loading: boolean; onBid: (t: any) => void }) {
+function TenderCard({ tender, onBid }: { tender: VendorTender; onBid: (t: VendorTender) => void }) {
+  const [open, setOpen] = useState(false);
+  const logs = tender.own_bid?.negotiation_logs ?? [];
+  const hasLogs = logs.length > 0;
+
+  const statusLabel = tender.own_bid
+    ? tender.own_bid.status.replace(/_/g, ' ')
+    : tender.status;
+
+  const statusClass = tender.own_bid?.status === 'awarded'
+    ? 'bg-green-500/10 text-green-700 dark:text-green-400'
+    : tender.own_bid?.status === 'under_negotiation'
+    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+    : tender.own_bid?.status === 'bid_revised'
+    ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400'
+    : tender.own_bid?.status === 'not_awarded'
+    ? 'bg-muted text-muted-foreground'
+    : tender.status === 'open'
+    ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
+    : 'bg-muted text-muted-foreground';
+
+  const canBid = !tender.own_bid && tender.status === 'open';
+  const canEdit = tender.own_bid && tender.status === 'open' &&
+    ['bid_submitted', 'under_negotiation', 'bid_revised'].includes(tender.own_bid.status);
+
   return (
-    <div className="rounded-xl border bg-card p-6">
+    <div className="rounded-xl border bg-card overflow-hidden">
+      {/* Clickable header */}
+      <button
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+        onClick={() => setOpen(o => !o)}
+      >
+        <div className="flex-1 min-w-0 pr-2">
+          <span className="font-mono text-xs font-semibold text-muted-foreground">
+            {tender.tender_number}
+          </span>
+          <h3 className="font-medium text-foreground mt-0.5 truncate">{tender.title}</h3>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', statusClass)}>
+            {statusLabel}
+          </span>
+          {hasLogs && (
+            <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" title="Negotiation messages" />
+          )}
+          {open
+            ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </div>
+      </button>
+
+      {/* Collapsible body */}
+      {open && (
+        <div className="px-4 pb-4 space-y-3 border-t border-border/50 pt-3">
+          {/* Items list */}
+          <div className="text-xs text-muted-foreground space-y-1">
+            {tender.items?.map((item) => (
+              <div key={item.id} className="flex justify-between">
+                <span>{item.product_name}</span>
+                <span>
+                  {item.required_quantity} units
+                  {item.target_price ? ` · Target ₹${item.target_price}/unit` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Deadline */}
+          {tender.bidding_deadline && (
+            <p className="text-xs text-muted-foreground">
+              Deadline: {new Intl.DateTimeFormat('en-IN', {
+                dateStyle: 'medium', timeStyle: 'short',
+              }).format(new Date(tender.bidding_deadline))}
+            </p>
+          )}
+
+          {/* Negotiation thread */}
+          {hasLogs && (
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">
+                Negotiation thread
+              </p>
+              <NegotiationThread logs={logs} />
+            </div>
+          )}
+
+          {/* Action buttons */}
+          {(canBid || canEdit) && (
+            <div className="flex gap-2 pt-1">
+              {canBid && (
+                <button
+                  onClick={() => onBid(tender)}
+                  className="rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  View &amp; bid →
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  onClick={() => onBid(tender)}
+                  className="rounded-lg border px-4 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+                >
+                  Edit bid
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TendersTab({ tenders, loading: tendersLoading, onBid }: {
+  tenders: VendorTender[];
+  loading: boolean;
+  onBid: (t: VendorTender) => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-4">
       {tendersLoading ? (
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -665,77 +784,9 @@ function TendersTab({ tenders, loading: tendersLoading, onBid: setActiveBidTende
           <p className="text-sm">No tenders available yet.</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {tenders.map((tender: any) => (
-            <div key={tender.id} className="rounded-xl border bg-card p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-mono text-xs font-semibold text-muted-foreground">
-                    {tender.tender_number}
-                  </span>
-                  <h3 className="font-medium text-foreground mt-0.5">{tender.title}</h3>
-                </div>
-                <span className={cn(
-                  'rounded-full px-2.5 py-0.5 text-xs font-medium',
-                  tender.status === 'open'
-                    ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
-                    : tender.own_bid?.status === 'awarded'
-                    ? 'bg-green-500/10 text-green-700 dark:text-green-400'
-                    : tender.own_bid?.status === 'under_negotiation'
-                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                    : 'bg-muted text-muted-foreground'
-                )}>
-                  {tender.own_bid
-                    ? tender.own_bid.status.replace(/_/g, ' ')
-                    : tender.status}
-                </span>
-              </div>
-
-              {tender.own_bid?.status === 'under_negotiation' &&
-               tender.own_bid?.negotiation_notes && (
-                <div className="rounded-lg bg-amber-500/10 border border-amber-400/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                  Admin note: {tender.own_bid.negotiation_notes}
-                </div>
-              )}
-
-              <div className="text-xs text-muted-foreground space-y-1">
-                {tender.items?.map((item: any) => (
-                  <div key={item.id} className="flex justify-between">
-                    <span>{item.product_name}</span>
-                    <span>{item.required_quantity} units
-                      {item.target_price ? ` · Target ₹${item.target_price}/unit` : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {tender.bidding_deadline && (
-                <p className="text-xs text-muted-foreground">
-                  Deadline: {new Intl.DateTimeFormat('en-IN', {
-                    dateStyle: 'medium', timeStyle: 'short'
-                  }).format(new Date(tender.bidding_deadline))}
-                </p>
-              )}
-
-              <div className="flex gap-2 pt-1">
-                {!tender.own_bid && tender.status === 'open' && (
-                  <button
-                    onClick={() => setActiveBidTender(tender)}
-                    className="rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-                    View & bid →
-                  </button>
-                )}
-                {tender.own_bid &&
-                 tender.status === 'open' &&
-                 ['bid_submitted', 'under_negotiation'].includes(tender.own_bid.status) && (
-                  <button
-                    onClick={() => setActiveBidTender(tender)}
-                    className="rounded-lg border px-4 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
-                    Edit bid
-                  </button>
-                )}
-              </div>
-            </div>
+        <div className="space-y-3">
+          {tenders.map((tender) => (
+            <TenderCard key={tender.id} tender={tender} onBid={onBid} />
           ))}
         </div>
       )}
