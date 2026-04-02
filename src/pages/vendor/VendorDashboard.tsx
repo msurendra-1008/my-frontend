@@ -13,6 +13,7 @@ import { procurementService } from '@/services/procurementService';
 import { AddVendorProductSheet } from '@/components/vendor/AddVendorProductSheet';
 import { tenderService } from '@/services/tenderService';
 import { VendorBidSheet } from '@/components/tender/VendorBidSheet';
+import { cn } from '@/utils/cn';
 import type { VendorProfile, VendorDocument, VendorProductListItem, VendorProduct, VendorProductStatus } from '@/types/vendor.types';
 import type { ProcurementRequirement, PurchaseOrder, POStatus, RequirementStatus, MonthlyBreakdown, VendorResponseWriteData } from '@/types/procurement.types';
 import type { Category } from '@/types/product.types';
@@ -652,31 +653,92 @@ function POsTab() {
 
 // ── Stub Tables ───────────────────────────────────────────────────────────────
 
-function TendersTab(_props: { tenders: any[]; loading: boolean; onBid: (t: any) => void }) {
+function TendersTab({ tenders, loading: tendersLoading, onBid: setActiveBidTender }: { tenders: any[]; loading: boolean; onBid: (t: any) => void }) {
   return (
     <div className="rounded-xl border bg-card p-6">
-      <div className="mb-4 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-muted-foreground">
-              <th className="pb-3 pr-4">Tender ID</th>
-              <th className="pb-3 pr-4">Product</th>
-              <th className="pb-3 pr-4">Qty</th>
-              <th className="pb-3 pr-4">Deadline</th>
-              <th className="pb-3 pr-4">Status</th>
-              <th className="pb-3">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                <Clock className="mx-auto mb-2 h-10 w-10 opacity-30" />
-                No tenders assigned yet
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {tendersLoading ? (
+        <div className="flex justify-center py-16">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : tenders.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground">
+          <p className="text-sm">No tenders available yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {tenders.map((tender: any) => (
+            <div key={tender.id} className="rounded-xl border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-mono text-xs font-semibold text-muted-foreground">
+                    {tender.tender_number}
+                  </span>
+                  <h3 className="font-medium text-foreground mt-0.5">{tender.title}</h3>
+                </div>
+                <span className={cn(
+                  'rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  tender.status === 'open'
+                    ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
+                    : tender.own_bid?.status === 'awarded'
+                    ? 'bg-green-500/10 text-green-700 dark:text-green-400'
+                    : tender.own_bid?.status === 'under_negotiation'
+                    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                    : 'bg-muted text-muted-foreground'
+                )}>
+                  {tender.own_bid
+                    ? tender.own_bid.status.replace(/_/g, ' ')
+                    : tender.status}
+                </span>
+              </div>
+
+              {tender.own_bid?.status === 'under_negotiation' &&
+               tender.own_bid?.negotiation_notes && (
+                <div className="rounded-lg bg-amber-500/10 border border-amber-400/30 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                  Admin note: {tender.own_bid.negotiation_notes}
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground space-y-1">
+                {tender.items?.map((item: any) => (
+                  <div key={item.id} className="flex justify-between">
+                    <span>{item.product_name}</span>
+                    <span>{item.required_quantity} units
+                      {item.target_price ? ` · Target ₹${item.target_price}/unit` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {tender.bidding_deadline && (
+                <p className="text-xs text-muted-foreground">
+                  Deadline: {new Intl.DateTimeFormat('en-IN', {
+                    dateStyle: 'medium', timeStyle: 'short'
+                  }).format(new Date(tender.bidding_deadline))}
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                {!tender.own_bid && tender.status === 'open' && (
+                  <button
+                    onClick={() => setActiveBidTender(tender)}
+                    className="rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                    View & bid →
+                  </button>
+                )}
+                {tender.own_bid &&
+                 tender.status === 'open' &&
+                 ['bid_submitted', 'under_negotiation'].includes(tender.own_bid.status) && (
+                  <button
+                    onClick={() => setActiveBidTender(tender)}
+                    className="rounded-lg border px-4 py-1.5 text-xs font-medium hover:bg-muted transition-colors">
+                    Edit bid
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
