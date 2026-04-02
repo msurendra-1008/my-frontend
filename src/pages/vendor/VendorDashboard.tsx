@@ -1014,7 +1014,7 @@ export function VendorDashboard() {
     setTendersLoading(true);
     try {
       const res = await tenderService.getVendorTenders();
-      setTenders(res.data.results ?? res.data ?? []);
+      setTenders((res.data as any).results ?? res.data ?? []);
     } catch { } finally {
       setTendersLoading(false);
     }
