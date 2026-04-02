@@ -196,20 +196,36 @@ function AwardTab({
   preselectedBid?: string;
   onAwarded: () => void;
 }) {
-  const [selections, setSelections] = useState<Record<string, string>>({});
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const [awarding, setAwarding] = useState(false);
   const { msg, show } = useToast();
 
   const canAward = tender.status === 'closed';
   const isAlreadyAwarded = tender.status === 'awarded';
-  const selectedCount = Object.keys(selections).length;
   const totalItems = comparison.length;
+  const allItemsCovered = comparison.every(c => (selections[c.tender_item.id] ?? []).length > 0);
+  const selectedCount = Object.values(selections).reduce((n, ids) => n + ids.length, 0);
+
+  const toggleBid = (itemId: string, bidId: string) => {
+    setSelections(s => {
+      const curr = s[itemId] ?? [];
+      const next = curr.includes(bidId) ? curr.filter(x => x !== bidId) : [...curr, bidId];
+      if (next.length === 0) {
+        const { [itemId]: _removed, ...rest } = s;
+        return rest;
+      }
+      return { ...s, [itemId]: next };
+    });
+  };
 
   const handleAward = async () => {
     setAwarding(true);
     try {
-      await tenderService.awardTender(tender.id, { awards: selections });
+      const awarded_items = Object.entries(selections).flatMap(([itemId, bidIds]) =>
+        bidIds.map(bidId => ({ tender_item_id: itemId, vendor_bid_id: bidId }))
+      );
+      await tenderService.awardTender(tender.id, { awarded_items });
       setShowConfirm(false);
       onAwarded();
     } catch (e: unknown) {
@@ -272,10 +288,10 @@ function AwardTab({
 
         {comparison.map((item) => {
           const { tender_item, bids } = item;
-          const selected = selections[tender_item.id];
-          const awardedBid = isAlreadyAwarded
-            ? bids.find((b) => b.bid_status === 'awarded')
-            : null;
+          const selectedBids = selections[tender_item.id] ?? [];
+          const awardedBids = isAlreadyAwarded
+            ? bids.filter((b) => b.bid_status === 'awarded')
+            : [];
 
           return (
             <div key={tender_item.id} className="rounded-xl border bg-card overflow-hidden">
@@ -289,9 +305,9 @@ function AwardTab({
               </div>
 
               {isAlreadyAwarded ? (
-                <div className="px-5 py-4">
-                  {awardedBid ? (
-                    <div className="flex items-center gap-3">
+                <div className="px-5 py-4 space-y-2">
+                  {awardedBids.length > 0 ? awardedBids.map(awardedBid => (
+                    <div key={awardedBid.bid_id} className="flex items-center gap-3">
                       <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
                       <div>
                         <p className="font-medium">{awardedBid.vendor_name}</p>
@@ -302,7 +318,7 @@ function AwardTab({
                         </p>
                       </div>
                     </div>
-                  ) : (
+                  )) : (
                     <p className="text-sm text-muted-foreground">Not awarded</p>
                   )}
                 </div>
@@ -314,7 +330,7 @@ function AwardTab({
                     </p>
                   ) : (
                     bids.map((bid) => {
-                      const isSelected = selected === bid.bid_id;
+                      const isSelected = selectedBids.includes(bid.bid_id);
                       const vsTarget = bid.vs_target;
                       const vsClass =
                         vsTarget === null
@@ -334,20 +350,14 @@ function AwardTab({
                         >
                           {canAward ? (
                             <input
-                              type="radio"
-                              name={tender_item.id}
+                              type="checkbox"
                               value={bid.bid_id}
                               checked={isSelected}
-                              onChange={() =>
-                                setSelections((s) => ({
-                                  ...s,
-                                  [tender_item.id]: bid.bid_id,
-                                }))
-                              }
-                              className="mt-1 h-4 w-4 text-primary"
+                              onChange={() => toggleBid(tender_item.id, bid.bid_id)}
+                              className="mt-1 h-4 w-4 rounded text-primary"
                             />
                           ) : (
-                            <div className="mt-1 h-4 w-4 rounded-full border-2 border-border shrink-0" />
+                            <div className="mt-1 h-4 w-4 rounded border-2 border-border shrink-0" />
                           )}
                           <div className="flex-1">
                             <p className="font-medium text-sm">{bid.vendor_name}</p>
@@ -379,35 +389,40 @@ function AwardTab({
           <div className="rounded-xl border bg-card p-5">
             <h3 className="mb-3 font-semibold">Award Summary</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {selectedCount} of {totalItems} product{totalItems !== 1 ? 's' : ''} selected
+              {selectedCount} bid{selectedCount !== 1 ? 's' : ''} selected across {totalItems} product{totalItems !== 1 ? 's' : ''}
             </p>
             {selectedCount > 0 && (
               <div className="mb-4 space-y-2 text-sm">
                 {comparison.map((item) => {
-                  const bidId = selections[item.tender_item.id];
-                  if (!bidId) return null;
-                  const bid = item.bids.find((b) => b.bid_id === bidId);
-                  if (!bid) return null;
+                  const bidIds = selections[item.tender_item.id] ?? [];
+                  if (bidIds.length === 0) return null;
                   return (
-                    <div key={item.tender_item.id} className="flex justify-between">
+                    <div key={item.tender_item.id}>
                       <span className="text-muted-foreground">{item.tender_item.product_name}</span>
-                      <span className="font-medium">
-                        {bid.vendor_name} \u2014 {formatMoney(bid.total_value)}
-                      </span>
+                      {bidIds.map(bidId => {
+                        const bid = item.bids.find(b => b.bid_id === bidId);
+                        if (!bid) return null;
+                        return (
+                          <div key={bidId} className="flex justify-between pl-3 mt-0.5">
+                            <span className="text-muted-foreground text-xs">{bid.vendor_name}</span>
+                            <span className="font-medium text-xs">{formatMoney(bid.total_value)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
               </div>
             )}
             <Button
-              disabled={selectedCount === 0 || selectedCount < totalItems}
+              disabled={!allItemsCovered}
               onClick={() => setShowConfirm(true)}
             >
-              Confirm Award ({selectedCount}/{totalItems})
+              Confirm Award ({selectedCount} bid{selectedCount !== 1 ? 's' : ''})
             </Button>
-            {selectedCount > 0 && selectedCount < totalItems && (
+            {selectedCount > 0 && !allItemsCovered && (
               <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                Select a bid for all {totalItems} products to proceed.
+                Select at least one bid for all {totalItems} products to proceed.
               </p>
             )}
           </div>
