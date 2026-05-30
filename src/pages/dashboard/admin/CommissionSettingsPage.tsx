@@ -6,8 +6,6 @@ import { commissionService } from '@/services/commissionService';
 import type { CommissionSettings, ProductCommissionRule } from '@/types/commission.types';
 import { cn } from '@utils/cn';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function useToast() {
   const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null);
   const show = (text: string, err = false) => {
@@ -17,35 +15,35 @@ function useToast() {
   return { msg, show };
 }
 
-// Pastel-safe segment colors
 const SEGMENT_COLORS = [
   'bg-purple-500', 'bg-blue-500', 'bg-green-500',
-  'bg-amber-500', 'bg-red-500', 'bg-pink-500',
+  'bg-amber-500',  'bg-red-500',  'bg-pink-500',
   'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-cyan-500',
 ];
-
-// ── CommissionSettingsPage ────────────────────────────────────────────────────
 
 export function CommissionSettingsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const toast = useToast();
 
-  // --- Global Settings state ---
+  // ── Settings state ──────────────────────────────────────────────────────────
   const [settings,     setSettings]     = useState<CommissionSettings | null>(null);
   const [settingsLoad, setSettingsLoad] = useState(true);
   const [saving,       setSaving]       = useState(false);
 
-  // Editable fields
   const [isEnabled,        setIsEnabled]        = useState(false);
-  const [direction,        setDirection]        = useState<'upline' | 'downline'>('upline');
+  const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>('top_heavy');
   const [levels,           setLevels]           = useState(5);
   const [levelPercentages, setLevelPercentages] = useState<number[]>(Array(5).fill(0));
+  const [networkPct,       setNetworkPct]       = useState('7.00');
+  const [teamPct,          setTeamPct]          = useState('3.00');
+  const [leftLegPct,       setLeftLegPct]       = useState('40.00');
+  const [middleLegPct,     setMiddleLegPct]     = useState('30.00');
+  const [rightLegPct,      setRightLegPct]      = useState('30.00');
 
-  // --- Product Rules state ---
-  const [rules,       setRules]       = useState<ProductCommissionRule[]>([]);
-  const [rulesLoad,   setRulesLoad]   = useState(true);
-  const [modalRule,   setModalRule]   = useState<ProductCommissionRule | null | undefined>(undefined);
-  // undefined = modal closed, null = create mode, ProductCommissionRule = edit mode
+  // ── Product rules state ─────────────────────────────────────────────────────
+  const [rules,     setRules]     = useState<ProductCommissionRule[]>([]);
+  const [rulesLoad, setRulesLoad] = useState(true);
+  const [modalRule, setModalRule] = useState<ProductCommissionRule | null | undefined>(undefined);
 
   // ── Fetch on mount ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -57,6 +55,11 @@ export function CommissionSettingsPage() {
         setDirection(s.direction);
         setLevels(s.levels);
         setLevelPercentages(s.level_percentages.slice(0, s.levels));
+        setNetworkPct(s.network_commission_pct);
+        setTeamPct(s.team_commission_pct);
+        setLeftLegPct(s.left_leg_pct);
+        setMiddleLegPct(s.middle_leg_pct);
+        setRightLegPct(s.right_leg_pct);
       })
       .catch(() => toast.show('Failed to load settings', true))
       .finally(() => setSettingsLoad(false));
@@ -68,7 +71,7 @@ export function CommissionSettingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync levelPercentages length when levels changes
+  // Keep levelPercentages length in sync with levels
   useEffect(() => {
     setLevelPercentages((prev) => {
       const next = [...prev];
@@ -77,15 +80,20 @@ export function CommissionSettingsPage() {
     });
   }, [levels]);
 
-  // ── Save Settings ───────────────────────────────────────────────────────────
+  // ── Save ────────────────────────────────────────────────────────────────────
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
       const r = await commissionService.updateSettings({
-        is_enabled:        isEnabled,
+        is_enabled:             isEnabled,
         direction,
         levels,
-        level_percentages: levelPercentages,
+        level_percentages:      levelPercentages,
+        network_commission_pct: networkPct,
+        team_commission_pct:    teamPct,
+        left_leg_pct:           leftLegPct,
+        middle_leg_pct:         middleLegPct,
+        right_leg_pct:          rightLegPct,
       });
       setSettings(r.data);
       toast.show('Settings saved');
@@ -96,7 +104,7 @@ export function CommissionSettingsPage() {
     }
   };
 
-  // ── Product Rule handlers ───────────────────────────────────────────────────
+  // ── Product rule handlers ───────────────────────────────────────────────────
   const handleRuleSaved = (saved: ProductCommissionRule) => {
     setRules((prev) => {
       const idx = prev.findIndex((r) => r.id === saved.id);
@@ -122,8 +130,8 @@ export function CommissionSettingsPage() {
     }
   };
 
-  // ── Percentage bar preview ──────────────────────────────────────────────────
-  const pctSum = levelPercentages.reduce((a, b) => a + b, 0);
+  // ── Distribution bar helpers ────────────────────────────────────────────────
+  const pctSum   = levelPercentages.reduce((a, b) => a + b, 0);
   const overLimit = pctSum > 100;
 
   const handlePctChange = (idx: number, val: string) => {
@@ -140,7 +148,6 @@ export function CommissionSettingsPage() {
       <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen(false)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile header */}
         <header className="flex h-[52px] items-center gap-3 border-b px-4 lg:hidden">
           <button onClick={() => setSidebarOpen(true)} className="rounded-md p-1.5 hover:bg-muted">
             <Menu size={18} />
@@ -156,7 +163,6 @@ export function CommissionSettingsPage() {
             </p>
           </div>
 
-          {/* Toast */}
           {toast.msg && (
             <div className={cn(
               'rounded-lg px-4 py-2.5 text-sm text-white',
@@ -183,6 +189,7 @@ export function CommissionSettingsPage() {
               </div>
             ) : (
               <div className="p-6 space-y-5">
+
                 {/* Enable toggle */}
                 <div className="flex items-center justify-between">
                   <div>
@@ -208,21 +215,30 @@ export function CommissionSettingsPage() {
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-2">Direction</label>
                   <div className="flex gap-2">
-                    {(['upline', 'downline'] as const).map((d) => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => setDirection(d)}
-                        className={cn(
-                          'rounded-lg border px-4 py-2 text-sm font-medium capitalize transition-colors',
-                          direction === d
-                            ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                            : 'border-border text-muted-foreground hover:bg-muted',
-                        )}
-                      >
-                        {d}
-                      </button>
-                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setDirection('top_heavy')}
+                      className={cn(
+                        'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                        direction === 'top_heavy'
+                          ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                          : 'border-border text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      ↑ L1 gets most (top-heavy)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDirection('bottom_heavy')}
+                      className={cn(
+                        'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                        direction === 'bottom_heavy'
+                          ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                          : 'border-border text-muted-foreground hover:bg-muted',
+                      )}
+                    >
+                      ↓ L7 gets most (bottom-heavy)
+                    </button>
                   </div>
                 </div>
 
@@ -241,7 +257,53 @@ export function CommissionSettingsPage() {
                   />
                 </div>
 
-                {/* Level percentages */}
+                {/* Network + Team commission % */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-0.5">
+                      Network commission (%)
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Sent UP the chain to upline members
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.01}
+                        value={networkPct}
+                        onChange={(e) => setNetworkPct(e.target.value)}
+                        placeholder="e.g. 7"
+                        className="w-24 h-9 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <span className="text-sm text-muted-foreground">% of amount received</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-0.5">
+                      Team commission (%)
+                    </label>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      Sent DOWN to buyer's direct 3 legs
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.01}
+                        value={teamPct}
+                        onChange={(e) => setTeamPct(e.target.value)}
+                        placeholder="e.g. 3"
+                        className="w-24 h-9 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <span className="text-sm text-muted-foreground">% of amount received</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Level percentages + ₹ preview */}
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-2">
                     Level Percentages
@@ -262,19 +324,20 @@ export function CommissionSettingsPage() {
                           className="w-24 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                         />
                         <span className="text-xs text-muted-foreground">%</span>
+                        <span className="text-xs text-muted-foreground">
+                          ₹{((Number(networkPct) * (levelPercentages[i] ?? 0)) / 100).toFixed(2)} per ₹100
+                        </span>
                       </div>
                     ))}
                   </div>
 
-                  {/* Live preview bar */}
+                  {/* Distribution preview bar */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-muted-foreground">Distribution preview</span>
                       <span className={cn(
                         'text-xs font-semibold',
-                        overLimit
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-foreground',
+                        overLimit ? 'text-red-600 dark:text-red-400' : 'text-foreground',
                       )}>
                         Total: {pctSum.toFixed(1)}%
                         {overLimit && ' ⚠ Exceeds 100%'}
@@ -282,7 +345,7 @@ export function CommissionSettingsPage() {
                     </div>
                     <div className="h-4 w-full rounded-full bg-muted/50 overflow-hidden flex">
                       {levelPercentages.map((pct, i) => {
-                        const width = Math.min(100, (pct / 100) * 100);
+                        const width = Math.min(100, pct);
                         if (width <= 0) return null;
                         return (
                           <div
@@ -299,21 +362,52 @@ export function CommissionSettingsPage() {
                         Warning: total exceeds 100%. This may cause issues with commission distribution.
                       </p>
                     )}
-                    {/* Legend */}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {levelPercentages.map((pct, i) => (
                         <div key={i} className="flex items-center gap-1">
                           <span className={cn('h-2 w-2 rounded-full', SEGMENT_COLORS[i % SEGMENT_COLORS.length])} />
-                          <span className="text-[10px] text-muted-foreground">
-                            L{i + 1}: {pct}%
-                          </span>
+                          <span className="text-[10px] text-muted-foreground">L{i + 1}: {pct}%</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Last updated */}
+                {/* Team Commission Split */}
+                <div className="rounded-xl border bg-card p-4">
+                  <p className="text-sm font-semibold text-foreground mb-1">Team Commission Split</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    How to split team commission among 3 direct legs
+                  </p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {([
+                      { label: 'Left',   value: leftLegPct,   setValue: setLeftLegPct },
+                      { label: 'Middle', value: middleLegPct, setValue: setMiddleLegPct },
+                      { label: 'Right',  value: rightLegPct,  setValue: setRightLegPct },
+                    ] as const).map(({ label, value, setValue }) => (
+                      <div key={label} className="rounded-xl border border-border/60 p-4 text-center">
+                        <p className="text-xs font-medium text-muted-foreground mb-3">{label}</p>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.01}
+                          value={value}
+                          onChange={(e) => setValue(e.target.value)}
+                          className="w-full text-center text-2xl font-bold text-purple-600 dark:text-purple-400 border-none bg-transparent focus:outline-none"
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">% of team pool</p>
+                        <p className="text-[11px] text-purple-600/70 dark:text-purple-400/70 mt-0.5">
+                          ₹{((Number(teamPct) * Number(value)) / 100).toFixed(2)} per ₹100
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    💡 Vacant legs receive no commission. Remaining % stays with company.
+                  </p>
+                </div>
+
                 {settings?.updated_at && (
                   <p className="text-xs text-muted-foreground">
                     Last updated:{' '}
@@ -359,7 +453,7 @@ export function CommissionSettingsPage() {
               </div>
             ) : rules.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                No product-specific rules. Click "Add Product Rule" to create one.
+                No product-specific rules. Click "+ Add Product Rule" to create one.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -367,10 +461,7 @@ export function CommissionSettingsPage() {
                   <thead>
                     <tr className="border-b bg-muted/40">
                       {['Product', 'Direction', 'Levels', 'Total %', 'Enabled', 'Actions'].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                        >
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                           {h}
                         </th>
                       ))}
@@ -379,10 +470,11 @@ export function CommissionSettingsPage() {
                   <tbody>
                     {rules.map((rule) => {
                       const total = rule.level_percentages.reduce((a, b) => a + b, 0);
+                      const dirLabel = rule.direction === 'top_heavy' ? '↑ Top-heavy' : '↓ Bottom-heavy';
                       return (
                         <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3 font-medium text-foreground">{rule.product_name}</td>
-                          <td className="px-4 py-3 capitalize text-muted-foreground">{rule.direction}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{dirLabel}</td>
                           <td className="px-4 py-3 text-muted-foreground">{rule.levels}</td>
                           <td className="px-4 py-3 text-muted-foreground">{total.toFixed(1)}%</td>
                           <td className="px-4 py-3">
@@ -424,7 +516,6 @@ export function CommissionSettingsPage() {
         </main>
       </div>
 
-      {/* Modal */}
       {modalRule !== undefined && (
         <ProductCommissionModal
           rule={modalRule}
