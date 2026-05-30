@@ -26,15 +26,15 @@ function isExpired(iso: string | null): boolean {
   return new Date(iso) < new Date();
 }
 
-type StatusFilter = 'all' | 'pending' | 'credited' | 'cancelled';
+type StatusFilter = 'all' | 'pending' | 'credited' | 'vacant';
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: CommissionEntry['status'] }) {
   const cfg = {
-    pending:   'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-    credited:  'bg-green-500/10 text-green-600 dark:text-green-400',
-    cancelled: 'bg-muted/50 text-muted-foreground',
+    pending:  'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    credited: 'bg-green-500/10 text-green-600 dark:text-green-400',
+    vacant:   'bg-muted/50 text-muted-foreground',
   }[status];
   return (
     <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', cfg)}>
@@ -97,7 +97,7 @@ export function PendingCommissionsPage() {
     try {
       const r = await commissionService.creditEntry(entry.id);
       setEntries((prev) => prev.map((e) => e.id === entry.id ? r.data : e));
-      toast.show(`Credited ₹${entry.amount} to ${entry.beneficiary_name}`);
+      toast.show(`Credited ₹${entry.amount} to ${entry.recipient_name}`);
     } catch {
       toast.show('Failed to credit entry', true);
     } finally {
@@ -115,7 +115,7 @@ export function PendingCommissionsPage() {
     { key: 'all',       label: 'All' },
     { key: 'pending',   label: 'Pending' },
     { key: 'credited',  label: 'Credited' },
-    { key: 'cancelled', label: 'Cancelled' },
+    { key: 'vacant',    label: 'Vacant' },
   ];
 
   return (
@@ -245,11 +245,11 @@ export function PendingCommissionsPage() {
                           {entry.order_number}
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-medium text-foreground">{entry.beneficiary_name}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{entry.beneficiary_upa_id}</p>
+                          <p className="font-medium text-foreground">{entry.recipient_name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{entry.recipient_upa_id}</p>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">L{entry.level}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{entry.rate}%</td>
+                        <td className="px-4 py-3 text-muted-foreground">{entry.percentage_applied}%</td>
                         <td className="px-4 py-3 font-semibold text-foreground">₹{entry.amount}</td>
                         <td className="px-4 py-3">
                           {entry.return_window_expires ? (
@@ -288,9 +288,9 @@ export function PendingCommissionsPage() {
                               {formatDate(entry.credited_at)}
                             </span>
                           )}
-                          {entry.status === 'cancelled' && (
+                          {entry.status === 'vacant' && (
                             <span className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
-                              Cancelled
+                              Vacant
                             </span>
                           )}
                         </td>

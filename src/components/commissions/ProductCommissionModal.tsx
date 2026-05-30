@@ -25,9 +25,9 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
   const [dropdownOpen,    setDropdownOpen]    = useState(false);
 
   // Commission fields
-  const [isEnabled,        setIsEnabled]        = useState(rule?.is_enabled ?? true);
+  const [isEnabled,        setIsEnabled]        = useState(rule?.is_active ?? true);
   const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>(rule?.direction ?? 'top_heavy');
-  const [levels,           setLevels]           = useState(rule?.levels ?? 3);
+  const [levels,           setLevels]           = useState(rule?.max_upline_levels ?? 3);
   const [levelPercentages, setLevelPercentages] = useState<number[]>(
     rule?.level_percentages ?? Array(3).fill(0),
   );
@@ -55,8 +55,8 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
       setGlobalTeamPct(s.team_commission_pct);
       if (!isEdit) {
         setDirection(s.direction);
-        setLevels(s.levels);
-        setLevelPercentages(s.level_percentages.slice(0, s.levels));
+        setLevels(s.max_upline_levels);
+        setLevelPercentages(s.level_percentages.slice(0, s.max_upline_levels));
         setNetworkPct(s.network_commission_pct);
         setTeamPct(s.team_commission_pct);
         setLeftLegPct(s.left_leg_pct);
@@ -129,8 +129,8 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
       const r = await commissionService.getSettings();
       const s = r.data;
       setDirection(s.direction);
-      setLevels(s.levels);
-      setLevelPercentages(s.level_percentages.slice(0, s.levels));
+      setLevels(s.max_upline_levels);
+      setLevelPercentages(s.level_percentages.slice(0, s.max_upline_levels));
       setNetworkPct(s.network_commission_pct);
       setTeamPct(s.team_commission_pct);
       setLeftLegPct(s.left_leg_pct);
@@ -150,9 +150,9 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
     setSaving(true);
     try {
       const payload: Partial<ProductCommissionRule> = {
-        is_enabled:             isEnabled,
+        is_active:              isEnabled,
         direction,
-        levels,
+        max_upline_levels:      levels,
         level_percentages:      levelPercentages,
         network_commission_pct: networkPct,
         team_commission_pct:    teamPct,
