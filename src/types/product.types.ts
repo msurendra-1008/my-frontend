@@ -41,6 +41,7 @@ export interface ProductListItem {
   id:               string;
   name:             string;
   slug:             string;
+  sku:              string;
   mrp:              string;
   primary_image:    string | null;
   category_name:    string | null;
