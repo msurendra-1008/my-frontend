@@ -5,6 +5,8 @@ import { useTheme } from '@context/ThemeContext';
 import { Badge } from '@components/ui/Badge';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
+import { treeService } from '@/services/treeService';
+import type { LegUser } from '@/types/tree.types';
 
 interface UpaUser {
   id:            string;
@@ -29,6 +31,9 @@ function formatDate(iso: string | null) {
 
 // ── Detail Sheet ──────────────────────────────────────────────────────────────
 
+const LEG_KEYS = ['L', 'M', 'R'] as const;
+const LEG_FULL: Record<string, string> = { L: 'Left', M: 'Middle', R: 'Right' };
+
 function UpaUserDetailSheet({
   user,
   onClose,
@@ -36,15 +41,31 @@ function UpaUserDetailSheet({
   user: UpaUser;
   onClose: () => void;
 }) {
+  const [childrenSummary, setChildrenSummary] =
+    useState<{ L: LegUser | null; M: LegUser | null; R: LegUser | null } | null>(null);
+  const [legsLoading, setLegsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user.upa_id) {
+      setChildrenSummary(null);
+      return;
+    }
+    setLegsLoading(true);
+    treeService.getProfile(user.upa_id)
+      .then((res) => setChildrenSummary(res.data.children_summary))
+      .catch(() => setChildrenSummary(null))
+      .finally(() => setLegsLoading(false));
+  }, [user.upa_id]);
+
   const details = [
-    { label: 'UPA ID',         value: user.upa_id || '—' },
-    { label: 'Mobile',         value: user.mobile || '—' },
-    { label: 'Sponsor',        value: user.parent_upa_id || 'Standalone' },
-    { label: 'Leg',            value: user.leg ? LEG_LABEL[user.leg] : 'Standalone' },
-    { label: 'Level',          value: user.depth_level != null ? String(user.depth_level) : '—' },
-    { label: 'Wallet Balance', value: `₹ ${user.wallet_balance}` },
-    { label: 'Status',         value: user.is_active ? 'Active' : 'Inactive' },
-    { label: 'Network Joined', value: formatDate(user.joined_at) },
+    { label: 'UPA ID',          value: user.upa_id || '—' },
+    { label: 'Mobile',          value: user.mobile || '—' },
+    { label: 'Sponsor',         value: user.parent_upa_id || 'Standalone' },
+    { label: 'Placed in leg',   value: user.leg ? LEG_LABEL[user.leg] : 'Standalone' },
+    { label: 'Level',           value: user.depth_level != null ? String(user.depth_level) : '—' },
+    { label: 'Wallet Balance',  value: `₹ ${user.wallet_balance}` },
+    { label: 'Status',          value: user.is_active ? 'Active' : 'Inactive' },
+    { label: 'Network Joined',  value: formatDate(user.joined_at) },
     { label: 'Account Created', value: formatDate(user.date_joined) },
   ];
 
@@ -73,6 +94,7 @@ function UpaUserDetailSheet({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
           {/* Member details card */}
           <div className="rounded-xl border bg-card p-4">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-3">
@@ -82,15 +104,13 @@ function UpaUserDetailSheet({
               {details.map((d) => (
                 <div key={d.label} className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">{d.label}</span>
-                  <span
-                    className={`font-medium ${
-                      d.label === 'Status'
-                        ? user.is_active
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-500 dark:text-red-400'
-                        : 'text-foreground'
-                    }`}
-                  >
+                  <span className={`font-medium ${
+                    d.label === 'Status'
+                      ? user.is_active
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-500 dark:text-red-400'
+                      : 'text-foreground'
+                  }`}>
                     {d.value}
                   </span>
                 </div>
@@ -98,18 +118,72 @@ function UpaUserDetailSheet({
             </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Direct Legs card */}
+          {user.upa_id ? (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                Direct Legs
+              </p>
+              {legsLoading ? (
+                <div className="flex justify-center py-4">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {LEG_KEYS.map((key) => {
+                    const node = childrenSummary?.[key] ?? null;
+                    return (
+                      <div
+                        key={key}
+                        className={`rounded-lg border p-3 text-center text-xs transition-colors ${
+                          node
+                            ? 'bg-green-500/10 border-green-400/40'
+                            : 'border-dashed bg-muted/30'
+                        }`}
+                      >
+                        <p className="font-medium text-muted-foreground mb-2 capitalize">
+                          {LEG_FULL[key]}
+                        </p>
+                        {node ? (
+                          <>
+                            <p className="font-semibold text-foreground text-xs leading-tight">
+                              {node.name}
+                            </p>
+                            <p className="text-muted-foreground text-[10px] mt-0.5">
+                              {node.upa_id}
+                            </p>
+                            <span className="inline-block mt-1.5 rounded-full bg-green-500/20
+                                             text-green-600 dark:text-green-400 text-[10px]
+                                             px-1.5 py-0.5 font-medium">
+                              Occupied
+                            </span>
+                          </>
+                        ) : (
+                          <p className="text-muted-foreground text-[10px]">Vacant</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+              Not placed in UPA tree yet — no leg data available.
+            </div>
+          )}
+
+          {/* Action button */}
           {user.upa_id && (
             <button
-              onClick={() => {
-                window.location.href = `/admin/upa-tree?highlight=${user.upa_id}`;
-              }}
+              onClick={() => { window.location.href = `/admin/upa-tree?highlight=${user.upa_id}`; }}
               className="w-full h-9 rounded-lg border text-sm font-medium
                          hover:bg-muted transition-colors text-foreground"
             >
               View in UPA tree →
             </button>
           )}
+
         </div>
       </div>
     </div>
