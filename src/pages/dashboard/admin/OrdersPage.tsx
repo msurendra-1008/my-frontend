@@ -85,13 +85,8 @@ function CommissionBreakupSection({ order }: { order: Order }) {
           {breakups.map((breakup) => (
             <div key={breakup.id}>
               <div className="flex items-center gap-2 mb-2">
-                <span className={cn(
-                  'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                  breakup.direction === 'top_heavy'
-                    ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
-                    : 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
-                )}>
-                  {breakup.direction === 'top_heavy' ? '↑ Top-heavy' : '↓ Bottom-heavy'}
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                  Network: ₹{breakup.network_pool} &nbsp;|&nbsp; Team: ₹{breakup.team_pool}
                 </span>
                 {breakup.return_window_expires && (
                   <span className="text-[10px] text-muted-foreground">
@@ -109,7 +104,7 @@ function CommissionBreakupSection({ order }: { order: Order }) {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b bg-muted/40">
-                        {['Level', 'Beneficiary', 'Rate', 'Amount', 'Status'].map((h) => (
+                        {['Level', 'Recipient', 'Rate', 'Amount', 'Status'].map((h) => (
                           <th key={h} className="px-3 py-1.5 text-left font-semibold uppercase tracking-wide text-muted-foreground">
                             {h}
                           </th>
@@ -119,19 +114,19 @@ function CommissionBreakupSection({ order }: { order: Order }) {
                     <tbody>
                       {breakup.entries.map((entry) => (
                         <tr key={entry.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-3 py-2 text-muted-foreground">L{entry.level}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{entry.entry_type === 'team_downline' ? entry.leg_position : `L${entry.level}`}</td>
                           <td className="px-3 py-2">
-                            <p className="font-medium text-foreground">{entry.beneficiary_name}</p>
-                            <p className="text-[10px] text-muted-foreground font-mono">{entry.beneficiary_upa_id}</p>
+                            <p className="font-medium text-foreground">{entry.recipient_name}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">{entry.recipient_upa_id}</p>
                           </td>
-                          <td className="px-3 py-2 text-muted-foreground">{entry.rate}%</td>
+                          <td className="px-3 py-2 text-muted-foreground">{entry.percentage_applied}%</td>
                           <td className="px-3 py-2 font-semibold text-foreground">₹{entry.amount}</td>
                           <td className="px-3 py-2">
                             <span className={cn(
                               'rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase',
-                              entry.status === 'pending'   && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-                              entry.status === 'credited'  && 'bg-green-500/10 text-green-600 dark:text-green-400',
-                              entry.status === 'cancelled' && 'bg-muted/50 text-muted-foreground',
+                              entry.status === 'pending'  && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                              entry.status === 'credited' && 'bg-green-500/10 text-green-600 dark:text-green-400',
+                              entry.status === 'vacant'   && 'bg-muted/50 text-muted-foreground',
                             )}>
                               {entry.status}
                             </span>

@@ -30,7 +30,6 @@ export function CommissionSettingsPage() {
   const [settingsLoad, setSettingsLoad] = useState(true);
   const [saving,       setSaving]       = useState(false);
 
-  const [isEnabled,        setIsEnabled]        = useState(false);
   const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>('top_heavy');
   const [levels,           setLevels]           = useState(5);
   const [levelPercentages, setLevelPercentages] = useState<number[]>(Array(5).fill(0));
@@ -51,10 +50,9 @@ export function CommissionSettingsPage() {
       .then((r) => {
         const s = r.data;
         setSettings(s);
-        setIsEnabled(s.is_enabled);
         setDirection(s.direction);
-        setLevels(s.levels);
-        setLevelPercentages(s.level_percentages.slice(0, s.levels));
+        setLevels(s.max_upline_levels);
+        setLevelPercentages(s.level_percentages.slice(0, s.max_upline_levels));
         setNetworkPct(s.network_commission_pct);
         setTeamPct(s.team_commission_pct);
         setLeftLegPct(s.left_leg_pct);
@@ -85,9 +83,8 @@ export function CommissionSettingsPage() {
     setSaving(true);
     try {
       const r = await commissionService.updateSettings({
-        is_enabled:             isEnabled,
         direction,
-        levels,
+        max_upline_levels:      levels,
         level_percentages:      levelPercentages,
         network_commission_pct: networkPct,
         team_commission_pct:    teamPct,
@@ -189,27 +186,6 @@ export function CommissionSettingsPage() {
               </div>
             ) : (
               <div className="p-6 space-y-5">
-
-                {/* Enable toggle */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Commission System</p>
-                    <p className="text-xs text-muted-foreground">Enable or disable commission distribution globally</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsEnabled((v) => !v)}
-                    className={cn(
-                      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                      isEnabled ? 'bg-green-500' : 'bg-muted-foreground/30',
-                    )}
-                  >
-                    <span className={cn(
-                      'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
-                      isEnabled ? 'translate-x-6' : 'translate-x-1',
-                    )} />
-                  </button>
-                </div>
 
                 {/* Direction */}
                 <div>
@@ -475,16 +451,16 @@ export function CommissionSettingsPage() {
                         <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3 font-medium text-foreground">{rule.product_name}</td>
                           <td className="px-4 py-3 text-muted-foreground text-xs">{dirLabel}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{rule.levels}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{rule.max_upline_levels}</td>
                           <td className="px-4 py-3 text-muted-foreground">{total.toFixed(1)}%</td>
                           <td className="px-4 py-3">
                             <span className={cn(
                               'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                              rule.is_enabled
+                              rule.is_active
                                 ? 'bg-green-500/10 text-green-600 dark:text-green-400'
                                 : 'bg-muted/50 text-muted-foreground',
                             )}>
-                              {rule.is_enabled ? 'Yes' : 'No'}
+                              {rule.is_active ? 'Yes' : 'No'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
