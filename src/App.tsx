@@ -31,6 +31,8 @@ import { AdminWarehousePage }     from '@/pages/dashboard/admin/WarehousePage';
 import { AdminStockPage }         from '@/pages/dashboard/admin/StockPage';
 import { TenderPage }             from '@/pages/dashboard/admin/TenderPage';
 import { TenderDetail }           from '@/pages/dashboard/admin/TenderDetail';
+import { CommissionSettingsPage } from '@/pages/dashboard/admin/CommissionSettingsPage';
+import { PendingCommissionsPage } from '@/pages/dashboard/admin/PendingCommissionsPage';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -185,6 +187,23 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <TenderDetail />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/commissions/settings"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <CommissionSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/commissions/pending"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <PendingCommissionsPage />
           </ProtectedRoute>
         }
       />
