@@ -16,6 +16,7 @@ export interface ProductCommissionRule {
   id:                     string;
   product:                string;
   product_name:           string;
+  product_mrp:            string;
   is_enabled:             boolean;
   direction:              'top_heavy' | 'bottom_heavy';
   levels:                 number;
