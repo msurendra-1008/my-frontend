@@ -28,7 +28,7 @@ export const commissionService = {
     axiosInstance.delete(`/api/v1/commissions/product-rules/${id}/`),
 
   getBreakups: (orderId: string) =>
-    axiosInstance.get<CommissionBreakup[]>(`/api/v1/commissions/breakups/?order=${orderId}`),
+    axiosInstance.get<Paginated<CommissionBreakup>>(`/api/v1/commissions/breakups/?order=${orderId}`),
 
   getPendingEntries: (params?: { status?: string; search?: string }) =>
     axiosInstance.get<Paginated<CommissionEntry>>('/api/v1/commissions/pending/', { params }),

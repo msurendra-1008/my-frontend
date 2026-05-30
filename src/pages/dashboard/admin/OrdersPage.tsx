@@ -60,7 +60,7 @@ function CommissionBreakupSection({ order }: { order: Order }) {
 
   useEffect(() => {
     commissionService.getBreakups(order.id)
-      .then((r) => setBreakups(r.data))
+      .then((r) => setBreakups(r.data.results ?? []))
       .catch(() => setBreakups([]))
       .finally(() => setLoading(false));
   }, [order.id]);
