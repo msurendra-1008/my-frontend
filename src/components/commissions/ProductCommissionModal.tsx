@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Search } from 'lucide-react';
 import { cn } from '@utils/cn';
 import { commissionService } from '@/services/commissionService';
+import { productService } from '@/services/productService';
 import type { ProductCommissionRule } from '@/types/commission.types';
+import type { ProductListItem } from '@/types/product.types';
 
 interface Props {
-  rule:    ProductCommissionRule | null;  // null = create mode
+  rule:    ProductCommissionRule | null;
   onSave:  (r: ProductCommissionRule) => void;
   onClose: () => void;
 }
@@ -14,14 +16,57 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
   const isEdit = rule !== null;
 
   const [productId,        setProductId]        = useState(rule?.product ?? '');
+  const [selectedProduct,  setSelectedProduct]  = useState<ProductListItem | null>(null);
+  const [searchQuery,      setSearchQuery]      = useState('');
+  const [searchResults,    setSearchResults]    = useState<ProductListItem[]>([]);
+  const [searchLoading,    setSearchLoading]    = useState(false);
+  const [dropdownOpen,     setDropdownOpen]     = useState(false);
+
   const [isEnabled,        setIsEnabled]        = useState(rule?.is_enabled ?? true);
   const [direction,        setDirection]        = useState<'upline' | 'downline'>(rule?.direction ?? 'upline');
   const [levels,           setLevels]           = useState(rule?.levels ?? 3);
   const [levelPercentages, setLevelPercentages] = useState<number[]>(
     rule?.level_percentages ?? Array(3).fill(0),
   );
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
+
+  const searchRef  = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Debounced product search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setDropdownOpen(false);
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearchLoading(true);
+      productService.listProducts({ search: searchQuery.trim() })
+        .then((r) => {
+          setSearchResults(r.data.results ?? []);
+          setDropdownOpen(true);
+        })
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
 
   // Keep levelPercentages array in sync with levels count
   useEffect(() => {
@@ -31,6 +76,19 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
       return next.slice(0, levels);
     });
   }, [levels]);
+
+  const handleSelectProduct = (p: ProductListItem) => {
+    setSelectedProduct(p);
+    setProductId(p.id);
+    setSearchQuery('');
+    setDropdownOpen(false);
+    setSearchResults([]);
+  };
+
+  const handleClearProduct = () => {
+    setSelectedProduct(null);
+    setProductId('');
+  };
 
   const handleUseGlobalDefaults = async () => {
     try {
@@ -45,6 +103,10 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
   };
 
   const handleSave = async () => {
+    if (!isEdit && !productId) {
+      setError('Please select a product.');
+      return;
+    }
     setError('');
     setSaving(true);
     try {
@@ -54,7 +116,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
         levels,
         level_percentages: levelPercentages,
       };
-      if (!isEdit) payload.product = productId.trim();
+      if (!isEdit) payload.product = productId;
 
       let saved: ProductCommissionRule;
       if (isEdit) {
@@ -66,7 +128,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
       }
       onSave(saved);
     } catch {
-      setError('Failed to save rule. Please check the product ID and try again.');
+      setError('Failed to save rule. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -85,6 +147,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-xl border bg-card shadow-2xl flex flex-col max-h-[90vh]">
+
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-4 flex-shrink-0">
           <h3 className="font-semibold text-foreground">
@@ -106,19 +169,71 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
             </div>
           )}
 
-          {/* Product ID (create only) */}
+          {/* Product search (create only) */}
           {!isEdit && (
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Product ID (UUID)
+                Product
               </label>
-              <input
-                type="text"
-                value={productId}
-                onChange={(e) => setProductId(e.target.value)}
-                placeholder="Enter product UUID"
-                className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-              />
+
+              {selectedProduct ? (
+                /* Selected product chip */
+                <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{selectedProduct.name}</p>
+                    <p className="text-xs text-muted-foreground">SKU: {selectedProduct.sku}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearProduct}
+                    className="ml-2 rounded p-1 hover:bg-muted transition-colors text-muted-foreground"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                /* Search input + dropdown */
+                <div ref={searchRef} className="relative">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onFocus={() => searchResults.length > 0 && setDropdownOpen(true)}
+                      placeholder="Search by name or SKU…"
+                      className="w-full rounded-lg border bg-background pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    />
+                    {searchLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
+                    )}
+                  </div>
+
+                  {dropdownOpen && searchResults.length > 0 && (
+                    <div className="absolute z-20 mt-1 w-full rounded-lg border bg-card shadow-lg max-h-52 overflow-y-auto">
+                      {searchResults.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleSelectProduct(p)}
+                          className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/50 transition-colors"
+                        >
+                          <span className="text-sm text-foreground truncate">{p.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground flex-shrink-0">
+                            {p.sku}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {dropdownOpen && !searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+                    <div className="absolute z-20 mt-1 w-full rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground shadow-lg">
+                      No products found
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
