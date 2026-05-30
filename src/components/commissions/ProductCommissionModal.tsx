@@ -15,24 +15,56 @@ interface Props {
 export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
   const isEdit = rule !== null;
 
-  const [productId,        setProductId]        = useState(rule?.product ?? '');
-  const [selectedProduct,  setSelectedProduct]  = useState<ProductListItem | null>(null);
-  const [searchQuery,      setSearchQuery]      = useState('');
-  const [searchResults,    setSearchResults]    = useState<ProductListItem[]>([]);
-  const [searchLoading,    setSearchLoading]    = useState(false);
-  const [dropdownOpen,     setDropdownOpen]     = useState(false);
+  // Product search (create only)
+  const [productId,       setProductId]       = useState(rule?.product ?? '');
+  const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(null);
+  const [searchQuery,     setSearchQuery]     = useState('');
+  const [searchResults,   setSearchResults]   = useState<ProductListItem[]>([]);
+  const [searchLoading,   setSearchLoading]   = useState(false);
+  const [dropdownOpen,    setDropdownOpen]    = useState(false);
 
+  // Commission fields
   const [isEnabled,        setIsEnabled]        = useState(rule?.is_enabled ?? true);
-  const [direction,        setDirection]        = useState<'upline' | 'downline'>(rule?.direction ?? 'upline');
+  const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>(rule?.direction ?? 'top_heavy');
   const [levels,           setLevels]           = useState(rule?.levels ?? 3);
   const [levelPercentages, setLevelPercentages] = useState<number[]>(
     rule?.level_percentages ?? Array(3).fill(0),
   );
+  const [networkPct,   setNetworkPct]   = useState(rule?.network_commission_pct ?? '7.00');
+  const [teamPct,      setTeamPct]      = useState(rule?.team_commission_pct ?? '3.00');
+  const [leftLegPct,   setLeftLegPct]   = useState(rule?.left_leg_pct ?? '40.00');
+  const [middleLegPct, setMiddleLegPct] = useState(rule?.middle_leg_pct ?? '30.00');
+  const [rightLegPct,  setRightLegPct]  = useState(rule?.right_leg_pct ?? '30.00');
+
+  // Global settings hint values (shown as "(Global: X%)")
+  const [globalNetworkPct, setGlobalNetworkPct] = useState<string | null>(null);
+  const [globalTeamPct,    setGlobalTeamPct]    = useState<string | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
 
-  const searchRef  = useRef<HTMLDivElement>(null);
+  const searchRef   = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pre-fill from global settings when creating a new rule
+  useEffect(() => {
+    commissionService.getSettings().then((r) => {
+      const s = r.data;
+      setGlobalNetworkPct(s.network_commission_pct);
+      setGlobalTeamPct(s.team_commission_pct);
+      if (!isEdit) {
+        setDirection(s.direction);
+        setLevels(s.levels);
+        setLevelPercentages(s.level_percentages.slice(0, s.levels));
+        setNetworkPct(s.network_commission_pct);
+        setTeamPct(s.team_commission_pct);
+        setLeftLegPct(s.left_leg_pct);
+        setMiddleLegPct(s.middle_leg_pct);
+        setRightLegPct(s.right_leg_pct);
+      }
+    }).catch(() => {/* non-fatal */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -68,7 +100,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
     };
   }, [searchQuery]);
 
-  // Keep levelPercentages array in sync with levels count
+  // Sync levelPercentages length with levels
   useEffect(() => {
     setLevelPercentages((prev) => {
       const next = [...prev];
@@ -97,6 +129,11 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
       setDirection(s.direction);
       setLevels(s.levels);
       setLevelPercentages(s.level_percentages.slice(0, s.levels));
+      setNetworkPct(s.network_commission_pct);
+      setTeamPct(s.team_commission_pct);
+      setLeftLegPct(s.left_leg_pct);
+      setMiddleLegPct(s.middle_leg_pct);
+      setRightLegPct(s.right_leg_pct);
     } catch {
       setError('Failed to fetch global settings');
     }
@@ -111,10 +148,15 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
     setSaving(true);
     try {
       const payload: Partial<ProductCommissionRule> = {
-        is_enabled:        isEnabled,
+        is_enabled:             isEnabled,
         direction,
         levels,
-        level_percentages: levelPercentages,
+        level_percentages:      levelPercentages,
+        network_commission_pct: networkPct,
+        team_commission_pct:    teamPct,
+        left_leg_pct:           leftLegPct,
+        middle_leg_pct:         middleLegPct,
+        right_leg_pct:          rightLegPct,
       };
       if (!isEdit) payload.product = productId;
 
@@ -172,12 +214,8 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
           {/* Product search (create only) */}
           {!isEdit && (
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Product
-              </label>
-
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Product</label>
               {selectedProduct ? (
-                /* Selected product chip */
                 <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-3 py-2">
                   <div>
                     <p className="text-sm font-medium text-foreground">{selectedProduct.name}</p>
@@ -192,7 +230,6 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
                   </button>
                 </div>
               ) : (
-                /* Search input + dropdown */
                 <div ref={searchRef} className="relative">
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -208,7 +245,6 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
                     )}
                   </div>
-
                   {dropdownOpen && searchResults.length > 0 && (
                     <div className="absolute z-20 mt-1 w-full rounded-lg border bg-card shadow-lg max-h-52 overflow-y-auto">
                       {searchResults.map((p) => (
@@ -219,14 +255,11 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
                           className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-muted/50 transition-colors"
                         >
                           <span className="text-sm text-foreground truncate">{p.name}</span>
-                          <span className="ml-2 text-xs text-muted-foreground flex-shrink-0">
-                            {p.sku}
-                          </span>
+                          <span className="ml-2 text-xs text-muted-foreground flex-shrink-0">{p.sku}</span>
                         </button>
                       ))}
                     </div>
                   )}
-
                   {dropdownOpen && !searchLoading && searchQuery.trim() && searchResults.length === 0 && (
                     <div className="absolute z-20 mt-1 w-full rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground shadow-lg">
                       No products found
@@ -259,29 +292,36 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">Direction</label>
             <div className="flex gap-2">
-              {(['upline', 'downline'] as const).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setDirection(d)}
-                  className={cn(
-                    'flex-1 rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors',
-                    direction === d
-                      ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                      : 'border-border text-muted-foreground hover:bg-muted',
-                  )}
-                >
-                  {d}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => setDirection('top_heavy')}
+                className={cn(
+                  'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  direction === 'top_heavy'
+                    ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                    : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+              >
+                ↑ L1 gets most
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirection('bottom_heavy')}
+                className={cn(
+                  'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  direction === 'bottom_heavy'
+                    ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                    : 'border-border text-muted-foreground hover:bg-muted',
+                )}
+              >
+                ↓ L7 gets most
+              </button>
             </div>
           </div>
 
           {/* Levels */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              Levels (1–10)
-            </label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Levels (1–10)</label>
             <input
               type="number"
               min={1}
@@ -292,15 +332,51 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
             />
           </div>
 
+          {/* Network + Team commission % */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                Network commission (%)
+                {globalNetworkPct !== null && (
+                  <span className="ml-1 font-normal">(Global: {globalNetworkPct}%)</span>
+                )}
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                value={networkPct}
+                onChange={(e) => setNetworkPct(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                Team commission (%)
+                {globalTeamPct !== null && (
+                  <span className="ml-1 font-normal">(Global: {globalTeamPct}%)</span>
+                )}
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                value={teamPct}
+                onChange={(e) => setTeamPct(e.target.value)}
+                className="w-full rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+            </div>
+          </div>
+
           {/* Level percentages */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-2">
-              Level Percentages
-            </label>
+            <label className="block text-xs font-medium text-muted-foreground mb-2">Level Percentages</label>
             <div className="space-y-2">
               {Array.from({ length: levels }, (_, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="w-28 text-xs text-muted-foreground">
+                  <span className="w-24 text-xs text-muted-foreground">
                     {i === 0 ? 'Level 1 (direct)' : `Level ${i + 1}`}
                   </span>
                   <input
@@ -310,9 +386,42 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
                     step={0.1}
                     value={levelPercentages[i] ?? 0}
                     onChange={(e) => handlePctChange(i, e.target.value)}
-                    className="w-24 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    className="w-20 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                   />
                   <span className="text-xs text-muted-foreground">%</span>
+                  <span className="text-xs text-muted-foreground">
+                    ₹{((Number(networkPct) * (levelPercentages[i] ?? 0)) / 100).toFixed(2)} per ₹100
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Team Commission Split */}
+          <div className="rounded-xl border bg-muted/20 p-4">
+            <p className="text-sm font-semibold text-foreground mb-1">Team Commission Split</p>
+            <p className="text-xs text-muted-foreground mb-3">Split team commission among 3 direct legs</p>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { label: 'Left',   value: leftLegPct,   setValue: setLeftLegPct },
+                { label: 'Middle', value: middleLegPct, setValue: setMiddleLegPct },
+                { label: 'Right',  value: rightLegPct,  setValue: setRightLegPct },
+              ] as const).map(({ label, value, setValue }) => (
+                <div key={label} className="rounded-lg border border-border/60 p-3 text-center">
+                  <p className="text-[11px] font-medium text-muted-foreground mb-2">{label}</p>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className="w-full text-center text-xl font-bold text-purple-600 dark:text-purple-400 border-none bg-transparent focus:outline-none"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">% of pool</p>
+                  <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-0.5">
+                    ₹{((Number(teamPct) * Number(value)) / 100).toFixed(2)}/₹100
+                  </p>
                 </div>
               ))}
             </div>
@@ -324,7 +433,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
             onClick={handleUseGlobalDefaults}
             className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
           >
-            Use global defaults
+            ↺ Use global defaults
           </button>
         </div>
 

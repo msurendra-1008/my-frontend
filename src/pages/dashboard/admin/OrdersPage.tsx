@@ -87,11 +87,11 @@ function CommissionBreakupSection({ order }: { order: Order }) {
               <div className="flex items-center gap-2 mb-2">
                 <span className={cn(
                   'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                  breakup.direction === 'upline'
+                  breakup.direction === 'top_heavy'
                     ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
                     : 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
                 )}>
-                  {breakup.direction}
+                  {breakup.direction === 'top_heavy' ? '↑ Top-heavy' : '↓ Bottom-heavy'}
                 </span>
                 {breakup.return_window_expires && (
                   <span className="text-[10px] text-muted-foreground">

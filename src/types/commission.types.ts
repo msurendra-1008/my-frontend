@@ -1,20 +1,30 @@
 export interface CommissionSettings {
-  id:                string;
-  is_enabled:        boolean;
-  direction:         'upline' | 'downline';
-  levels:            number;
-  level_percentages: number[];
-  updated_at:        string;
+  id:                     string;
+  is_enabled:             boolean;
+  direction:              'top_heavy' | 'bottom_heavy';
+  levels:                 number;
+  level_percentages:      number[];
+  network_commission_pct: string;
+  team_commission_pct:    string;
+  left_leg_pct:           string;
+  middle_leg_pct:         string;
+  right_leg_pct:          string;
+  updated_at:             string;
 }
 
 export interface ProductCommissionRule {
-  id:                string;
-  product:           string;
-  product_name:      string;
-  is_enabled:        boolean;
-  direction:         'upline' | 'downline';
-  levels:            number;
-  level_percentages: number[];
+  id:                     string;
+  product:                string;
+  product_name:           string;
+  is_enabled:             boolean;
+  direction:              'top_heavy' | 'bottom_heavy';
+  levels:                 number;
+  level_percentages:      number[];
+  network_commission_pct: string;
+  team_commission_pct:    string;
+  left_leg_pct:           string;
+  middle_leg_pct:         string;
+  right_leg_pct:          string;
 }
 
 export interface CommissionEntry {
@@ -36,7 +46,7 @@ export interface CommissionBreakup {
   id:                    string;
   order:                 string;
   order_number:          string;
-  direction:             'upline' | 'downline';
+  direction:             'top_heavy' | 'bottom_heavy';
   return_window_expires: string | null;
   entries:               CommissionEntry[];
 }
