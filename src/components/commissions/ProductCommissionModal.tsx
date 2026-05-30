@@ -17,6 +17,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
 
   // Product search (create only)
   const [productId,       setProductId]       = useState(rule?.product ?? '');
+  const [productMRP,      setProductMRP]      = useState<number>(Number(rule?.product_mrp ?? 100));
   const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(null);
   const [searchQuery,     setSearchQuery]     = useState('');
   const [searchResults,   setSearchResults]   = useState<ProductListItem[]>([]);
@@ -112,6 +113,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
   const handleSelectProduct = (p: ProductListItem) => {
     setSelectedProduct(p);
     setProductId(p.id);
+    setProductMRP(Number(p.mrp));
     setSearchQuery('');
     setDropdownOpen(false);
     setSearchResults([]);
@@ -192,9 +194,16 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-4 flex-shrink-0">
-          <h3 className="font-semibold text-foreground">
-            {isEdit ? `Edit Rule — ${rule.product_name}` : 'Add Product Rule'}
-          </h3>
+          <div>
+            <h3 className="font-semibold text-foreground">
+              {isEdit ? `Edit Rule — ${rule.product_name}` : 'Add Product Rule'}
+            </h3>
+            {(isEdit || productMRP !== 100) && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                MRP: ₹{productMRP.toLocaleString('en-IN')}
+              </p>
+            )}
+          </div>
           <button
             onClick={onClose}
             className="rounded-md p-1 hover:bg-muted transition-colors text-muted-foreground"
@@ -390,11 +399,14 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
                   />
                   <span className="text-xs text-muted-foreground">%</span>
                   <span className="text-xs text-muted-foreground">
-                    ₹{((Number(networkPct) * (levelPercentages[i] ?? 0)) / 100).toFixed(2)} per ₹100
+                    ₹{(productMRP * Number(networkPct) / 100 * (levelPercentages[i] ?? 0) / 100).toFixed(2)} per ₹{productMRP.toLocaleString('en-IN')} MRP
                   </span>
                 </div>
               ))}
             </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Preview based on product MRP ₹{productMRP.toLocaleString('en-IN')}. Actual amount depends on UPA price at time of purchase.
+            </p>
           </div>
 
           {/* Team Commission Split */}
@@ -420,7 +432,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
                   />
                   <p className="text-[10px] text-muted-foreground mt-0.5">% of pool</p>
                   <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-0.5">
-                    ₹{((Number(teamPct) * Number(value)) / 100).toFixed(2)}/₹100
+                    ₹{(productMRP * Number(teamPct) / 100 * Number(value) / 100).toFixed(2)} / ₹{productMRP.toLocaleString('en-IN')} MRP
                   </p>
                 </div>
               ))}
