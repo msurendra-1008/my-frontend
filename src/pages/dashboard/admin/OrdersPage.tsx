@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Menu, X, ChevronRight, Search } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { orderService } from '@/services/orderService';
+import { commissionService } from '@/services/commissionService';
 import type { OrderListItem, Order, OrderStatus, PaymentStatus } from '@/types/order.types';
+import type { CommissionBreakup } from '@/types/commission.types';
 import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
 import { cn } from '@utils/cn';
 
@@ -51,6 +53,102 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
 // ── Order Detail Sheet ────────────────────────────────────────────────────────
 
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
+
+function CommissionBreakupSection({ order }: { order: Order }) {
+  const [breakups, setBreakups] = useState<CommissionBreakup[]>([]);
+  const [loading,  setLoading]  = useState(true);
+
+  useEffect(() => {
+    commissionService.getBreakups(order.id)
+      .then((r) => setBreakups(r.data))
+      .catch(() => setBreakups([]))
+      .finally(() => setLoading(false));
+  }, [order.id]);
+
+  if (order.order_status !== 'delivered') return null;
+
+  return (
+    <div className="rounded-xl border">
+      <div className="border-b px-4 py-2.5">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Commission Breakdown</p>
+      </div>
+
+      {loading ? (
+        <div className="px-4 py-3 space-y-2">
+          <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+        </div>
+      ) : breakups.length === 0 ? (
+        <p className="px-4 py-3 text-xs text-muted-foreground">No commission data</p>
+      ) : (
+        <div className="px-4 py-3 space-y-4">
+          {breakups.map((breakup) => (
+            <div key={breakup.id}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn(
+                  'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                  breakup.direction === 'upline'
+                    ? 'bg-blue-500/10 text-blue-700 dark:text-blue-400'
+                    : 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+                )}>
+                  {breakup.direction}
+                </span>
+                {breakup.return_window_expires && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Return window: {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(
+                      new Date(breakup.return_window_expires)
+                    )}
+                  </span>
+                )}
+              </div>
+
+              {breakup.entries.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No entries</p>
+              ) : (
+                <div className="rounded-lg border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        {['Level', 'Beneficiary', 'Rate', 'Amount', 'Status'].map((h) => (
+                          <th key={h} className="px-3 py-1.5 text-left font-semibold uppercase tracking-wide text-muted-foreground">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {breakup.entries.map((entry) => (
+                        <tr key={entry.id} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="px-3 py-2 text-muted-foreground">L{entry.level}</td>
+                          <td className="px-3 py-2">
+                            <p className="font-medium text-foreground">{entry.beneficiary_name}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">{entry.beneficiary_upa_id}</p>
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{entry.rate}%</td>
+                          <td className="px-3 py-2 font-semibold text-foreground">₹{entry.amount}</td>
+                          <td className="px-3 py-2">
+                            <span className={cn(
+                              'rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase',
+                              entry.status === 'pending'   && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                              entry.status === 'credited'  && 'bg-green-500/10 text-green-600 dark:text-green-400',
+                              entry.status === 'cancelled' && 'bg-muted/50 text-muted-foreground',
+                            )}>
+                              {entry.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function OrderDetailSheet({
   orderId,
@@ -229,6 +327,9 @@ function OrderDetailSheet({
                 {updating ? 'Updating…' : 'Update Order'}
               </button>
             </div>
+
+            {/* Commission Breakdown */}
+            <CommissionBreakupSection order={order} />
           </div>
         ) : (
           <p className="p-5 text-sm text-muted-foreground">Failed to load order.</p>
