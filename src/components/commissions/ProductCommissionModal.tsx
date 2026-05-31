@@ -439,8 +439,8 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
             </div>
           </div>
 
-          {/* Distribution Summary */}
-          {(() => {
+          {/* Distribution Summary — always in edit mode, only after product selected in create mode */}
+          {(isEdit || selectedProduct !== null) && (() => {
             const networkPool = productMRP * Number(networkPct) / 100;
             const teamPool    = productMRP * Number(teamPct) / 100;
             return (
