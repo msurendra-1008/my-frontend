@@ -26,9 +26,11 @@ export function CommissionSettingsPage() {
   const toast = useToast();
 
   // ── Settings state ──────────────────────────────────────────────────────────
-  const [settings,     setSettings]     = useState<CommissionSettings | null>(null);
-  const [settingsLoad, setSettingsLoad] = useState(true);
-  const [saving,       setSaving]       = useState(false);
+  const [settings,         setSettings]         = useState<CommissionSettings | null>(null);
+  const [originalSettings, setOriginalSettings] = useState<CommissionSettings | null>(null);
+  const [settingsLoad,     setSettingsLoad]     = useState(true);
+  const [saving,           setSaving]           = useState(false);
+  const [isEditing,        setIsEditing]        = useState(false);
 
   const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>('top_heavy');
   const [levels,           setLevels]           = useState(5);
@@ -50,6 +52,7 @@ export function CommissionSettingsPage() {
       .then((r) => {
         const s = r.data;
         setSettings(s);
+        setOriginalSettings(s);
         setDirection(s.direction);
         setLevels(s.max_upline_levels);
         setLevelPercentages(s.level_percentages.slice(0, s.max_upline_levels));
@@ -93,12 +96,27 @@ export function CommissionSettingsPage() {
         right_leg_pct:          rightLegPct,
       });
       setSettings(r.data);
+      setOriginalSettings(r.data);
+      setIsEditing(false);
       toast.show('Settings saved');
     } catch {
       toast.show('Failed to save settings', true);
     } finally {
       setSaving(false);
     }
+  };
+
+  const cancelEdit = () => {
+    if (!originalSettings) return;
+    setDirection(originalSettings.direction);
+    setLevels(originalSettings.max_upline_levels);
+    setLevelPercentages(originalSettings.level_percentages.slice(0, originalSettings.max_upline_levels));
+    setNetworkPct(originalSettings.network_commission_pct);
+    setTeamPct(originalSettings.team_commission_pct);
+    setLeftLegPct(originalSettings.left_leg_pct);
+    setMiddleLegPct(originalSettings.middle_leg_pct);
+    setRightLegPct(originalSettings.right_leg_pct);
+    setIsEditing(false);
   };
 
   // ── Product rule handlers ───────────────────────────────────────────────────
@@ -171,11 +189,22 @@ export function CommissionSettingsPage() {
 
           {/* ── Section A: Global Settings ──────────────────────────────────── */}
           <div className="rounded-xl border bg-card shadow-sm">
-            <div className="border-b px-6 py-4">
-              <h2 className="font-semibold text-foreground">Global Settings</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Applied to all products unless overridden
-              </p>
+            <div className="border-b px-6 py-4 flex items-start justify-between">
+              <div>
+                <h2 className="font-semibold text-foreground">Global Settings</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Applied to all products unless overridden
+                </p>
+              </div>
+              {!settingsLoad && !isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <Pencil size={14} />
+                  Edit settings
+                </button>
+              )}
             </div>
 
             {settingsLoad ? (
@@ -190,7 +219,7 @@ export function CommissionSettingsPage() {
                 {/* Direction */}
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-2">Direction</label>
-                  <div className="flex gap-2">
+                  <div className={cn('flex gap-2', !isEditing && 'pointer-events-none')}>
                     <button
                       type="button"
                       onClick={() => setDirection('top_heavy')}
@@ -229,7 +258,13 @@ export function CommissionSettingsPage() {
                     max={10}
                     value={levels}
                     onChange={(e) => setLevels(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                    className="w-24 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    readOnly={!isEditing}
+                    className={cn(
+                      'w-24 rounded-lg border px-3 py-2 text-sm',
+                      isEditing
+                        ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
+                        : 'bg-transparent border-transparent font-semibold cursor-default',
+                    )}
                   />
                 </div>
 
@@ -251,7 +286,13 @@ export function CommissionSettingsPage() {
                         value={networkPct}
                         onChange={(e) => setNetworkPct(e.target.value)}
                         placeholder="e.g. 7"
-                        className="w-24 h-9 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        readOnly={!isEditing}
+                        className={cn(
+                          'w-24 h-9 rounded-lg border px-3 text-sm',
+                          isEditing
+                            ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
+                            : 'bg-transparent border-transparent font-semibold cursor-default',
+                        )}
                       />
                       <span className="text-sm text-muted-foreground">% of amount received</span>
                     </div>
@@ -272,7 +313,13 @@ export function CommissionSettingsPage() {
                         value={teamPct}
                         onChange={(e) => setTeamPct(e.target.value)}
                         placeholder="e.g. 3"
-                        className="w-24 h-9 rounded-lg border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                        readOnly={!isEditing}
+                        className={cn(
+                          'w-24 h-9 rounded-lg border px-3 text-sm',
+                          isEditing
+                            ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
+                            : 'bg-transparent border-transparent font-semibold cursor-default',
+                        )}
                       />
                       <span className="text-sm text-muted-foreground">% of amount received</span>
                     </div>
@@ -297,7 +344,13 @@ export function CommissionSettingsPage() {
                           step={0.1}
                           value={levelPercentages[i] ?? 0}
                           onChange={(e) => handlePctChange(i, e.target.value)}
-                          className="w-24 rounded-lg border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                          readOnly={!isEditing}
+                          className={cn(
+                            'w-24 rounded-lg border px-3 py-1.5 text-sm',
+                            isEditing
+                              ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
+                              : 'bg-transparent border-transparent font-semibold cursor-default',
+                          )}
                         />
                         <span className="text-xs text-muted-foreground">%</span>
                         <span className="text-xs text-muted-foreground">
@@ -370,7 +423,11 @@ export function CommissionSettingsPage() {
                           step={0.01}
                           value={value}
                           onChange={(e) => setValue(e.target.value)}
-                          className="w-full text-center text-2xl font-bold text-purple-600 dark:text-purple-400 border-none bg-transparent focus:outline-none"
+                          readOnly={!isEditing}
+                          className={cn(
+                            'w-full text-center text-2xl font-bold text-purple-600 dark:text-purple-400 border-none bg-transparent focus:outline-none',
+                            !isEditing && 'pointer-events-none cursor-default',
+                          )}
                         />
                         <p className="text-[11px] text-muted-foreground mt-1">% of team pool</p>
                         <p className="text-[11px] text-purple-600/70 dark:text-purple-400/70 mt-0.5">
@@ -384,22 +441,44 @@ export function CommissionSettingsPage() {
                   </p>
                 </div>
 
-                {settings?.updated_at && (
-                  <p className="text-xs text-muted-foreground">
-                    Last updated:{' '}
-                    {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(
-                      new Date(settings.updated_at),
-                    )}
-                  </p>
-                )}
-
-                <button
-                  onClick={handleSaveSettings}
-                  disabled={saving}
-                  className="rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
-                >
-                  {saving ? 'Saving…' : 'Save Settings'}
-                </button>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={handleSaveSettings}
+                        disabled={saving}
+                        className="h-9 rounded-lg bg-purple-600 px-5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
+                      >
+                        {saving ? 'Saving…' : 'Save Settings'}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        disabled={saving}
+                        className="h-9 rounded-lg border px-5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-1.5 h-9 rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                      >
+                        <Pencil size={14} />
+                        Edit settings
+                      </button>
+                      {settings?.updated_at && (
+                        <span className="text-xs text-muted-foreground">
+                          Last updated:{' '}
+                          {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(
+                            new Date(settings.updated_at),
+                          )}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
           </div>

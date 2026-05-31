@@ -439,6 +439,76 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
             </div>
           </div>
 
+          {/* Distribution Summary */}
+          {(() => {
+            const networkPool      = productMRP * Number(networkPct) / 100;
+            const teamPool         = productMRP * Number(teamPct) / 100;
+            const networkAllocated = levelPercentages.reduce((sum, pct) => sum + networkPool * pct / 100, 0);
+            const teamAllocated    = teamPool * (Number(leftLegPct) + Number(middleLegPct) + Number(rightLegPct)) / 100;
+            const totalSpending    = networkAllocated + teamAllocated;
+            const companyRetains   = productMRP - totalSpending;
+            const safeMRP          = productMRP > 0 ? productMRP : 1;
+            return (
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <p className="text-sm font-semibold text-foreground mb-1">Distribution Summary</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Based on MRP ₹{productMRP.toLocaleString('en-IN')}
+                </p>
+
+                {/* Visual bar */}
+                <div className="flex h-3 rounded-full overflow-hidden mb-3 bg-muted/50">
+                  <div style={{ width: `${Math.max(0, networkAllocated / safeMRP * 100)}%` }} className="bg-purple-500 transition-all" />
+                  <div style={{ width: `${Math.max(0, teamAllocated / safeMRP * 100)}%` }}    className="bg-green-500 transition-all" />
+                  <div style={{ width: `${Math.max(0, companyRetains / safeMRP * 100)}%` }}   className="bg-muted transition-all" />
+                </div>
+
+                {/* Rows */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block flex-shrink-0" />
+                      Network commission (upline chain)
+                    </span>
+                    <span className="font-semibold text-purple-600 dark:text-purple-400 flex-shrink-0">
+                      ₹{networkAllocated.toFixed(2)}
+                      <span className="text-muted-foreground font-normal ml-1">
+                        ({(networkAllocated / safeMRP * 100).toFixed(1)}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block flex-shrink-0" />
+                      Team commission (direct legs)
+                    </span>
+                    <span className="font-semibold text-green-600 dark:text-green-400 flex-shrink-0">
+                      ₹{teamAllocated.toFixed(2)}
+                      <span className="text-muted-foreground font-normal ml-1">
+                        ({(teamAllocated / safeMRP * 100).toFixed(1)}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs border-t border-border/50 pt-2">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground inline-block flex-shrink-0" />
+                      Company retains
+                    </span>
+                    <span className="font-semibold text-foreground flex-shrink-0">
+                      ₹{companyRetains.toFixed(2)}
+                      <span className="text-muted-foreground font-normal ml-1">
+                        ({(companyRetains / safeMRP * 100).toFixed(1)}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs border-t border-border/50 pt-2 font-semibold">
+                    <span>Total MRP</span>
+                    <span>₹{productMRP.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Use global defaults */}
           <button
             type="button"
