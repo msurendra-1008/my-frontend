@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Menu, X, ChevronRight, Search } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { orderService } from '@/services/orderService';
-import type { OrderListItem, Order, OrderStatus, PaymentStatus } from '@/types/order.types';
+import type { OrderListItem, Order, OrderItem, OrderStatus, PaymentStatus } from '@/types/order.types';
+import type { CommissionBreakupEmbed, CommissionEntryEmbed } from '@/types/commission.types';
 import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
 import { cn } from '@utils/cn';
 
@@ -51,6 +52,159 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
 // ── Order Detail Sheet ────────────────────────────────────────────────────────
 
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
+
+function EntryStatusBadge({ status }: { status: CommissionEntryEmbed['status'] }) {
+  if (status === 'credited')       return <span className="text-green-600 dark:text-green-400 text-[10px]">✅ Credited</span>;
+  if (status === 'pending_window') return <span className="text-blue-600 dark:text-blue-400 text-[10px]">⏳ Pending window</span>;
+  if (status === 'pending')        return <span className="text-amber-600 dark:text-amber-400 text-[10px]">⏸ Inactive</span>;
+  return                                  <span className="text-muted-foreground text-[10px]">⏸ Vacant</span>;
+}
+
+function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: CommissionBreakupEmbed }) {
+  const networkEntries = breakup.entries.filter((e) => e.entry_type === 'network_upline');
+  const teamEntries    = breakup.entries.filter((e) => e.entry_type === 'team_downline');
+
+  const statusLabel =
+    breakup.status === 'completed'      ? 'Credited' :
+    breakup.status === 'partial'        ? 'Partial' :
+    breakup.status === 'pending_window' ? 'Pending return window' :
+    breakup.status;
+
+  const statusClass =
+    breakup.status === 'completed' ? 'bg-green-500/10 text-green-700 dark:text-green-400' :
+    breakup.status === 'partial'   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+    'bg-muted/50 text-muted-foreground';
+
+  // 4-column table header — Name and UPA ID are stacked in one cell
+  const entryHeaders = (first: string) => (
+    <tr className="border-b bg-muted/40">
+      {[first, 'Beneficiary', 'Amount', 'Status'].map((h) => (
+        <th
+          key={h}
+          className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+        >
+          {h}
+        </th>
+      ))}
+    </tr>
+  );
+
+  const entryRow = (key: string, col1: React.ReactNode, e: CommissionEntryEmbed) => (
+    <tr key={key} className="border-b last:border-0 hover:bg-muted/20">
+      <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{col1}</td>
+      <td className="px-2 py-2">
+        <p className="font-medium text-foreground leading-tight">{e.recipient_name}</p>
+        {e.recipient_upa_id && (
+          <p className="text-[10px] text-muted-foreground font-mono leading-tight">{e.recipient_upa_id}</p>
+        )}
+      </td>
+      <td className="px-2 py-2 font-semibold text-foreground whitespace-nowrap">
+        ₹{Number(e.amount).toFixed(2)}
+      </td>
+      <td className="px-2 py-2">
+        <EntryStatusBadge status={e.status} />
+      </td>
+    </tr>
+  );
+
+  return (
+    <div className="rounded-xl border bg-card overflow-hidden">
+      {/* Card header */}
+      <div className="px-4 py-3 border-b border-border/50 bg-muted/20">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <p className="text-sm font-semibold text-foreground">{item.product_name}</p>
+          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium flex-shrink-0', statusClass)}>
+            {statusLabel}
+          </span>
+        </div>
+
+        {/* Pool amounts — 3-column grid */}
+        <div className="grid grid-cols-3 gap-1 text-[11px]">
+          <div className="rounded-md bg-muted/40 px-2 py-1">
+            <p className="text-muted-foreground">Base</p>
+            <p className="font-semibold text-foreground">₹{Number(breakup.total_base_amount).toLocaleString('en-IN')}</p>
+          </div>
+          <div className="rounded-md bg-purple-500/10 px-2 py-1">
+            <p className="text-muted-foreground">Network</p>
+            <p className="font-semibold text-purple-600 dark:text-purple-400">₹{Number(breakup.network_pool).toLocaleString('en-IN')}</p>
+          </div>
+          <div className="rounded-md bg-green-500/10 px-2 py-1">
+            <p className="text-muted-foreground">Team</p>
+            <p className="font-semibold text-green-600 dark:text-green-400">₹{Number(breakup.team_pool).toLocaleString('en-IN')}</p>
+          </div>
+        </div>
+
+        {breakup.return_window_expires && (
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            Credits on:{' '}
+            {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(
+              new Date(breakup.return_window_expires),
+            )}
+          </p>
+        )}
+      </div>
+
+      <div className="p-3 space-y-3">
+        {/* Network upline */}
+        {networkEntries.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              Network — Upline chain
+            </p>
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>{entryHeaders('Lvl')}</thead>
+                <tbody>
+                  {networkEntries.map((e) => entryRow(e.id, `L${e.level}`, e))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Team downline */}
+        {teamEntries.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+              Team — Direct legs
+            </p>
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>{entryHeaders('Leg')}</thead>
+                <tbody>
+                  {teamEntries.map((e) =>
+                    entryRow(e.id, <span className="capitalize">{e.leg_position || '—'}</span>, e)
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {networkEntries.length === 0 && teamEntries.length === 0 && (
+          <p className="text-xs text-muted-foreground">No commission entries</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommissionBreakupSection({ order }: { order: Order }) {
+  const itemsWithBreakup = order.items.filter((item) => item.commission_breakup !== null);
+
+  if (itemsWithBreakup.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="border-b pb-1">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Commission Breakdown</p>
+      </div>
+      {itemsWithBreakup.map((item) => (
+        <BreakupItemCard key={item.id} item={item} breakup={item.commission_breakup!} />
+      ))}
+    </div>
+  );
+}
 
 function OrderDetailSheet({
   orderId,
@@ -229,6 +383,9 @@ function OrderDetailSheet({
                 {updating ? 'Updating…' : 'Update Order'}
               </button>
             </div>
+
+            {/* Commission Breakdown */}
+            <CommissionBreakupSection order={order} />
           </div>
         ) : (
           <p className="p-5 text-sm text-muted-foreground">Failed to load order.</p>

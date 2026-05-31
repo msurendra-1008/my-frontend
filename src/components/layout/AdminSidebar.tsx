@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, UserCheck, Network, Package,
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
-  PieChart, LogOut, ChevronDown, X,
+  PieChart, LogOut, ChevronDown, X, Coins, Wallet,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -62,6 +62,13 @@ const SECTIONS: Section[] = [
     items: [
       { label: 'Orders',  path: '/admin/orders',  icon: ShoppingCart, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view' },
       { label: 'Returns', path: '/admin/returns', icon: RotateCcw,    allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'orders.view' },
+    ],
+  },
+  {
+    key: 'finance', label: 'Finance', title: 'Finance & Commissions',
+    items: [
+      { label: 'Commissions',         path: '/admin/commissions/settings', icon: Coins,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Pending Commissions', path: '/admin/commissions/pending',  icon: Wallet, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
@@ -117,7 +124,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       return saved ? JSON.parse(saved) : {
         people: true, network: true, master: true,
         sales: true, ims: true, vm: true,
-        tm: true, ops: true, reports: true,
+        tm: true, ops: true, finance: true, reports: true,
       };
     } catch { return {}; }
   });
