@@ -281,11 +281,14 @@ function OrderDetailSheet({
   returnWindowDays: number;
   onClose:          () => void;
 }) {
-  const [order,        setOrder]        = useState<Order | null>(null);
-  const [loading,      setLoading]      = useState(true);
-  const [retSettings,  setRetSettings]  = useState<ReturnSettings | null>(null);
-  const [returnItemId, setReturnItemId] = useState<string | null>(null);
-  const [successMsg,   setSuccessMsg]   = useState('');
+  const [order,               setOrder]               = useState<Order | null>(null);
+  const [loading,             setLoading]             = useState(true);
+  const [retSettings,         setRetSettings]         = useState<ReturnSettings | null>(null);
+  const [returnItemId,        setReturnItemId]        = useState<string | null>(null);
+  const [successMsg,          setSuccessMsg]          = useState('');
+  const [showSatisfiedConfirm, setShowSatisfiedConfirm] = useState(false);
+  const [satisfying,          setSatisfying]          = useState(false);
+  const [satisfiedError,      setSatisfiedError]      = useState('');
 
   useEffect(() => {
     orderService.getMyOrder(orderId)
@@ -305,6 +308,25 @@ function OrderDetailSheet({
     // Refresh order so badge updates
     orderService.getMyOrder(orderId).then((r) => setOrder(r.data)).catch(() => {});
     setTimeout(() => setSuccessMsg(''), 3000);
+  };
+
+  const handleMarkSatisfied = async () => {
+    if (!order) return;
+    setSatisfying(true);
+    setSatisfiedError('');
+    try {
+      await orderService.markSatisfied(order.id);
+      setShowSatisfiedConfirm(false);
+      const r = await orderService.getMyOrder(orderId);
+      setOrder(r.data);
+      setSuccessMsg('Order marked as satisfied. Commissions credited to upline wallets.');
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setSatisfiedError(detail ?? 'Failed to mark as satisfied. Please try again.');
+    } finally {
+      setSatisfying(false);
+    }
   };
 
   return (
@@ -344,6 +366,29 @@ function OrderDetailSheet({
                 </div>
               </div>
 
+              {/* Satisfied button / banner */}
+              {order.is_satisfied ? (
+                <div className="w-full rounded-xl bg-green-500/10 border border-green-500/30 px-4 py-2.5 flex items-center gap-2">
+                  <span className="text-green-600 dark:text-green-400 text-sm font-medium">✅ Marked as satisfied</span>
+                  {order.satisfied_at && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(order.satisfied_at))}
+                    </span>
+                  )}
+                </div>
+              ) : ['confirmed', 'packed', 'shipped', 'delivered'].includes(order.order_status) && (
+                <button
+                  onClick={() => { setSatisfiedError(''); setShowSatisfiedConfirm(true); }}
+                  className="w-full h-10 rounded-xl border-2 border-green-500/50 text-green-600 dark:text-green-400 text-sm font-medium hover:bg-green-500/10 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M5 8l2.5 2.5L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                  Mark as Satisfied
+                </button>
+              )}
+
               {/* Items */}
               <div className="rounded-xl border">
                 <div className="border-b px-4 py-2.5">
@@ -378,13 +423,18 @@ function OrderDetailSheet({
                                 Previous request rejected. You can raise {maxAttempts - rejCount} more request{maxAttempts - rejCount > 1 ? 's' : ''}.
                               </span>
                             )}
-                            {eligible && (
+                            {!order.is_satisfied && eligible && (
                               <button
                                 onClick={() => setReturnItemId(item.id)}
                                 className="flex items-center gap-1 text-[10px] font-medium text-purple-600 dark:text-purple-400 hover:underline"
                               >
                                 <RotateCcw size={9} /> Return/Exchange
                               </button>
+                            )}
+                            {order.is_satisfied && item.status === 'delivered' && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Returns not available — order satisfied
+                              </span>
                             )}
                             {!eligible && rejCount >= maxAttempts && item.status === 'delivered' && (
                               <span className="text-[10px] text-muted-foreground">
@@ -470,6 +520,58 @@ function OrderDetailSheet({
           onClose={() => setReturnItemId(null)}
           onSuccess={handleReturnSuccess}
         />
+      )}
+
+      {/* Satisfied confirmation modal */}
+      {showSatisfiedConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !satisfying && setShowSatisfiedConfirm(false)} />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl bg-background border shadow-2xl p-6 space-y-4">
+            <h3 className="font-semibold text-foreground text-base">Mark order as satisfied?</h3>
+
+            <ul className="space-y-2 text-sm text-muted-foreground list-none">
+              <li className="flex items-start gap-2">
+                <span className="text-green-500 mt-0.5 shrink-0">✓</span>
+                Commissions will be credited to your upline's wallets immediately.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-red-500 mt-0.5 shrink-0">✗</span>
+                Returns and exchanges will be permanently blocked for all items in this order.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-amber-500 mt-0.5 shrink-0">!</span>
+                This action cannot be undone.
+              </li>
+            </ul>
+
+            <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
+              Only mark as satisfied if you have received all items and are happy with your purchase.
+            </div>
+
+            {satisfiedError && (
+              <p className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                {satisfiedError}
+              </p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setShowSatisfiedConfirm(false)}
+                disabled={satisfying}
+                className="flex-1 rounded-xl border py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMarkSatisfied}
+                disabled={satisfying}
+                className="flex-1 rounded-xl bg-green-600 py-2.5 text-sm font-medium text-white hover:bg-green-700 transition-colors disabled:opacity-60"
+              >
+                {satisfying ? 'Processing…' : 'Yes, I am satisfied'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
