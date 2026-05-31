@@ -13,7 +13,7 @@ export const returnsService = {
     axiosInstance.get<ReturnSettings>('/api/v1/return-settings/'),
 
   updateSettings: (data: Partial<ReturnSettings>) =>
-    axiosInstance.patch<ReturnSettings>('/api/v1/return-settings/update/', data),
+    axiosInstance.patch<ReturnSettings>('/api/v1/return-settings/', data),
 
   // ── User ────────────────────────────────────────────────────────────────────
   getMyRequests: (params: Record<string, string> = {}) => {
