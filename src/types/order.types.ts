@@ -1,3 +1,5 @@
+import type { CommissionBreakupEmbed } from '@/types/commission.types';
+
 // ── Address ───────────────────────────────────────────────────────────────────
 
 export interface Address {
@@ -116,6 +118,7 @@ export interface OrderItem {
   return_rejection_count: number;
   return_status:          string | null;
   return_admin_notes:     string;
+  commission_breakup:     CommissionBreakupEmbed | null;
 }
 
 export interface OrderListItem {

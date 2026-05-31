@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Menu, X, ChevronRight, Search } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { orderService } from '@/services/orderService';
-import { commissionService } from '@/services/commissionService';
-import type { OrderListItem, Order, OrderStatus, PaymentStatus } from '@/types/order.types';
-import type { CommissionBreakup } from '@/types/commission.types';
+import type { OrderListItem, Order, OrderItem, OrderStatus, PaymentStatus } from '@/types/order.types';
+import type { CommissionBreakupEmbed, CommissionEntryEmbed } from '@/types/commission.types';
 import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
 import { cn } from '@utils/cn';
 
@@ -54,93 +53,145 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
 
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
 
-function CommissionBreakupSection({ order }: { order: Order }) {
-  const [breakups, setBreakups] = useState<CommissionBreakup[]>([]);
-  const [loading,  setLoading]  = useState(true);
+function EntryStatusBadge({ status }: { status: CommissionEntryEmbed['status'] }) {
+  return (
+    <span className={cn(
+      'rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase',
+      status === 'pending'  && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+      status === 'credited' && 'bg-green-500/10 text-green-600 dark:text-green-400',
+      status === 'vacant'   && 'bg-muted/50 text-muted-foreground',
+    )}>
+      {status}
+    </span>
+  );
+}
 
-  useEffect(() => {
-    commissionService.getBreakups(order.id)
-      .then((r) => setBreakups(r.data.results ?? []))
-      .catch(() => setBreakups([]))
-      .finally(() => setLoading(false));
-  }, [order.id]);
+function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: CommissionBreakupEmbed }) {
+  const networkEntries = breakup.entries.filter((e) => e.entry_type === 'network_upline');
+  const teamEntries    = breakup.entries.filter((e) => e.entry_type === 'team_downline');
 
-  if (order.order_status !== 'delivered') return null;
+  const statusLabel =
+    breakup.status === 'completed'    ? 'Credited' :
+    breakup.status === 'partial'      ? 'Partially credited' :
+    breakup.status === 'pending_window' ? 'Pending return window' :
+    breakup.status;
+
+  const statusClass =
+    breakup.status === 'completed' ? 'bg-green-500/10 text-green-700 dark:text-green-400' :
+    breakup.status === 'partial'   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+    'bg-muted/50 text-muted-foreground';
+
+  const entryHeaders = (cols: string[]) => (
+    <tr className="border-b bg-muted/40">
+      {cols.map((h) => (
+        <th key={h} className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {h}
+        </th>
+      ))}
+    </tr>
+  );
 
   return (
-    <div className="rounded-xl border">
-      <div className="border-b px-4 py-2.5">
-        <p className="text-xs font-semibold uppercase text-muted-foreground">Commission Breakdown</p>
+    <div className="rounded-xl border bg-card overflow-hidden">
+      {/* Card header */}
+      <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{item.product_name}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Base: ₹{breakup.total_base_amount}
+            &nbsp;·&nbsp; Network pool: ₹{breakup.network_pool}
+            &nbsp;·&nbsp; Team pool: ₹{breakup.team_pool}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', statusClass)}>
+            {statusLabel}
+          </span>
+          {breakup.return_window_expires && (
+            <span className="text-[11px] text-muted-foreground">
+              Credits on:{' '}
+              {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(
+                new Date(breakup.return_window_expires),
+              )}
+            </span>
+          )}
+        </div>
       </div>
 
-      {loading ? (
-        <div className="px-4 py-3 space-y-2">
-          <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
-        </div>
-      ) : breakups.length === 0 ? (
-        <p className="px-4 py-3 text-xs text-muted-foreground">No commission data</p>
-      ) : (
-        <div className="px-4 py-3 space-y-4">
-          {breakups.map((breakup) => (
-            <div key={breakup.id}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase bg-blue-500/10 text-blue-700 dark:text-blue-400">
-                  Network: ₹{breakup.network_pool} &nbsp;|&nbsp; Team: ₹{breakup.team_pool}
-                </span>
-                {breakup.return_window_expires && (
-                  <span className="text-[10px] text-muted-foreground">
-                    Return window: {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(
-                      new Date(breakup.return_window_expires)
-                    )}
-                  </span>
-                )}
-              </div>
-
-              {breakup.entries.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No entries</p>
-              ) : (
-                <div className="rounded-lg border overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b bg-muted/40">
-                        {['Level', 'Recipient', 'Rate', 'Amount', 'Status'].map((h) => (
-                          <th key={h} className="px-3 py-1.5 text-left font-semibold uppercase tracking-wide text-muted-foreground">
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {breakup.entries.map((entry) => (
-                        <tr key={entry.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-3 py-2 text-muted-foreground">{entry.entry_type === 'team_downline' ? entry.leg_position : `L${entry.level}`}</td>
-                          <td className="px-3 py-2">
-                            <p className="font-medium text-foreground">{entry.recipient_name}</p>
-                            <p className="text-[10px] text-muted-foreground font-mono">{entry.recipient_upa_id}</p>
-                          </td>
-                          <td className="px-3 py-2 text-muted-foreground">{entry.percentage_applied}%</td>
-                          <td className="px-3 py-2 font-semibold text-foreground">₹{entry.amount}</td>
-                          <td className="px-3 py-2">
-                            <span className={cn(
-                              'rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase',
-                              entry.status === 'pending'  && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-                              entry.status === 'credited' && 'bg-green-500/10 text-green-600 dark:text-green-400',
-                              entry.status === 'vacant'   && 'bg-muted/50 text-muted-foreground',
-                            )}>
-                              {entry.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+      <div className="p-4 space-y-4">
+        {/* Network upline */}
+        {networkEntries.length > 0 && (
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Network — Upline chain
+            </p>
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>{entryHeaders(['Level', 'Name', 'Mobile', 'UPA ID', 'Amount', 'Status'])}</thead>
+                <tbody>
+                  {networkEntries.map((e) => (
+                    <tr key={e.id} className="border-b last:border-0 hover:bg-muted/20">
+                      <td className="px-3 py-2 font-mono text-muted-foreground">L{e.level}</td>
+                      <td className="px-3 py-2 font-medium text-foreground">{e.recipient_name}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{e.recipient_mobile || '—'}</td>
+                      <td className="px-3 py-2 font-mono text-muted-foreground">{e.recipient_upa_id || '—'}</td>
+                      <td className="px-3 py-2 font-semibold text-foreground">₹{Number(e.amount).toFixed(2)}</td>
+                      <td className="px-3 py-2"><EntryStatusBadge status={e.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* Team downline */}
+        {teamEntries.length > 0 && (
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Team — Direct legs
+            </p>
+            <div className="rounded-lg border overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>{entryHeaders(['Leg', 'Name', 'Mobile', 'UPA ID', 'Amount', 'Status'])}</thead>
+                <tbody>
+                  {teamEntries.map((e) => (
+                    <tr key={e.id} className="border-b last:border-0 hover:bg-muted/20">
+                      <td className="px-3 py-2 capitalize font-medium text-foreground">{e.leg_position || '—'}</td>
+                      <td className="px-3 py-2 text-foreground">{e.recipient_name}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{e.recipient_mobile || '—'}</td>
+                      <td className="px-3 py-2 font-mono text-muted-foreground">{e.recipient_upa_id || '—'}</td>
+                      <td className="px-3 py-2 font-semibold text-foreground">₹{Number(e.amount).toFixed(2)}</td>
+                      <td className="px-3 py-2"><EntryStatusBadge status={e.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {networkEntries.length === 0 && teamEntries.length === 0 && (
+          <p className="text-xs text-muted-foreground">No commission entries</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CommissionBreakupSection({ order }: { order: Order }) {
+  const itemsWithBreakup = order.items.filter((item) => item.commission_breakup !== null);
+
+  if (itemsWithBreakup.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="border-b pb-1">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Commission Breakdown</p>
+      </div>
+      {itemsWithBreakup.map((item) => (
+        <BreakupItemCard key={item.id} item={item} breakup={item.commission_breakup!} />
+      ))}
     </div>
   );
 }

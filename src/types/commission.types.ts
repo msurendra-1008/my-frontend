@@ -60,3 +60,28 @@ export interface CommissionBreakup {
   processed_at:          string | null;
   entries:               CommissionEntry[];
 }
+
+// Compact entry/breakup returned inline with each OrderItem from the admin order detail API
+export interface CommissionEntryEmbed {
+  id:                 string;
+  recipient_name:     string;
+  recipient_mobile:   string;
+  recipient_upa_id:   string;
+  entry_type:         'network_upline' | 'team_downline';
+  level:              number | null;
+  leg_position:       string;
+  amount:             string;
+  percentage_applied: string;
+  status:             'credited' | 'pending' | 'vacant';
+}
+
+export interface CommissionBreakupEmbed {
+  id:                    string;
+  total_base_amount:     string;
+  network_pool:          string;
+  team_pool:             string;
+  status:                'pending_window' | 'processing' | 'completed' | 'partial';
+  return_window_expires: string | null;
+  processed_at:          string | null;
+  entries:               CommissionEntryEmbed[];
+}
