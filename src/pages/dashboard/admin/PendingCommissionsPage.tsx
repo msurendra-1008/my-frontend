@@ -26,19 +26,26 @@ function isExpired(iso: string | null): boolean {
   return new Date(iso) < new Date();
 }
 
-type StatusFilter = 'all' | 'pending' | 'credited' | 'vacant';
+type StatusFilter = 'all' | 'pending_window' | 'pending' | 'credited' | 'vacant';
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: CommissionEntry['status'] }) {
-  const cfg = {
-    pending:  'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-    credited: 'bg-green-500/10 text-green-600 dark:text-green-400',
-    vacant:   'bg-muted/50 text-muted-foreground',
-  }[status];
+  const cfg: Record<CommissionEntry['status'], string> = {
+    pending_window: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+    pending:        'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    credited:       'bg-green-500/10 text-green-600 dark:text-green-400',
+    vacant:         'bg-muted/50 text-muted-foreground',
+  };
+  const label: Record<CommissionEntry['status'], string> = {
+    pending_window: 'Pending window',
+    pending:        'Pending',
+    credited:       'Credited',
+    vacant:         'Vacant',
+  };
   return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', cfg)}>
-      {status}
+    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', cfg[status])}>
+      {label[status]}
     </span>
   );
 }
@@ -106,16 +113,19 @@ export function PendingCommissionsPage() {
   };
 
   // ── Computed stats ──────────────────────────────────────────────────────────
-  const pendingEntries  = entries.filter((e) => e.status === 'pending');
-  const pendingCount    = pendingEntries.length;
-  const pendingAmount   = pendingEntries.reduce((sum, e) => sum + parseFloat(e.amount || '0'), 0);
-  const eligibleCount   = pendingEntries.filter((e) => isExpired(e.return_window_expires)).length;
+  // Both 'pending_window' (active user, waiting) and 'pending' (inactive user) count as uncredited
+  const uncreditedEntries = entries.filter((e) => e.status === 'pending_window' || e.status === 'pending');
+  const pendingCount      = uncreditedEntries.length;
+  const pendingAmount     = uncreditedEntries.reduce((sum, e) => sum + parseFloat(e.amount || '0'), 0);
+  // Eligible = window expired → admin can act (credit 'pending' manually; 'pending_window' awaits auto-process)
+  const eligibleCount     = uncreditedEntries.filter((e) => isExpired(e.return_window_expires)).length;
 
   const STATUS_TABS: { key: StatusFilter; label: string }[] = [
-    { key: 'all',       label: 'All' },
-    { key: 'pending',   label: 'Pending' },
-    { key: 'credited',  label: 'Credited' },
-    { key: 'vacant',    label: 'Vacant' },
+    { key: 'all',            label: 'All' },
+    { key: 'pending_window', label: 'Awaiting window' },
+    { key: 'pending',        label: 'Inactive users' },
+    { key: 'credited',       label: 'Credited' },
+    { key: 'vacant',         label: 'Vacant' },
   ];
 
   return (
@@ -269,6 +279,7 @@ export function PendingCommissionsPage() {
                           <StatusBadge status={entry.status} />
                         </td>
                         <td className="px-4 py-3">
+                          {/* Inactive user — admin can credit once window expires */}
                           {entry.status === 'pending' && canCredit && (
                             <button
                               onClick={() => handleCredit(entry)}
@@ -280,8 +291,18 @@ export function PendingCommissionsPage() {
                           )}
                           {entry.status === 'pending' && !canCredit && entry.return_window_expires && (
                             <span className="text-xs text-amber-700 dark:text-amber-400">
+                              Window expires {formatDate(entry.return_window_expires)}
+                            </span>
+                          )}
+                          {/* Active user — window not yet expired */}
+                          {entry.status === 'pending_window' && !expired && entry.return_window_expires && (
+                            <span className="text-xs text-blue-600 dark:text-blue-400">
                               Expires {formatDate(entry.return_window_expires)}
                             </span>
+                          )}
+                          {/* Active user — window expired, awaiting auto-process */}
+                          {entry.status === 'pending_window' && expired && (
+                            <span className="text-xs text-muted-foreground">Ready to process</span>
                           )}
                           {entry.status === 'credited' && (
                             <span className="text-xs text-green-600 dark:text-green-400">
