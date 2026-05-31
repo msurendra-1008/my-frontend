@@ -441,71 +441,101 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
 
           {/* Distribution Summary */}
           {(() => {
-            const networkPool      = productMRP * Number(networkPct) / 100;
-            const teamPool         = productMRP * Number(teamPct) / 100;
-            const networkAllocated = levelPercentages.reduce((sum, pct) => sum + networkPool * pct / 100, 0);
-            const teamAllocated    = teamPool * (Number(leftLegPct) + Number(middleLegPct) + Number(rightLegPct)) / 100;
-            const totalSpending    = networkAllocated + teamAllocated;
-            const companyRetains   = productMRP - totalSpending;
-            const safeMRP          = productMRP > 0 ? productMRP : 1;
+            const networkPool = productMRP * Number(networkPct) / 100;
+            const teamPool    = productMRP * Number(teamPct) / 100;
             return (
-              <div className="rounded-xl border bg-muted/30 p-4">
-                <p className="text-sm font-semibold text-foreground mb-1">Distribution Summary</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Based on MRP ₹{productMRP.toLocaleString('en-IN')}
-                </p>
-
-                {/* Visual bar */}
-                <div className="flex h-3 rounded-full overflow-hidden mb-3 bg-muted/50">
-                  <div style={{ width: `${Math.max(0, networkAllocated / safeMRP * 100)}%` }} className="bg-purple-500 transition-all" />
-                  <div style={{ width: `${Math.max(0, teamAllocated / safeMRP * 100)}%` }}    className="bg-green-500 transition-all" />
-                  <div style={{ width: `${Math.max(0, companyRetains / safeMRP * 100)}%` }}   className="bg-muted transition-all" />
-                </div>
-
-                {/* Rows */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block flex-shrink-0" />
-                      Network commission (upline chain)
-                    </span>
-                    <span className="font-semibold text-purple-600 dark:text-purple-400 flex-shrink-0">
-                      ₹{networkAllocated.toFixed(2)}
-                      <span className="text-muted-foreground font-normal ml-1">
-                        ({(networkAllocated / safeMRP * 100).toFixed(1)}%)
-                      </span>
-                    </span>
+              <>
+                {/* Pool summary cards */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="rounded-lg bg-purple-500/10 border border-purple-500/30 p-3">
+                    <p className="text-[10px] font-semibold text-purple-700 dark:text-purple-400 uppercase mb-1">
+                      Network pool
+                    </p>
+                    <p className="text-lg font-bold text-purple-700 dark:text-purple-400">
+                      ₹{networkPool.toFixed(2)}
+                    </p>
+                    <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-0.5">
+                      {networkPct}% of ₹{productMRP.toLocaleString()}
+                    </p>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block flex-shrink-0" />
-                      Team commission (direct legs)
-                    </span>
-                    <span className="font-semibold text-green-600 dark:text-green-400 flex-shrink-0">
-                      ₹{teamAllocated.toFixed(2)}
-                      <span className="text-muted-foreground font-normal ml-1">
-                        ({(teamAllocated / safeMRP * 100).toFixed(1)}%)
-                      </span>
-                    </span>
+                  <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3">
+                    <p className="text-[10px] font-semibold text-green-700 dark:text-green-400 uppercase mb-1">
+                      Team pool
+                    </p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-400">
+                      ₹{teamPool.toFixed(2)}
+                    </p>
+                    <p className="text-[10px] text-green-600/70 mt-0.5">
+                      {teamPct}% of ₹{productMRP.toLocaleString()}
+                    </p>
                   </div>
-                  <div className="flex justify-between text-xs border-t border-border/50 pt-2">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground inline-block flex-shrink-0" />
-                      Company retains
-                    </span>
-                    <span className="font-semibold text-foreground flex-shrink-0">
-                      ₹{companyRetains.toFixed(2)}
-                      <span className="text-muted-foreground font-normal ml-1">
-                        ({(companyRetains / safeMRP * 100).toFixed(1)}%)
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs border-t border-border/50 pt-2 font-semibold">
-                    <span>Total MRP</span>
-                    <span>₹{productMRP.toLocaleString('en-IN')}</span>
+                  <div className="rounded-lg bg-muted/50 border border-border/50 p-3">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">
+                      Company keeps
+                    </p>
+                    <p className="text-lg font-bold text-foreground">
+                      ₹{(productMRP - networkPool - teamPool).toFixed(2)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {(100 - Number(networkPct) - Number(teamPct)).toFixed(1)}% of MRP
+                    </p>
                   </div>
                 </div>
-              </div>
+
+                {/* Network pool split by level */}
+                <div className="rounded-lg border border-border/50 overflow-hidden mb-4">
+                  <div className="px-3 py-2 bg-muted/40 border-b border-border/50">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Network pool ₹{networkPool.toFixed(2)} split by level
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {networkPct}% of ₹{productMRP.toLocaleString()} MRP
+                    </p>
+                  </div>
+                  {levelPercentages.slice(0, levels).map((pct, i) => {
+                    const amount = networkPool * pct / 100;
+                    return (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2 border-b border-border/40 last:border-0 text-sm">
+                        <span
+                          className="w-6 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                          style={{ background: `hsl(${250 - i * 15}, 60%, ${40 + i * 5}%)` }}
+                        >
+                          L{i + 1}
+                        </span>
+                        <span className="flex-1 text-muted-foreground text-xs">
+                          {i === 0 ? 'Direct parent' : `Level ${i + 1}`}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {pct}% of ₹{networkPool.toFixed(0)}
+                        </span>
+                        <span className="font-semibold text-primary min-w-[60px] text-right">
+                          ₹{amount.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Team pool split by leg */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {[
+                    { leg: 'Left',   pct: Number(leftLegPct),   color: 'text-green-600 dark:text-green-400' },
+                    { leg: 'Middle', pct: Number(middleLegPct), color: 'text-teal-600 dark:text-teal-400'  },
+                    { leg: 'Right',  pct: Number(rightLegPct),  color: 'text-blue-600 dark:text-blue-400'  },
+                  ].map(({ leg, pct, color }) => {
+                    const amount = teamPool * pct / 100;
+                    return (
+                      <div key={leg} className="rounded-lg border border-border/50 p-3 text-center">
+                        <p className="text-xs text-muted-foreground mb-1">{leg}</p>
+                        <p className={`text-lg font-bold ${color}`}>₹{amount.toFixed(2)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {pct}% of ₹{teamPool.toFixed(0)}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             );
           })()}
 
