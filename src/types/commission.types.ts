@@ -30,6 +30,8 @@ export interface ProductCommissionRule {
   right_leg_pct:          string;
 }
 
+export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant';
+
 export interface CommissionEntry {
   id:                    string;
   return_window_expires: string | null;
@@ -43,7 +45,7 @@ export interface CommissionEntry {
   leg_position:          string;
   amount:                string;
   percentage_applied:    string;
-  status:                'credited' | 'pending' | 'vacant';
+  status:                EntryStatus;
   credited_at:           string | null;
 }
 
@@ -72,7 +74,7 @@ export interface CommissionEntryEmbed {
   leg_position:       string;
   amount:             string;
   percentage_applied: string;
-  status:             'credited' | 'pending' | 'vacant';
+  status:             EntryStatus;
 }
 
 export interface CommissionBreakupEmbed {

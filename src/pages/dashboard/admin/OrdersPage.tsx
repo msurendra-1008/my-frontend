@@ -54,16 +54,10 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
 
 function EntryStatusBadge({ status }: { status: CommissionEntryEmbed['status'] }) {
-  return (
-    <span className={cn(
-      'rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase',
-      status === 'pending'  && 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-      status === 'credited' && 'bg-green-500/10 text-green-600 dark:text-green-400',
-      status === 'vacant'   && 'bg-muted/50 text-muted-foreground',
-    )}>
-      {status}
-    </span>
-  );
+  if (status === 'credited')       return <span className="text-green-600 dark:text-green-400 text-[10px]">✅ Credited</span>;
+  if (status === 'pending_window') return <span className="text-blue-600 dark:text-blue-400 text-[10px]">⏳ Pending window</span>;
+  if (status === 'pending')        return <span className="text-amber-600 dark:text-amber-400 text-[10px]">⏸ Inactive</span>;
+  return                                  <span className="text-muted-foreground text-[10px]">⏸ Vacant</span>;
 }
 
 function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: CommissionBreakupEmbed }) {
