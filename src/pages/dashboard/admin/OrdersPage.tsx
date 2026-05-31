@@ -71,8 +71,8 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
   const teamEntries    = breakup.entries.filter((e) => e.entry_type === 'team_downline');
 
   const statusLabel =
-    breakup.status === 'completed'    ? 'Credited' :
-    breakup.status === 'partial'      ? 'Partially credited' :
+    breakup.status === 'completed'      ? 'Credited' :
+    breakup.status === 'partial'        ? 'Partial' :
     breakup.status === 'pending_window' ? 'Pending return window' :
     breakup.status;
 
@@ -81,64 +81,87 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
     breakup.status === 'partial'   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
     'bg-muted/50 text-muted-foreground';
 
-  const entryHeaders = (cols: string[]) => (
+  // 4-column table header — Name and UPA ID are stacked in one cell
+  const entryHeaders = (first: string) => (
     <tr className="border-b bg-muted/40">
-      {cols.map((h) => (
-        <th key={h} className="px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      {[first, 'Beneficiary', 'Amount', 'Status'].map((h) => (
+        <th
+          key={h}
+          className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+        >
           {h}
         </th>
       ))}
     </tr>
   );
 
+  const entryRow = (key: string, col1: React.ReactNode, e: CommissionEntryEmbed) => (
+    <tr key={key} className="border-b last:border-0 hover:bg-muted/20">
+      <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{col1}</td>
+      <td className="px-2 py-2">
+        <p className="font-medium text-foreground leading-tight">{e.recipient_name}</p>
+        {e.recipient_upa_id && (
+          <p className="text-[10px] text-muted-foreground font-mono leading-tight">{e.recipient_upa_id}</p>
+        )}
+      </td>
+      <td className="px-2 py-2 font-semibold text-foreground whitespace-nowrap">
+        ₹{Number(e.amount).toFixed(2)}
+      </td>
+      <td className="px-2 py-2">
+        <EntryStatusBadge status={e.status} />
+      </td>
+    </tr>
+  );
+
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
       {/* Card header */}
-      <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-start justify-between gap-3">
-        <div>
+      <div className="px-4 py-3 border-b border-border/50 bg-muted/20">
+        <div className="flex items-start justify-between gap-2 mb-2">
           <p className="text-sm font-semibold text-foreground">{item.product_name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Base: ₹{breakup.total_base_amount}
-            &nbsp;·&nbsp; Network pool: ₹{breakup.network_pool}
-            &nbsp;·&nbsp; Team pool: ₹{breakup.team_pool}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', statusClass)}>
+          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium flex-shrink-0', statusClass)}>
             {statusLabel}
           </span>
-          {breakup.return_window_expires && (
-            <span className="text-[11px] text-muted-foreground">
-              Credits on:{' '}
-              {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(
-                new Date(breakup.return_window_expires),
-              )}
-            </span>
-          )}
         </div>
+
+        {/* Pool amounts — 3-column grid */}
+        <div className="grid grid-cols-3 gap-1 text-[11px]">
+          <div className="rounded-md bg-muted/40 px-2 py-1">
+            <p className="text-muted-foreground">Base</p>
+            <p className="font-semibold text-foreground">₹{Number(breakup.total_base_amount).toLocaleString('en-IN')}</p>
+          </div>
+          <div className="rounded-md bg-purple-500/10 px-2 py-1">
+            <p className="text-muted-foreground">Network</p>
+            <p className="font-semibold text-purple-600 dark:text-purple-400">₹{Number(breakup.network_pool).toLocaleString('en-IN')}</p>
+          </div>
+          <div className="rounded-md bg-green-500/10 px-2 py-1">
+            <p className="text-muted-foreground">Team</p>
+            <p className="font-semibold text-green-600 dark:text-green-400">₹{Number(breakup.team_pool).toLocaleString('en-IN')}</p>
+          </div>
+        </div>
+
+        {breakup.return_window_expires && (
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            Credits on:{' '}
+            {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(
+              new Date(breakup.return_window_expires),
+            )}
+          </p>
+        )}
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-3 space-y-3">
         {/* Network upline */}
         {networkEntries.length > 0 && (
           <div>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
               Network — Upline chain
             </p>
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full text-xs">
-                <thead>{entryHeaders(['Level', 'Name', 'Mobile', 'UPA ID', 'Amount', 'Status'])}</thead>
+                <thead>{entryHeaders('Lvl')}</thead>
                 <tbody>
-                  {networkEntries.map((e) => (
-                    <tr key={e.id} className="border-b last:border-0 hover:bg-muted/20">
-                      <td className="px-3 py-2 font-mono text-muted-foreground">L{e.level}</td>
-                      <td className="px-3 py-2 font-medium text-foreground">{e.recipient_name}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{e.recipient_mobile || '—'}</td>
-                      <td className="px-3 py-2 font-mono text-muted-foreground">{e.recipient_upa_id || '—'}</td>
-                      <td className="px-3 py-2 font-semibold text-foreground">₹{Number(e.amount).toFixed(2)}</td>
-                      <td className="px-3 py-2"><EntryStatusBadge status={e.status} /></td>
-                    </tr>
-                  ))}
+                  {networkEntries.map((e) => entryRow(e.id, `L${e.level}`, e))}
                 </tbody>
               </table>
             </div>
@@ -148,23 +171,16 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
         {/* Team downline */}
         {teamEntries.length > 0 && (
           <div>
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
               Team — Direct legs
             </p>
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full text-xs">
-                <thead>{entryHeaders(['Leg', 'Name', 'Mobile', 'UPA ID', 'Amount', 'Status'])}</thead>
+                <thead>{entryHeaders('Leg')}</thead>
                 <tbody>
-                  {teamEntries.map((e) => (
-                    <tr key={e.id} className="border-b last:border-0 hover:bg-muted/20">
-                      <td className="px-3 py-2 capitalize font-medium text-foreground">{e.leg_position || '—'}</td>
-                      <td className="px-3 py-2 text-foreground">{e.recipient_name}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{e.recipient_mobile || '—'}</td>
-                      <td className="px-3 py-2 font-mono text-muted-foreground">{e.recipient_upa_id || '—'}</td>
-                      <td className="px-3 py-2 font-semibold text-foreground">₹{Number(e.amount).toFixed(2)}</td>
-                      <td className="px-3 py-2"><EntryStatusBadge status={e.status} /></td>
-                    </tr>
-                  ))}
+                  {teamEntries.map((e) =>
+                    entryRow(e.id, <span className="capitalize">{e.leg_position || '—'}</span>, e)
+                  )}
                 </tbody>
               </table>
             </div>
