@@ -65,6 +65,13 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    key: 'finance', label: 'Finance', title: 'Finance & Commissions',
+    items: [
+      { label: 'Commissions',         path: '/admin/commissions/settings', icon: Coins,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Pending Commissions', path: '/admin/commissions/pending',  icon: Wallet, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+    ],
+  },
+  {
     key: 'ims', label: 'IMS', title: 'Inventory Management System',
     items: [
       { label: 'Warehouse',  path: '/admin/warehouse',  icon: Warehouse, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inventory.view' },
@@ -90,13 +97,6 @@ const SECTIONS: Section[] = [
     items: [
       { label: 'Procurement', path: '/admin/procurement', icon: ClipboardList,  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
       { label: 'Inspection',  path: '/admin/inspection',  icon: ClipboardCheck, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inspection.perform' },
-    ],
-  },
-  {
-    key: 'finance', label: 'Finance', title: 'Finance & Commissions',
-    items: [
-      { label: 'Commissions',         path: '/admin/commissions/settings', icon: Coins,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
-      { label: 'Pending Commissions', path: '/admin/commissions/pending',  icon: Wallet, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
