@@ -89,7 +89,7 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
     </tr>
   );
 
-  const entryRow = (key: string, col1: React.ReactNode, e: CommissionEntryEmbed) => (
+  const entryRow = (key: string, col1: React.ReactNode, e: CommissionEntryEmbed, poolAmount: number) => (
     <tr key={key} className="border-b last:border-0 hover:bg-muted/20">
       <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{col1}</td>
       <td className="px-2 py-2">
@@ -98,8 +98,11 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
           <p className="text-[10px] text-muted-foreground font-mono leading-tight">{e.recipient_upa_id}</p>
         )}
       </td>
-      <td className="px-2 py-2 font-semibold text-foreground whitespace-nowrap">
-        ₹{Number(e.amount).toFixed(2)}
+      <td className="px-2 py-2 whitespace-nowrap">
+        <p className="font-semibold text-foreground">₹{Number(e.amount).toFixed(2)}</p>
+        <p className="text-[10px] text-muted-foreground">
+          {Number(e.percentage_applied).toFixed(1)}% of ₹{poolAmount.toFixed(0)}
+        </p>
       </td>
       <td className="px-2 py-2">
         <EntryStatusBadge status={e.status} />
@@ -119,20 +122,31 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
         </div>
 
         {/* Pool amounts — 3-column grid */}
-        <div className="grid grid-cols-3 gap-1 text-[11px]">
-          <div className="rounded-md bg-muted/40 px-2 py-1">
-            <p className="text-muted-foreground">Base</p>
-            <p className="font-semibold text-foreground">₹{Number(breakup.total_base_amount).toLocaleString('en-IN')}</p>
-          </div>
-          <div className="rounded-md bg-purple-500/10 px-2 py-1">
-            <p className="text-muted-foreground">Network</p>
-            <p className="font-semibold text-purple-600 dark:text-purple-400">₹{Number(breakup.network_pool).toLocaleString('en-IN')}</p>
-          </div>
-          <div className="rounded-md bg-green-500/10 px-2 py-1">
-            <p className="text-muted-foreground">Team</p>
-            <p className="font-semibold text-green-600 dark:text-green-400">₹{Number(breakup.team_pool).toLocaleString('en-IN')}</p>
-          </div>
-        </div>
+        {(() => {
+          const base    = Number(breakup.total_base_amount);
+          const netPool = Number(breakup.network_pool);
+          const tmPool  = Number(breakup.team_pool);
+          const netPct  = base > 0 ? (netPool / base * 100).toFixed(1) : '0';
+          const tmPct   = base > 0 ? (tmPool  / base * 100).toFixed(1) : '0';
+          return (
+            <div className="grid grid-cols-3 gap-1 text-[11px]">
+              <div className="rounded-md bg-muted/40 px-2 py-1.5">
+                <p className="text-muted-foreground">Base amount</p>
+                <p className="font-semibold text-foreground">₹{base.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="rounded-md bg-purple-500/10 px-2 py-1.5">
+                <p className="text-muted-foreground">Network pool</p>
+                <p className="font-semibold text-purple-600 dark:text-purple-400">₹{netPool.toLocaleString('en-IN')}</p>
+                <p className="text-[10px] text-purple-500/70 dark:text-purple-400/60">{netPct}% of base</p>
+              </div>
+              <div className="rounded-md bg-green-500/10 px-2 py-1.5">
+                <p className="text-muted-foreground">Team pool</p>
+                <p className="font-semibold text-green-600 dark:text-green-400">₹{tmPool.toLocaleString('en-IN')}</p>
+                <p className="text-[10px] text-green-500/70 dark:text-green-400/60">{tmPct}% of base</p>
+              </div>
+            </div>
+          );
+        })()}
 
         {breakup.return_window_expires && (
           <p className="text-[11px] text-muted-foreground mt-1.5">
@@ -155,7 +169,7 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
               <table className="w-full text-xs">
                 <thead>{entryHeaders('Lvl')}</thead>
                 <tbody>
-                  {networkEntries.map((e) => entryRow(e.id, `L${e.level}`, e))}
+                  {networkEntries.map((e) => entryRow(e.id, `L${e.level}`, e, Number(breakup.network_pool)))}
                 </tbody>
               </table>
             </div>
@@ -173,7 +187,7 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
                 <thead>{entryHeaders('Leg')}</thead>
                 <tbody>
                   {teamEntries.map((e) =>
-                    entryRow(e.id, <span className="capitalize">{e.leg_position || '—'}</span>, e)
+                    entryRow(e.id, <span className="capitalize">{e.leg_position || '—'}</span>, e, Number(breakup.team_pool))
                   )}
                 </tbody>
               </table>

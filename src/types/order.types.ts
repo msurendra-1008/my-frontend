@@ -118,6 +118,7 @@ export interface OrderItem {
   return_rejection_count: number;
   return_status:          string | null;
   return_admin_notes:     string;
+  return_window_blocked:  boolean;
   commission_breakup:     CommissionBreakupEmbed | null;
 }
 
@@ -158,6 +159,8 @@ export interface Order {
   customer_name:       string;
   customer_mobile:     string;
   items:               OrderItem[];
+  is_satisfied:        boolean;
+  satisfied_at:        string | null;
   created_at:          string;
   updated_at:          string;
 }
