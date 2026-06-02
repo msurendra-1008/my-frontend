@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, UserCheck, Network, Package,
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
-  PieChart, LogOut, ChevronDown, X, Coins, Wallet,
+  PieChart, LogOut, ChevronDown, X, Coins, Wallet, BadgeDollarSign,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -54,7 +54,8 @@ const SECTIONS: Section[] = [
   {
     key: 'master', label: 'Master',
     items: [
-      { label: 'Products', path: '/admin/products', icon: Package, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit' },
+      { label: 'Products',        path: '/admin/products',        icon: Package,          allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit' },
+      { label: 'Product Pricing', path: '/admin/product-pricing', icon: BadgeDollarSign,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
