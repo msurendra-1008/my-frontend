@@ -38,18 +38,21 @@ export interface ProductVariant {
 }
 
 export interface ProductListItem {
-  id:               string;
-  name:             string;
-  slug:             string;
-  sku:              string;
-  mrp:              string;
-  primary_image:    string | null;
-  category_name:    string | null;
-  is_published:     boolean;
-  stock_label:      StockLabel;
-  total_stock:      number;
-  variant_count:    number;
-  first_variant_id: string | null;
+  id:                 string;
+  name:               string;
+  slug:               string;
+  sku:                string;
+  mrp:                string;
+  primary_image:      string | null;
+  category_name:      string | null;
+  is_published:       boolean;
+  stock_label:        StockLabel;
+  total_stock:        number;
+  variant_count:      number;
+  first_variant_id:   string | null;
+  pricing_configured: boolean;
+  purchase_price:     string | null;
+  profit_amount:      number | null;
 }
 
 export interface Product {
@@ -71,6 +74,12 @@ export interface Product {
   upa_price:             UPAPrice;
   stock_label:           StockLabel;
   total_stock:           number;
+  purchase_price:        string | null;
+  gst_percentage:        string;
+  other_charges:         string;
+  other_charges_type:    'flat' | 'percent';
+  pricing_configured:    boolean;
+  profit_amount:         number | null;
 }
 
 export interface UPAPriceResponse {
