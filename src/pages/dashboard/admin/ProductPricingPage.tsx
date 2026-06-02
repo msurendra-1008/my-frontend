@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, X, DollarSign, CheckCircle2, Clock } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { productService } from '@/services/productService';
-import type { ProductListItem, Product } from '@/types/product.types';
+import type { ProductListItem, Product, ProductVariant } from '@/types/product.types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -39,24 +39,33 @@ function PricingModal({
     other_charges_type: 'flat',
   });
 
-  const [hasGst,         setHasGst]         = useState(false);
+  const [hasGst,          setHasGst]          = useState(false);
   const [hasOtherCharges, setHasOtherCharges] = useState(false);
-  const [saving,         setSaving]         = useState(false);
-  const [error,          setError]          = useState('');
+  const [saving,          setSaving]          = useState(false);
+  const [error,           setError]           = useState('');
+  const [variants,        setVariants]        = useState<ProductVariant[]>([]);
+  const [variantPrices,   setVariantPrices]   = useState<Record<string, string>>({});
 
-  // If editing an already-configured product, load existing values from detail
+  // Always fetch full product detail to get variants + existing pricing
   useEffect(() => {
-    if (!product.pricing_configured) return;
     productService.getProduct(product.slug).then((r) => {
       const p = r.data;
-      setForm({
-        purchase_price:     p.purchase_price ?? '',
-        gst_percentage:     p.gst_percentage ?? '0',
-        other_charges:      p.other_charges ?? '0',
-        other_charges_type: p.other_charges_type ?? 'flat',
+      if (product.pricing_configured) {
+        setForm({
+          purchase_price:     p.purchase_price ?? '',
+          gst_percentage:     p.gst_percentage ?? '0',
+          other_charges:      p.other_charges ?? '0',
+          other_charges_type: p.other_charges_type ?? 'flat',
+        });
+        setHasGst(parseFloat(p.gst_percentage ?? '0') > 0);
+        setHasOtherCharges(parseFloat(p.other_charges ?? '0') > 0);
+      }
+      setVariants(p.variants ?? []);
+      const prices: Record<string, string> = {};
+      p.variants?.forEach((v) => {
+        if (v.purchase_price) prices[v.id] = String(v.purchase_price);
       });
-      setHasGst(parseFloat(p.gst_percentage ?? '0') > 0);
-      setHasOtherCharges(parseFloat(p.other_charges ?? '0') > 0);
+      setVariantPrices(prices);
     }).catch(() => {});
   }, [product.slug, product.pricing_configured]);
 
@@ -73,24 +82,25 @@ function PricingModal({
   const netProfit     = grossRevenue - purchasePrice;
   const customerPays  = sellingPrice + gstAmount + otherCharges;
 
+  const variantPricesPayload = Object.entries(variantPrices)
+    .filter(([, price]) => price && Number(price) > 0)
+    .map(([id, purchase_price]) => ({ id, purchase_price: Number(purchase_price) }));
+
   const handleSave = async () => {
-    if (!form.purchase_price || Number(form.purchase_price) <= 0) {
-      setError('Purchase price is required.');
+    const hasProductPrice = form.purchase_price && Number(form.purchase_price) > 0;
+    if (!hasProductPrice && variantPricesPayload.length === 0) {
+      setError('Set a purchase price for the product or at least one variant.');
       return;
     }
     setError('');
     setSaving(true);
     try {
-      const payload: {
-        purchase_price:    number;
-        gst_percentage:    number;
-        other_charges:     number;
-        other_charges_type: 'flat' | 'percent';
-      } = {
-        purchase_price:    Number(form.purchase_price),
-        gst_percentage:    hasGst ? (Number(form.gst_percentage) || 0) : 0,
-        other_charges:     hasOtherCharges ? (Number(form.other_charges) || 0) : 0,
+      const payload = {
+        purchase_price:     hasProductPrice ? Number(form.purchase_price) : undefined,
+        gst_percentage:     hasGst ? (Number(form.gst_percentage) || 0) : 0,
+        other_charges:      hasOtherCharges ? (Number(form.other_charges) || 0) : 0,
         other_charges_type: form.other_charges_type,
+        variant_prices:     variantPricesPayload,
       };
       const r = await productService.setPricing(product.slug, payload);
       onSaved(r.data);
@@ -233,6 +243,66 @@ function PricingModal({
               )}
             </div>
           </div>
+
+          {/* ── VARIANTS ─────────────────────────────────────────────────── */}
+          {variants.length > 0 && (
+            <div className="space-y-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Variant Pricing</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Set purchase price per variant. GST and other charges apply from product settings above.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {variants.map((variant) => {
+                  const vSelling  = Number(variant.mrp) || 0;
+                  const vPurchase = Number(variantPrices[variant.id] ?? 0);
+                  const vOther    = form.other_charges_type === 'flat'
+                    ? (hasOtherCharges ? (Number(form.other_charges) || 0) : 0)
+                    : vSelling * (hasOtherCharges ? (Number(form.other_charges) || 0) : 0) / 100;
+                  const vProfit   = (vSelling + vOther) - vPurchase;
+
+                  return (
+                    <div key={variant.id} className="rounded-xl border border-border/60 p-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{variant.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            SKU: {variant.sku} · MRP: ₹{fmt(vSelling)}
+                          </p>
+                        </div>
+                        {vPurchase > 0 && (
+                          <span className={`text-xs font-semibold shrink-0 ml-2 ${
+                            vProfit >= 0
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            Profit: ₹{fmt(vProfit)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-24 shrink-0">Purchase price</span>
+                        <div className="relative flex-1">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={variantPrices[variant.id] ?? ''}
+                            onChange={(e) => setVariantPrices((prev) => ({ ...prev, [variant.id]: e.target.value }))}
+                            placeholder="e.g. 10000"
+                            className="w-full h-8 rounded-lg border bg-background pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ── PROFIT CALCULATION ───────────────────────────────────────── */}
           <div className="space-y-3">

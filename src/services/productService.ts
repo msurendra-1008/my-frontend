@@ -75,6 +75,7 @@ export const productService = {
     gst_percentage?:    number;
     other_charges?:     number;
     other_charges_type?: 'flat' | 'percent';
+    variant_prices?:    { id: string; purchase_price: number }[];
   }) => axiosInstance.patch<Product>(`/api/v1/products/${id}/set-pricing/`, data),
 
   // ── UPA Discount Settings ─────────────────────────────────────────────────

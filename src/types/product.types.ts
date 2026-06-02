@@ -35,6 +35,8 @@ export interface ProductVariant {
   stock_label:         StockLabel;
   is_active:           boolean;
   upa_price:           UPAPrice;
+  purchase_price:      string | null;
+  variant_profit:      number | null;
 }
 
 export interface ProductListItem {
