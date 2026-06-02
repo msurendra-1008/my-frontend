@@ -33,6 +33,7 @@ import { TenderPage }             from '@/pages/dashboard/admin/TenderPage';
 import { TenderDetail }           from '@/pages/dashboard/admin/TenderDetail';
 import { CommissionSettingsPage } from '@/pages/dashboard/admin/CommissionSettingsPage';
 import { PendingCommissionsPage } from '@/pages/dashboard/admin/PendingCommissionsPage';
+import { ProductPricingPage }     from '@/pages/dashboard/admin/ProductPricingPage';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -204,6 +205,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
             <PendingCommissionsPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/product-pricing"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <ProductPricingPage />
           </ProtectedRoute>
         }
       />
