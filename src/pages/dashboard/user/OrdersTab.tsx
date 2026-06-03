@@ -185,7 +185,7 @@ function RaiseReturnSheet({
                   <option value="">Select variant…</option>
                   {variants.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.name} — ₹{v.upa_price.upa_price} (stock: {v.stock_quantity})
+                      {v.name} — ₹{v.upa_price ?? v.upa_price_computed.upa_price} (stock: {v.stock_quantity})
                     </option>
                   ))}
                 </select>

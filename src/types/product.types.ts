@@ -34,7 +34,8 @@ export interface ProductVariant {
   stock_quantity:      number;
   stock_label:         StockLabel;
   is_active:           boolean;
-  upa_price:           UPAPrice;
+  upa_price_computed:  UPAPrice;
+  upa_price:           string | null;
   purchase_price:      string | null;
   variant_profit:      number | null;
 }
@@ -66,7 +67,7 @@ export interface Product {
   sku:                   string;
   barcode:               string;
   mrp:                   string;
-  upa_discount_override: string | null;
+  upa_discount_override: string | null;  // existing nullable field
   upa_price_override:    string | null;
   is_published:          boolean;
   created_at:            string;
