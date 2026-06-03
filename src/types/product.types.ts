@@ -58,6 +58,7 @@ export interface ProductListItem {
   profit_amount:         number | null;
   upa_profit_amount:     number | null;
   upa_discount_override: string | null;
+  has_commission_rule:   boolean;
 }
 
 export interface Product {

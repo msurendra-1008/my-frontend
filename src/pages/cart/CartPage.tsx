@@ -121,7 +121,9 @@ function OrderSummaryCard({
   totals: Cart['totals'];
   onCheckout: () => void;
 }) {
-  const discount = parseFloat(totals.upa_discount);
+  const discount     = parseFloat(totals.upa_discount);
+  const otherCharges = parseFloat(totals.other_charges ?? '0');
+  const gst          = parseFloat(totals.gst ?? '0');
 
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm sticky top-[90px]">
@@ -136,6 +138,18 @@ function OrderSummaryCard({
           <div className="flex justify-between text-green-600 dark:text-green-400">
             <span>UPA Discount</span>
             <span>−₹{totals.upa_discount}</span>
+          </div>
+        )}
+        {otherCharges > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Other charges</span>
+            <span>+₹{totals.other_charges}</span>
+          </div>
+        )}
+        {gst > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">GST</span>
+            <span>+₹{totals.gst}</span>
           </div>
         )}
       </div>
