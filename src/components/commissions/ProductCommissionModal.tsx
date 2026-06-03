@@ -26,7 +26,7 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
 
   // Commission fields
   const [isEnabled,        setIsEnabled]        = useState(rule?.is_active ?? true);
-  const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>(rule?.direction ?? 'top_heavy');
+  const [direction,        setDirection]        = useState<'direct_first' | 'ancestor_first'>(rule?.direction ?? 'direct_first');
   const [levels,           setLevels]           = useState(rule?.max_upline_levels ?? 3);
   const [levelPercentages, setLevelPercentages] = useState<number[]>(
     rule?.level_percentages ?? Array(3).fill(0),
@@ -303,10 +303,10 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setDirection('top_heavy')}
+                onClick={() => setDirection('direct_first')}
                 className={cn(
                   'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                  direction === 'top_heavy'
+                  direction === 'direct_first'
                     ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
                     : 'border-border text-muted-foreground hover:bg-muted',
                 )}
@@ -315,10 +315,10 @@ export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => setDirection('bottom_heavy')}
+                onClick={() => setDirection('ancestor_first')}
                 className={cn(
                   'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                  direction === 'bottom_heavy'
+                  direction === 'ancestor_first'
                     ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
                     : 'border-border text-muted-foreground hover:bg-muted',
                 )}

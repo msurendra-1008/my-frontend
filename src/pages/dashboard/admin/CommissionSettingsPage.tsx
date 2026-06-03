@@ -3,7 +3,7 @@ import { Menu, Trash2, Pencil } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { ProductCommissionModal } from '@/components/commissions/ProductCommissionModal';
 import { commissionService } from '@/services/commissionService';
-import type { CommissionSettings, ProductCommissionRule } from '@/types/commission.types';
+import type { CommissionSettings, ProductCommissionRule, CommissionDirection } from '@/types/commission.types';
 import { cn } from '@utils/cn';
 
 function useToast() {
@@ -32,7 +32,7 @@ export function CommissionSettingsPage() {
   const [saving,           setSaving]           = useState(false);
   const [isEditing,        setIsEditing]        = useState(false);
 
-  const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>('top_heavy');
+  const [direction,        setDirection]        = useState<CommissionDirection>('direct_first');
   const [levels,           setLevels]           = useState(5);
   const [levelPercentages, setLevelPercentages] = useState<number[]>(Array(5).fill(0));
   const [networkPct,       setNetworkPct]       = useState('7.00');
@@ -222,10 +222,10 @@ export function CommissionSettingsPage() {
                   <div className={cn('flex gap-2', !isEditing && 'pointer-events-none')}>
                     <button
                       type="button"
-                      onClick={() => setDirection('top_heavy')}
+                      onClick={() => setDirection('direct_first')}
                       className={cn(
                         'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
-                        direction === 'top_heavy'
+                        direction === 'direct_first'
                           ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
                           : 'border-border text-muted-foreground hover:bg-muted',
                       )}
@@ -234,10 +234,10 @@ export function CommissionSettingsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDirection('bottom_heavy')}
+                      onClick={() => setDirection('ancestor_first')}
                       className={cn(
                         'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
-                        direction === 'bottom_heavy'
+                        direction === 'ancestor_first'
                           ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
                           : 'border-border text-muted-foreground hover:bg-muted',
                       )}
@@ -525,7 +525,7 @@ export function CommissionSettingsPage() {
                   <tbody>
                     {rules.map((rule) => {
                       const total = rule.level_percentages.reduce((a, b) => a + b, 0);
-                      const dirLabel = rule.direction === 'top_heavy' ? '↑ Top-heavy' : '↓ Bottom-heavy';
+                      const dirLabel = rule.direction === 'direct_first' ? '↑ Direct first' : '↓ Ancestor first';
                       return (
                         <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                           <td className="px-4 py-3 font-medium text-foreground">{rule.product_name}</td>
