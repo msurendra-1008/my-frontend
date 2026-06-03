@@ -157,7 +157,7 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
   const companyPool = upaProfit * Number(formData.company_pct) / 100;
   const totalPct    = Number(formData.network_commission_pct) + Number(formData.team_commission_pct)
                     + Number(formData.social_work_pct) + Number(formData.company_pct);
-  const remaining   = upaProfit * (100 - totalPct) / 100;
+  const remaining   = upaProfit - networkPool - teamPool - socialPool - companyPool;
 
   const displayPercentages = formData.direction === 'ancestor_first'
     ? [...formData.level_percentages].reverse()
@@ -303,7 +303,7 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
                       onChange={e => setField(pool.key, e.target.value)}
                       className="w-24 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30" />
                     <span className="text-sm text-muted-foreground">%</span>
-                    <span className={cn('text-sm font-semibold', pool.color)}>= ₹{pool.amount.toFixed(0)}</span>
+                    <span className={cn('text-sm font-semibold', pool.color)}>= ₹{pool.amount.toFixed(2)}</span>
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1">{pool.desc}</p>
                 </div>
@@ -402,7 +402,7 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
                       value={pct}
                       onChange={e => setField(key, e.target.value)}
                       className="w-full text-center text-xl font-bold text-green-600 dark:text-green-400 border-none bg-transparent focus:outline-none" />
-                    <p className="text-[10px] text-muted-foreground">% of ₹{teamPool.toFixed(0)}</p>
+                    <p className="text-[10px] text-muted-foreground">% of ₹{teamPool.toFixed(2)}</p>
                     <p className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1">= ₹{amt.toFixed(2)}</p>
                   </div>
                 );
