@@ -3,7 +3,7 @@ import { Menu, Trash2, Pencil } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { ProductCommissionModal } from '@/components/commissions/ProductCommissionModal';
 import { commissionService } from '@/services/commissionService';
-import type { CommissionSettings, ProductCommissionRule } from '@/types/commission.types';
+import type { CommissionSettings, ProductCommissionRule, CommissionDirection } from '@/types/commission.types';
 import { cn } from '@utils/cn';
 
 function useToast() {
@@ -15,56 +15,57 @@ function useToast() {
   return { msg, show };
 }
 
-const SEGMENT_COLORS = [
-  'bg-purple-500', 'bg-blue-500', 'bg-green-500',
-  'bg-amber-500',  'bg-red-500',  'bg-pink-500',
-  'bg-indigo-500', 'bg-teal-500', 'bg-orange-500', 'bg-cyan-500',
+const LEVEL_COLORS = [
+  '#3C3489','#534AB7','#6B63C9','#8078D4','#9A90DF',
+  '#B3ABEA','#CCC7F2','#E0DCFA','#EEEDFE','#F5F4FF',
 ];
 
 export function CommissionSettingsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const toast = useToast();
 
-  // ── Settings state ──────────────────────────────────────────────────────────
   const [settings,         setSettings]         = useState<CommissionSettings | null>(null);
   const [originalSettings, setOriginalSettings] = useState<CommissionSettings | null>(null);
   const [settingsLoad,     setSettingsLoad]     = useState(true);
   const [saving,           setSaving]           = useState(false);
   const [isEditing,        setIsEditing]        = useState(false);
 
-  const [direction,        setDirection]        = useState<'top_heavy' | 'bottom_heavy'>('top_heavy');
-  const [levels,           setLevels]           = useState(5);
-  const [levelPercentages, setLevelPercentages] = useState<number[]>(Array(5).fill(0));
+  // ── Editable fields ──────────────────────────────────────────────────────────
   const [networkPct,       setNetworkPct]       = useState('7.00');
   const [teamPct,          setTeamPct]          = useState('3.00');
+  const [socialPct,        setSocialPct]        = useState('0.00');
+  const [companyPct,       setCompanyPct]       = useState('0.00');
+  const [direction,        setDirection]        = useState<CommissionDirection>('direct_first');
+  const [levels,           setLevels]           = useState(7);
+  const [levelPercentages, setLevelPercentages] = useState<number[]>([40,25,15,10,5,3,2]);
   const [leftLegPct,       setLeftLegPct]       = useState('40.00');
   const [middleLegPct,     setMiddleLegPct]     = useState('30.00');
   const [rightLegPct,      setRightLegPct]      = useState('30.00');
+  const [triggerMode,      setTriggerMode]      = useState<'auto'|'manual'>('auto');
 
-  // ── Product rules state ─────────────────────────────────────────────────────
   const [rules,     setRules]     = useState<ProductCommissionRule[]>([]);
   const [rulesLoad, setRulesLoad] = useState(true);
   const [modalRule, setModalRule] = useState<ProductCommissionRule | null | undefined>(undefined);
 
-  // ── Fetch on mount ──────────────────────────────────────────────────────────
+  const fillFromSettings = (s: CommissionSettings) => {
+    setNetworkPct(s.network_commission_pct);
+    setTeamPct(s.team_commission_pct);
+    setSocialPct(s.social_work_pct);
+    setCompanyPct(s.company_pct);
+    setDirection(s.direction);
+    setLevels(s.max_upline_levels);
+    setLevelPercentages(s.level_percentages.slice(0, s.max_upline_levels));
+    setLeftLegPct(s.left_leg_pct);
+    setMiddleLegPct(s.middle_leg_pct);
+    setRightLegPct(s.right_leg_pct);
+    setTriggerMode(s.trigger_mode);
+  };
+
   useEffect(() => {
     commissionService.getSettings()
-      .then((r) => {
-        const s = r.data;
-        setSettings(s);
-        setOriginalSettings(s);
-        setDirection(s.direction);
-        setLevels(s.max_upline_levels);
-        setLevelPercentages(s.level_percentages.slice(0, s.max_upline_levels));
-        setNetworkPct(s.network_commission_pct);
-        setTeamPct(s.team_commission_pct);
-        setLeftLegPct(s.left_leg_pct);
-        setMiddleLegPct(s.middle_leg_pct);
-        setRightLegPct(s.right_leg_pct);
-      })
+      .then((r) => { setSettings(r.data); setOriginalSettings(r.data); fillFromSettings(r.data); })
       .catch(() => toast.show('Failed to load settings', true))
       .finally(() => setSettingsLoad(false));
-
     commissionService.getProductRules()
       .then((r) => setRules(r.data.results ?? []))
       .catch(() => toast.show('Failed to load product rules', true))
@@ -72,7 +73,6 @@ export function CommissionSettingsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep levelPercentages length in sync with levels
   useEffect(() => {
     setLevelPercentages((prev) => {
       const next = [...prev];
@@ -81,22 +81,23 @@ export function CommissionSettingsPage() {
     });
   }, [levels]);
 
-  // ── Save ────────────────────────────────────────────────────────────────────
-  const handleSaveSettings = async () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
       const r = await commissionService.updateSettings({
+        network_commission_pct: networkPct,
+        team_commission_pct:    teamPct,
+        social_work_pct:        socialPct,
+        company_pct:            companyPct,
         direction,
         max_upline_levels:      levels,
         level_percentages:      levelPercentages,
-        network_commission_pct: networkPct,
-        team_commission_pct:    teamPct,
         left_leg_pct:           leftLegPct,
         middle_leg_pct:         middleLegPct,
         right_leg_pct:          rightLegPct,
+        trigger_mode:           triggerMode,
       });
-      setSettings(r.data);
-      setOriginalSettings(r.data);
+      setSettings(r.data); setOriginalSettings(r.data);
       setIsEditing(false);
       toast.show('Settings saved');
     } catch {
@@ -107,27 +108,14 @@ export function CommissionSettingsPage() {
   };
 
   const cancelEdit = () => {
-    if (!originalSettings) return;
-    setDirection(originalSettings.direction);
-    setLevels(originalSettings.max_upline_levels);
-    setLevelPercentages(originalSettings.level_percentages.slice(0, originalSettings.max_upline_levels));
-    setNetworkPct(originalSettings.network_commission_pct);
-    setTeamPct(originalSettings.team_commission_pct);
-    setLeftLegPct(originalSettings.left_leg_pct);
-    setMiddleLegPct(originalSettings.middle_leg_pct);
-    setRightLegPct(originalSettings.right_leg_pct);
+    if (originalSettings) fillFromSettings(originalSettings);
     setIsEditing(false);
   };
 
-  // ── Product rule handlers ───────────────────────────────────────────────────
   const handleRuleSaved = (saved: ProductCommissionRule) => {
     setRules((prev) => {
       const idx = prev.findIndex((r) => r.id === saved.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = saved;
-        return next;
-      }
+      if (idx >= 0) { const next = [...prev]; next[idx] = saved; return next; }
       return [...prev, saved];
     });
     setModalRule(undefined);
@@ -140,23 +128,25 @@ export function CommissionSettingsPage() {
       await commissionService.deleteProductRule(rule.id);
       setRules((prev) => prev.filter((r) => r.id !== rule.id));
       toast.show('Rule deleted');
-    } catch {
-      toast.show('Failed to delete rule', true);
-    }
+    } catch { toast.show('Failed to delete rule', true); }
   };
 
-  // ── Distribution bar helpers ────────────────────────────────────────────────
-  const pctSum   = levelPercentages.reduce((a, b) => a + b, 0);
-  const overLimit = pctSum > 100;
+  // ── Derived values ───────────────────────────────────────────────────────────
+  const totalPoolPct = Number(networkPct) + Number(teamPct) + Number(socialPct) + Number(companyPct);
+  const remaining    = 100 - totalPoolPct;
 
-  const handlePctChange = (idx: number, val: string) => {
-    const n = Math.min(100, Math.max(0, parseFloat(val) || 0));
-    setLevelPercentages((prev) => {
-      const next = [...prev];
-      next[idx] = n;
-      return next;
-    });
-  };
+  const displayPercentages = direction === 'ancestor_first'
+    ? [...levelPercentages].reverse()
+    : levelPercentages;
+
+  const PREVIEW_PROFIT = 100; // ₹100 for global settings preview
+
+  const pools = [
+    { key: 'network',  val: networkPct, set: setNetworkPct, title: '↑ Network',    desc: 'Goes UP the chain',      color: 'text-primary',                          bg: 'bg-primary/5 border-primary/20' },
+    { key: 'team',     val: teamPct,    set: setTeamPct,    title: '↓ Team',       desc: 'Goes to direct legs',    color: 'text-green-600 dark:text-green-400',    bg: 'bg-green-500/5 border-green-500/20' },
+    { key: 'social',   val: socialPct,  set: setSocialPct,  title: '♥ Social Work',desc: 'Social fund',            color: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-500/5 border-amber-500/20' },
+    { key: 'company',  val: companyPct, set: setCompanyPct, title: '🏢 Company',   desc: 'Stays with company',     color: 'text-muted-foreground',                 bg: 'bg-muted/40 border-border/50' },
+  ];
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -171,412 +161,305 @@ export function CommissionSettingsPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-          <div className="hidden lg:block">
-            <h1 className="text-xl font-bold text-foreground">Commission Settings</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Configure global commission rules and per-product overrides
-            </p>
+          <div className="hidden lg:flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Commission Settings</h1>
+              <p className="text-sm text-muted-foreground mt-0.5">Configure global commission rules and per-product overrides</p>
+            </div>
+            {!settingsLoad && (
+              isEditing ? (
+                <div className="flex gap-2">
+                  <button onClick={handleSave} disabled={saving}
+                    className="h-9 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60">
+                    {saving ? 'Saving…' : 'Save Settings'}
+                  </button>
+                  <button onClick={cancelEdit} disabled={saving}
+                    className="h-9 rounded-lg border px-5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setIsEditing(true)}
+                  className="flex items-center gap-1.5 h-9 rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+                  <Pencil size={14} /> Edit settings
+                </button>
+              )
+            )}
           </div>
 
           {toast.msg && (
-            <div className={cn(
-              'rounded-lg px-4 py-2.5 text-sm text-white',
-              toast.msg.err ? 'bg-red-500' : 'bg-foreground',
+            <div className={cn('rounded-lg px-4 py-2.5 text-sm font-medium',
+              toast.msg.err
+                ? 'bg-red-500/10 border border-red-400/40 text-red-600 dark:text-red-400'
+                : 'bg-green-500/10 border border-green-400/40 text-green-600 dark:text-green-400'
             )}>
               {toast.msg.text}
             </div>
           )}
 
-          {/* ── Section A: Global Settings ──────────────────────────────────── */}
-          <div className="rounded-xl border bg-card shadow-sm">
-            <div className="border-b px-6 py-4 flex items-start justify-between">
-              <div>
-                <h2 className="font-semibold text-foreground">Global Settings</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Applied to all products unless overridden
-                </p>
-              </div>
-              {!settingsLoad && !isEditing && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  <Pencil size={14} />
-                  Edit settings
-                </button>
-              )}
+          {settingsLoad ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {[1,2,3,4].map(i => <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />)}
             </div>
+          ) : (
+            <>
+              {/* ── Two-column layout ──────────────────────────────────────────── */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {settingsLoad ? (
-              <div className="p-6 space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-10 w-full animate-pulse rounded-md bg-muted" />
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 space-y-5">
+                {/* LEFT COLUMN */}
+                <div className="space-y-4">
 
-                {/* Direction */}
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-2">Direction</label>
-                  <div className={cn('flex gap-2', !isEditing && 'pointer-events-none')}>
-                    <button
-                      type="button"
-                      onClick={() => setDirection('top_heavy')}
-                      className={cn(
-                        'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
-                        direction === 'top_heavy'
-                          ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                          : 'border-border text-muted-foreground hover:bg-muted',
-                      )}
-                    >
-                      ↑ L1 gets most (top-heavy)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDirection('bottom_heavy')}
-                      className={cn(
-                        'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
-                        direction === 'bottom_heavy'
-                          ? 'border-purple-400/60 bg-purple-500/10 text-purple-600 dark:text-purple-400'
-                          : 'border-border text-muted-foreground hover:bg-muted',
-                      )}
-                    >
-                      ↓ L7 gets most (bottom-heavy)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Levels */}
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">
-                    Levels (1–10)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={levels}
-                    onChange={(e) => setLevels(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                    readOnly={!isEditing}
-                    className={cn(
-                      'w-24 rounded-lg border px-3 py-2 text-sm',
-                      isEditing
-                        ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
-                        : 'bg-transparent border-transparent font-semibold cursor-default',
-                    )}
-                  />
-                </div>
-
-                {/* Network + Team commission % */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-0.5">
-                      Network commission (%)
-                    </label>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Sent UP the chain to upline members
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.01}
-                        value={networkPct}
-                        onChange={(e) => setNetworkPct(e.target.value)}
-                        placeholder="e.g. 7"
-                        readOnly={!isEditing}
-                        className={cn(
-                          'w-24 h-9 rounded-lg border px-3 text-sm',
-                          isEditing
-                            ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
-                            : 'bg-transparent border-transparent font-semibold cursor-default',
-                        )}
-                      />
-                      <span className="text-sm text-muted-foreground">% of amount received</span>
+                  {/* Card 1 — Commission Pools */}
+                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Commission Pools</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">% of UPA profit distributed per sale</p>
                     </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-0.5">
-                      Team commission (%)
-                    </label>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Sent DOWN to buyer's direct 3 legs
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.01}
-                        value={teamPct}
-                        onChange={(e) => setTeamPct(e.target.value)}
-                        placeholder="e.g. 3"
-                        readOnly={!isEditing}
-                        className={cn(
-                          'w-24 h-9 rounded-lg border px-3 text-sm',
-                          isEditing
-                            ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
-                            : 'bg-transparent border-transparent font-semibold cursor-default',
-                        )}
-                      />
-                      <span className="text-sm text-muted-foreground">% of amount received</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Level percentages + ₹ preview */}
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-2">
-                    Level Percentages
-                  </label>
-                  <div className="space-y-2">
-                    {Array.from({ length: levels }, (_, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="w-32 text-xs text-muted-foreground">
-                          {i === 0 ? 'Level 1 (direct)' : `Level ${i + 1}`}
-                        </span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={0.1}
-                          value={levelPercentages[i] ?? 0}
-                          onChange={(e) => handlePctChange(i, e.target.value)}
-                          readOnly={!isEditing}
-                          className={cn(
-                            'w-24 rounded-lg border px-3 py-1.5 text-sm',
-                            isEditing
-                              ? 'bg-background focus:outline-none focus:ring-2 focus:ring-purple-400'
-                              : 'bg-transparent border-transparent font-semibold cursor-default',
-                          )}
-                        />
-                        <span className="text-xs text-muted-foreground">%</span>
-                        <span className="text-xs text-muted-foreground">
-                          ₹{((Number(networkPct) * (levelPercentages[i] ?? 0)) / 100).toFixed(2)} per ₹100
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Distribution preview bar */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-muted-foreground">Distribution preview</span>
-                      <span className={cn(
-                        'text-xs font-semibold',
-                        overLimit ? 'text-red-600 dark:text-red-400' : 'text-foreground',
-                      )}>
-                        Total: {pctSum.toFixed(1)}%
-                        {overLimit && ' ⚠ Exceeds 100%'}
-                      </span>
-                    </div>
-                    <div className="h-4 w-full rounded-full bg-muted/50 overflow-hidden flex">
-                      {levelPercentages.map((pct, i) => {
-                        const width = Math.min(100, pct);
-                        if (width <= 0) return null;
-                        return (
-                          <div
-                            key={i}
-                            className={cn('h-full transition-all', SEGMENT_COLORS[i % SEGMENT_COLORS.length])}
-                            style={{ width: `${width}%` }}
-                            title={`Level ${i + 1}: ${pct}%`}
-                          />
-                        );
-                      })}
-                    </div>
-                    {overLimit && (
-                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                        Warning: total exceeds 100%. This may cause issues with commission distribution.
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {levelPercentages.map((pct, i) => (
-                        <div key={i} className="flex items-center gap-1">
-                          <span className={cn('h-2 w-2 rounded-full', SEGMENT_COLORS[i % SEGMENT_COLORS.length])} />
-                          <span className="text-[10px] text-muted-foreground">L{i + 1}: {pct}%</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {pools.map(pool => (
+                        <div key={pool.key} className={cn('rounded-xl border p-3', pool.bg)}>
+                          <p className={cn('text-[10px] font-bold uppercase tracking-wide mb-2', pool.color)}>
+                            {pool.title}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number" min={0} max={100} step="0.01"
+                              value={pool.val}
+                              onChange={e => pool.set(e.target.value)}
+                              disabled={!isEditing}
+                              className="w-14 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent"
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
+                            <span className={cn('text-sm font-semibold', pool.color)}>
+                              = ₹{(PREVIEW_PROFIT * Number(pool.val) / 100).toFixed(0)}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">{pool.desc}</p>
                         </div>
                       ))}
                     </div>
+
+                    {/* Remaining box */}
+                    <div className="rounded-lg bg-muted/40 px-3 py-2 flex justify-between text-sm">
+                      <span className="text-muted-foreground">Remaining ({remaining.toFixed(1)}% of profit)</span>
+                      <span className="font-semibold">Stays with company</span>
+                    </div>
+
+                    {/* Distribution bar */}
+                    <div className="flex h-2 rounded-full overflow-hidden">
+                      <div style={{ width: `${Math.max(0, Number(networkPct))}%` }} className="bg-primary transition-all" />
+                      <div style={{ width: `${Math.max(0, Number(teamPct))}%` }} className="bg-green-500 transition-all" />
+                      <div style={{ width: `${Math.max(0, Number(socialPct))}%` }} className="bg-amber-500 transition-all" />
+                      <div style={{ width: `${Math.max(0, Number(companyPct))}%` }} className="bg-gray-400 transition-all" />
+                      <div style={{ width: `${Math.max(0, remaining)}%` }} className="bg-muted transition-all" />
+                    </div>
                   </div>
-                </div>
 
-                {/* Team Commission Split */}
-                <div className="rounded-xl border bg-card p-4">
-                  <p className="text-sm font-semibold text-foreground mb-1">Team Commission Split</p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    How to split team commission among 3 direct legs
-                  </p>
-                  <div className="grid grid-cols-3 gap-3">
-                    {([
-                      { label: 'Left',   value: leftLegPct,   setValue: setLeftLegPct },
-                      { label: 'Middle', value: middleLegPct, setValue: setMiddleLegPct },
-                      { label: 'Right',  value: rightLegPct,  setValue: setRightLegPct },
-                    ] as const).map(({ label, value, setValue }) => (
-                      <div key={label} className="rounded-xl border border-border/60 p-4 text-center">
-                        <p className="text-xs font-medium text-muted-foreground mb-3">{label}</p>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={0.01}
-                          value={value}
-                          onChange={(e) => setValue(e.target.value)}
-                          readOnly={!isEditing}
-                          className={cn(
-                            'w-full text-center text-2xl font-bold text-purple-600 dark:text-purple-400 border-none bg-transparent focus:outline-none',
-                            !isEditing && 'pointer-events-none cursor-default',
-                          )}
-                        />
-                        <p className="text-[11px] text-muted-foreground mt-1">% of team pool</p>
-                        <p className="text-[11px] text-purple-600/70 dark:text-purple-400/70 mt-0.5">
-                          ₹{((Number(teamPct) * Number(value)) / 100).toFixed(2)} per ₹100
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-3">
-                    💡 Vacant legs receive no commission. Remaining % stays with company.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 flex-wrap">
-                  {isEditing ? (
-                    <>
-                      <button
-                        onClick={handleSaveSettings}
-                        disabled={saving}
-                        className="h-9 rounded-lg bg-purple-600 px-5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
-                      >
-                        {saving ? 'Saving…' : 'Save Settings'}
-                      </button>
-                      <button
-                        onClick={cancelEdit}
-                        disabled={saving}
-                        className="h-9 rounded-lg border px-5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="flex items-center gap-1.5 h-9 rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-                      >
-                        <Pencil size={14} />
-                        Edit settings
-                      </button>
-                      {settings?.updated_at && (
-                        <span className="text-xs text-muted-foreground">
-                          Last updated:{' '}
-                          {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(
-                            new Date(settings.updated_at),
-                          )}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Section B: Product Rules ────────────────────────────────────── */}
-          <div className="rounded-xl border bg-card shadow-sm">
-            <div className="border-b px-6 py-4 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold text-foreground">Product-specific Rules</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Override commission settings per product
-                </p>
-              </div>
-              <button
-                onClick={() => setModalRule(null)}
-                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
-              >
-                + Add Product Rule
-              </button>
-            </div>
-
-            {rulesLoad ? (
-              <div className="p-6 space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-12 w-full animate-pulse rounded-md bg-muted" />
-                ))}
-              </div>
-            ) : rules.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                No product-specific rules. Click "+ Add Product Rule" to create one.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/40">
-                      {['Product', 'Direction', 'Levels', 'Total %', 'Enabled', 'Actions'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {h}
-                        </th>
+                  {/* Card 2 — Team leg split */}
+                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Team Leg Split</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">How to split team commission among 3 direct legs</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { label: 'Left',   val: leftLegPct,   set: setLeftLegPct },
+                        { label: 'Middle', val: middleLegPct, set: setMiddleLegPct },
+                        { label: 'Right',  val: rightLegPct,  set: setRightLegPct },
+                      ] as const).map(({ label, val, set }) => (
+                        <div key={label} className="rounded-xl border border-border/60 p-3 text-center">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">{label}</p>
+                          <input type="number" min={0} max={100} step="0.01"
+                            value={val} onChange={e => set(e.target.value)}
+                            disabled={!isEditing}
+                            className="w-full text-center text-xl font-bold text-green-600 dark:text-green-400 border-none bg-transparent focus:outline-none disabled:opacity-70" />
+                          <p className="text-[10px] text-muted-foreground mt-1">% of team pool</p>
+                          <p className="text-xs font-semibold text-green-600 dark:text-green-400 mt-0.5">
+                            ₹{(PREVIEW_PROFIT * Number(teamPct) / 100 * Number(val) / 100).toFixed(2)}
+                          </p>
+                        </div>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rules.map((rule) => {
-                      const total = rule.level_percentages.reduce((a, b) => a + b, 0);
-                      const dirLabel = rule.direction === 'top_heavy' ? '↑ Top-heavy' : '↓ Bottom-heavy';
+                    </div>
+                    <p className="text-xs text-muted-foreground">💡 Vacant legs receive no commission. That amount stays with company.</p>
+                  </div>
+
+                  {/* Card 3 — Trigger mode */}
+                  <div className="rounded-xl border bg-card p-4 space-y-3">
+                    <p className="font-semibold text-foreground text-sm">Commission Trigger</p>
+                    <div className="flex border border-border/60 rounded-lg overflow-hidden">
+                      {(['auto', 'manual'] as const).map((mode) => (
+                        <button key={mode} onClick={() => isEditing && setTriggerMode(mode)}
+                          className={cn(
+                            'flex-1 h-9 text-xs font-medium transition-colors',
+                            mode === 'manual' && 'border-l border-border/60',
+                            triggerMode === mode ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'
+                          )}>
+                          {mode === 'auto' ? '⏱ Auto (after return window)' : '✋ Manual (admin triggers)'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN — Network level split */}
+                <div className="rounded-xl border bg-card p-4 space-y-3">
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">Network Level Split</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">How network pool is split across upline levels</p>
+                  </div>
+
+                  {/* Direction toggle */}
+                  <div className="flex border border-border/60 rounded-lg overflow-hidden">
+                    <button onClick={() => isEditing && setDirection('direct_first')}
+                      className={cn('flex-1 h-9 text-xs font-medium transition-colors',
+                        direction === 'direct_first' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')}>
+                      ↓ Direct parent gets most
+                    </button>
+                    <button onClick={() => isEditing && setDirection('ancestor_first')}
+                      className={cn('flex-1 h-9 text-xs font-medium transition-colors border-l border-border/60',
+                        direction === 'ancestor_first' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')}>
+                      ↑ Top ancestor gets most
+                    </button>
+                  </div>
+
+                  {/* Max levels */}
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-muted-foreground">Max levels</label>
+                    <input type="number" min={1} max={10}
+                      value={levels}
+                      onChange={e => setLevels(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                      disabled={!isEditing}
+                      className="w-16 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent" />
+                  </div>
+
+                  {/* Level rows */}
+                  <div className="space-y-0">
+                    {Array.from({ length: levels }, (_, i) => {
+                      const pct = displayPercentages[i] ?? 0;
+                      const networkAmt = (PREVIEW_PROFIT * Number(networkPct) / 100 * pct / 100).toFixed(2);
                       return (
-                        <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-3 font-medium text-foreground">{rule.product_name}</td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">{dirLabel}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{rule.max_upline_levels}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{total.toFixed(1)}%</td>
-                          <td className="px-4 py-3">
-                            <span className={cn(
-                              'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                              rule.is_active
-                                ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                                : 'bg-muted/50 text-muted-foreground',
-                            )}>
-                              {rule.is_active ? 'Yes' : 'No'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setModalRule(rule)}
-                                className="rounded-md p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                title="Edit"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteRule(rule)}
-                                className="rounded-md p-1.5 hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                        <div key={i} className="flex items-center gap-3 py-2 border-b border-border/40 last:border-0">
+                          <span className="w-7 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                            style={{ background: LEVEL_COLORS[i] ?? '#aaa' }}>
+                            L{i + 1}
+                          </span>
+                          <span className="flex-1 text-xs text-muted-foreground">
+                            {i === 0 ? 'Direct parent' : `Level ${i + 1}`}
+                          </span>
+                          <input type="number" min={0} max={100} step="0.1"
+                            value={pct}
+                            disabled={!isEditing}
+                            onChange={e => {
+                              const newLevels = [...levelPercentages];
+                              const idx = direction === 'ancestor_first' ? levels - 1 - i : i;
+                              newLevels[idx] = Number(e.target.value);
+                              setLevelPercentages(newLevels);
+                            }}
+                            className="w-14 h-7 rounded-lg border bg-background px-2 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent" />
+                          <span className="text-xs text-muted-foreground">%</span>
+                          <span className="text-xs font-semibold text-primary min-w-[50px] text-right">₹{networkAmt}</span>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+
+                  {settings?.updated_at && (
+                    <p className="text-[11px] text-muted-foreground pt-2">
+                      Last updated: {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(settings.updated_at))}
+                    </p>
+                  )}
+
+                  {/* Mobile edit buttons */}
+                  <div className="lg:hidden flex gap-2 pt-2">
+                    {isEditing ? (
+                      <>
+                        <button onClick={handleSave} disabled={saving}
+                          className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
+                          {saving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button onClick={cancelEdit} className="flex-1 h-9 rounded-lg border text-sm font-medium text-muted-foreground hover:bg-muted">
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => setIsEditing(true)}
+                        className="flex items-center gap-1.5 h-9 rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted">
+                        <Pencil size={14} /> Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* ── Product Rules ──────────────────────────────────────────────── */}
+              <div className="rounded-xl border bg-card shadow-sm">
+                <div className="border-b px-6 py-4 flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold text-foreground">Product-specific Rules</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Override commission settings per product</p>
+                  </div>
+                  <button onClick={() => setModalRule(null)}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                    + Add Product Rule
+                  </button>
+                </div>
+                {rulesLoad ? (
+                  <div className="p-6 space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />)}</div>
+                ) : rules.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">No product-specific rules. Click "+ Add Product Rule" to create one.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/40">
+                          {['Product', 'Direction', 'Levels', 'Network', 'Team', 'Enabled', 'Actions'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rules.map(rule => (
+                          <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-3 font-medium text-foreground">{rule.product_name}</td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              {rule.direction === 'direct_first' ? '↓ Direct first' : '↑ Ancestor first'}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">{rule.max_upline_levels}</td>
+                            <td className="px-4 py-3 text-muted-foreground">{rule.network_commission_pct}%</td>
+                            <td className="px-4 py-3 text-muted-foreground">{rule.team_commission_pct}%</td>
+                            <td className="px-4 py-3">
+                              <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                                rule.is_active ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-muted/50 text-muted-foreground')}>
+                                {rule.is_active ? 'Yes' : 'No'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => setModalRule(rule)}
+                                  className="rounded-md p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                                  <Pencil size={14} />
+                                </button>
+                                <button onClick={() => handleDeleteRule(rule)}
+                                  className="rounded-md p-1.5 hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Delete">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </main>
       </div>
 
       {modalRule !== undefined && (
-        <ProductCommissionModal
-          rule={modalRule}
-          onSave={handleRuleSaved}
-          onClose={() => setModalRule(undefined)}
-        />
+        <ProductCommissionModal rule={modalRule} onSave={handleRuleSaved} onClose={() => setModalRule(undefined)} />
       )}
     </div>
   );

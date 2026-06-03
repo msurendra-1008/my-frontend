@@ -6,11 +6,14 @@ import { cn } from '@utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Badge } from '@/components/ui/Badge';
 import { productService } from '@/services/productService';
+import { commissionService } from '@/services/commissionService';
+import { ProductCommissionModal } from '@/components/commissions/ProductCommissionModal';
 import { useAuthStore } from '@/store/authStore';
 import type {
   ProductListItem, Product, Category,
   UPADiscountSettings,
 } from '@/types/product.types';
+import type { ProductCommissionRule } from '@/types/commission.types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -802,8 +805,11 @@ function ProductsTab({
   const [loading,      setLoading]      = useState(true);
   const [nextPage,     setNextPage]     = useState<string | null>(null);
   const [page,         setPage]         = useState(1);
-  const [deleteTarget, setDeleteTarget] = useState<ProductListItem | null>(null);
-  const [deleting,     setDeleting]     = useState(false);
+  const [deleteTarget,       setDeleteTarget]       = useState<ProductListItem | null>(null);
+  const [deleting,           setDeleting]           = useState(false);
+  const [commissionProduct,  setCommissionProduct]  = useState<ProductListItem | null>(null);
+  const [commissionRule,     setCommissionRule]     = useState<ProductCommissionRule | null>(null);
+  const [commissionOpen,     setCommissionOpen]     = useState(false);
 
   const canEdit = user?.role === 'superadmin' || user?.role === 'admin' ||
     (user?.permissions?.includes('products.edit') ?? false);
@@ -882,6 +888,18 @@ function ProductsTab({
       const r = await productService.getProduct(p.slug);
       onEditProduct(r.data);
     } catch { toast.show('Failed to load product.', true); }
+  };
+
+  const handleOpenCommission = async (p: ProductListItem) => {
+    setCommissionProduct(p);
+    setCommissionRule(null);
+    if (p.has_commission_rule) {
+      try {
+        const r = await commissionService.getProductRuleByProduct(p.id);
+        setCommissionRule(r.data);
+      } catch { /* rule not found — open in create mode */ }
+    }
+    setCommissionOpen(true);
   };
 
   return (
@@ -1003,6 +1021,17 @@ function ProductsTab({
                           title={p.is_published ? 'Unpublish' : 'Publish'}>
                           {p.is_published ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
+                        <button
+                          onClick={() => handleOpenCommission(p)}
+                          title={p.has_commission_rule ? 'Edit commission' : 'Set commission'}
+                          className={cn(
+                            'rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors',
+                            p.has_commission_rule
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                          )}>
+                          {p.has_commission_rule ? '● Commission' : '+ Commission'}
+                        </button>
                         <button onClick={() => setDeleteTarget(p)}
                           className="text-red-500 hover:text-red-700" title="Delete">
                           <Trash2 size={14} />
@@ -1046,6 +1075,23 @@ function ProductsTab({
           loading={deleting}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {commissionOpen && (
+        <ProductCommissionModal
+          rule={commissionRule}
+          initialProduct={commissionProduct}
+          onSave={(saved) => {
+            setCommissionOpen(false);
+            setProducts((prev) => prev.map((p) =>
+              p.id === (commissionProduct?.id ?? saved.product)
+                ? { ...p, has_commission_rule: true }
+                : p,
+            ));
+            toast.show(commissionRule ? 'Commission updated.' : 'Commission rule saved.');
+          }}
+          onClose={() => { setCommissionOpen(false); setCommissionProduct(null); setCommissionRule(null); }}
         />
       )}
     </div>

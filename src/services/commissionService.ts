@@ -18,10 +18,13 @@ export const commissionService = {
   getProductRules: () =>
     axiosInstance.get<Paginated<ProductCommissionRule>>('/api/v1/commissions/product-rules/'),
 
-  createProductRule: (data: Partial<ProductCommissionRule>) =>
+  getProductRuleByProduct: (productId: string) =>
+    axiosInstance.get<ProductCommissionRule>(`/api/v1/commissions/product-rules/by-product/?product_id=${productId}`),
+
+  createProductRule: (data: Omit<Partial<ProductCommissionRule>, 'id' | 'product_name' | 'product_mrp' | 'product_pricing' | 'created_at' | 'updated_at'>) =>
     axiosInstance.post<ProductCommissionRule>('/api/v1/commissions/product-rules/', data),
 
-  updateProductRule: (id: string, data: Partial<ProductCommissionRule>) =>
+  updateProductRule: (id: string, data: Omit<Partial<ProductCommissionRule>, 'id' | 'product_name' | 'product_mrp' | 'product_pricing' | 'created_at' | 'updated_at'>) =>
     axiosInstance.patch<ProductCommissionRule>(`/api/v1/commissions/product-rules/${id}/`, data),
 
   deleteProductRule: (id: string) =>

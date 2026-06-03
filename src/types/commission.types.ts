@@ -1,16 +1,35 @@
+export type CommissionDirection = 'direct_first' | 'ancestor_first';
+export type CommissionTrigger  = 'auto' | 'manual';
+
 export interface CommissionSettings {
   id:                     string;
-  direction:              'top_heavy' | 'bottom_heavy';
-  max_upline_levels:      number;
-  use_max_levels:         boolean;
-  level_percentages:      number[];
   network_commission_pct: string;
   team_commission_pct:    string;
+  social_work_pct:        string;
+  company_pct:            string;
+  max_upline_levels:      number;
+  use_max_levels:         boolean;
+  direction:              CommissionDirection;
+  level_percentages:      number[];
   left_leg_pct:           string;
   middle_leg_pct:         string;
   right_leg_pct:          string;
-  trigger_mode:           'auto' | 'manual';
+  trigger_mode:           CommissionTrigger;
   updated_at:             string;
+}
+
+export interface ProductPricing {
+  purchase_price:     number;
+  selling_price:      number;
+  other_charges:      number;
+  gst_percentage:     number;
+  gst_amount:         number;
+  upa_discount_pct:   number;
+  upa_price:          number;
+  upa_discount_amt:   number;
+  regular_profit:     number;
+  upa_profit:         number;
+  pricing_configured: boolean;
 }
 
 export interface ProductCommissionRule {
@@ -18,13 +37,16 @@ export interface ProductCommissionRule {
   product:                string;
   product_name:           string;
   product_mrp:            string;
+  product_pricing:        ProductPricing | null;
   is_active:              boolean;
-  direction:              'top_heavy' | 'bottom_heavy';
-  max_upline_levels:      number;
-  use_max_levels:         boolean;
-  level_percentages:      number[];
   network_commission_pct: string;
   team_commission_pct:    string;
+  social_work_pct:        string;
+  company_pct:            string;
+  max_upline_levels:      number;
+  use_max_levels:         boolean;
+  direction:              CommissionDirection;
+  level_percentages:      number[];
   left_leg_pct:           string;
   middle_leg_pct:         string;
   right_leg_pct:          string;
@@ -63,7 +85,6 @@ export interface CommissionBreakup {
   entries:               CommissionEntry[];
 }
 
-// Compact entry/breakup returned inline with each OrderItem from the admin order detail API
 export interface CommissionEntryEmbed {
   id:                 string;
   recipient_name:     string;
