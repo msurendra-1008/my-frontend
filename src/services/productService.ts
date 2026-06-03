@@ -70,6 +70,19 @@ export const productService = {
   deleteVariant: (slug: string, variantId: string) =>
     axiosInstance.delete(`/api/v1/products/${slug}/variants/${variantId}/`),
 
+  setPricing: (id: string, data: {
+    purchase_price?:       number;
+    gst_percentage?:       number;
+    other_charges?:        number;
+    other_charges_type?:   'flat' | 'percent';
+    upa_discount_override?: number;
+    variant_prices?: {
+      id:              string;
+      purchase_price?: number;
+      selling_price?:  number;
+    }[];
+  }) => axiosInstance.patch<Product>(`/api/v1/products/${id}/set-pricing/`, data),
+
   // ── UPA Discount Settings ─────────────────────────────────────────────────
   getDiscountSettings: () =>
     axiosInstance.get<UPADiscountSettings>('/api/v1/upa-discount/'),

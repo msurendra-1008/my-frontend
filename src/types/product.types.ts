@@ -34,22 +34,30 @@ export interface ProductVariant {
   stock_quantity:      number;
   stock_label:         StockLabel;
   is_active:           boolean;
-  upa_price:           UPAPrice;
+  upa_price_computed:  UPAPrice;
+  upa_price:           string | null;
+  purchase_price:      string | null;
+  variant_profit:      number | null;
 }
 
 export interface ProductListItem {
-  id:               string;
-  name:             string;
-  slug:             string;
-  sku:              string;
-  mrp:              string;
-  primary_image:    string | null;
-  category_name:    string | null;
-  is_published:     boolean;
-  stock_label:      StockLabel;
-  total_stock:      number;
-  variant_count:    number;
-  first_variant_id: string | null;
+  id:                 string;
+  name:               string;
+  slug:               string;
+  sku:                string;
+  mrp:                string;
+  primary_image:      string | null;
+  category_name:      string | null;
+  is_published:       boolean;
+  stock_label:        StockLabel;
+  total_stock:        number;
+  variant_count:      number;
+  first_variant_id:   string | null;
+  pricing_configured:    boolean;
+  purchase_price:        string | null;
+  profit_amount:         number | null;
+  upa_profit_amount:     number | null;
+  upa_discount_override: string | null;
 }
 
 export interface Product {
@@ -61,7 +69,7 @@ export interface Product {
   sku:                   string;
   barcode:               string;
   mrp:                   string;
-  upa_discount_override: string | null;
+  upa_discount_override: string | null;  // existing nullable field
   upa_price_override:    string | null;
   is_published:          boolean;
   created_at:            string;
@@ -71,6 +79,12 @@ export interface Product {
   upa_price:             UPAPrice;
   stock_label:           StockLabel;
   total_stock:           number;
+  purchase_price:        string | null;
+  gst_percentage:        string;
+  other_charges:         string;
+  other_charges_type:    'flat' | 'percent';
+  pricing_configured:    boolean;
+  profit_amount:         number | null;
 }
 
 export interface UPAPriceResponse {
