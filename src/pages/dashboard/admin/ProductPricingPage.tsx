@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, X, DollarSign, CheckCircle2, Clock } from 'lucide-react';
+import { cn } from '@/utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { productService } from '@/services/productService';
 import type { ProductListItem, Product, ProductVariant } from '@/types/product.types';
@@ -222,38 +223,56 @@ function PricingModal({
               </div>
               <div className="space-y-3">
                 {variants.map((variant) => {
-                  const vp         = variantPrices[variant.id] ?? {};
-                  const vSelling   = Number(vp.selling_price)  || 0;
-                  const vPurchase  = Number(vp.purchase_price) || 0;
-                  const vOther     = form.other_charges_type === 'flat'
+                  const vp       = variantPrices[variant.id] ?? {};
+                  const selling  = Number(vp.selling_price)  || 0;
+                  const purchase = Number(vp.purchase_price) || 0;
+                  const upaDisc  = upaDiscount;
+
+                  const otherAmt     = form.other_charges_type === 'flat'
                     ? (hasOtherCharges ? otherRaw : 0)
-                    : vSelling * (hasOtherCharges ? otherRaw : 0) / 100;
-                  const vProfit    = vPurchase > 0 ? (vSelling + vOther) - vPurchase : null;
-                  const vUpaPrice  = vSelling > 0 && upaDiscount > 0
-                    ? vSelling * (1 - upaDiscount / 100)
-                    : null;
+                    : selling * (hasOtherCharges ? otherRaw : 0) / 100;
+                  const upaPrice     = selling * (1 - upaDisc / 100);
+                  const upaOther     = form.other_charges_type === 'flat'
+                    ? (hasOtherCharges ? otherRaw : 0)
+                    : upaPrice * (hasOtherCharges ? otherRaw : 0) / 100;
+                  const gstOnSelling = hasGst ? selling   * gstPct / 100 : 0;
+                  const gstOnUpa     = hasGst ? upaPrice  * gstPct / 100 : 0;
+                  const profit       = (selling  + otherAmt) - purchase;
+                  const upaProfit    = (upaPrice + upaOther) - purchase;
+                  const regularPays  = selling  + otherAmt + gstOnSelling;
+                  const upaPays      = upaPrice + upaOther + gstOnUpa;
 
                   return (
-                    <div key={variant.id} className="rounded-xl border border-border/60 p-4 space-y-3">
+                    <div key={variant.id} className="rounded-xl border border-border/60 overflow-hidden">
                       {/* Variant header */}
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start justify-between px-4 pt-4 pb-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{variant.name}</p>
                           <p className="text-xs text-muted-foreground">SKU: {variant.sku}</p>
                         </div>
-                        {vProfit !== null && (
-                          <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${
-                            vProfit >= 0
-                              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                              : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                          }`}>
-                            Profit ₹{fmt(vProfit)}
-                          </span>
-                        )}
+                        <div className="text-right shrink-0 ml-2">
+                          {purchase > 0 && selling > 0 && (
+                            <>
+                              <span className={cn(
+                                'text-xs font-semibold px-2.5 py-1 rounded-full',
+                                profit >= 0
+                                  ? 'bg-green-500/10 text-green-700 dark:text-green-400'
+                                  : 'bg-red-500/10 text-red-500'
+                              )}>
+                                Profit ₹{Math.abs(profit).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                              </span>
+                              {upaDisc > 0 && (
+                                <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-1">
+                                  UPA profit ₹{upaProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       {/* Two-column inputs */}
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3 px-4 pb-4">
                         <div className="space-y-1">
                           <label className="text-xs text-muted-foreground">Purchase price *</label>
                           <div className="relative">
@@ -278,14 +297,99 @@ function PricingModal({
                         </div>
                       </div>
 
-                      {/* Auto-calculated UPA price */}
-                      {vUpaPrice !== null && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>UPA price:</span>
-                          <span className="font-semibold text-purple-600 dark:text-purple-400">
-                            ₹{fmt(vUpaPrice)}
-                          </span>
-                          <span>({upaDiscount}% discount applied)</span>
+                      {/* Dual breakup boxes */}
+                      {(purchase > 0 || selling > 0) && (
+                        <div className="grid grid-cols-2 gap-2 px-4 pb-4">
+
+                          {/* Regular Customer */}
+                          <div className="rounded-xl bg-muted/40 border border-border/50 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
+                              👤 Regular
+                            </p>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-muted-foreground">Selling</span>
+                                <span className="font-medium">₹{selling.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                              </div>
+                              {otherAmt > 0 && (
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-muted-foreground">+ Other</span>
+                                  <span className="font-medium">₹{otherAmt.toFixed(0)}</span>
+                                </div>
+                              )}
+                              {hasGst && gstPct > 0 && (
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-muted-foreground">+ GST {gstPct}%</span>
+                                  <span className="font-medium">₹{gstOnSelling.toFixed(0)}</span>
+                                </div>
+                              )}
+                              <div className="border-t border-border/40 pt-1 flex justify-between text-xs font-bold">
+                                <span>Pays</span>
+                                <span>₹{regularPays.toFixed(0)}</span>
+                              </div>
+                              <div className="border-t border-border/40 pt-1 flex justify-between text-[11px]">
+                                <span className="text-muted-foreground">Profit</span>
+                                <span className={cn('font-bold', profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
+                                  ₹{profit.toFixed(0)}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground bg-background/60 rounded px-1.5 py-1 leading-relaxed">
+                                (₹{selling.toFixed(0)} + ₹{otherAmt.toFixed(0)}) − ₹{purchase.toFixed(0)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* UPA Customer */}
+                          <div className="rounded-xl bg-purple-500/5 border border-purple-500/20 p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-purple-600/70 dark:text-purple-400/70 mb-2">
+                              ⭐ UPA
+                            </p>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-purple-600/60 dark:text-purple-400/60">
+                                  {upaDisc > 0 ? `UPA (${upaDisc}% off)` : 'UPA price'}
+                                </span>
+                                <span className="font-medium text-purple-600 dark:text-purple-400">
+                                  ₹{upaPrice.toFixed(0)}
+                                </span>
+                              </div>
+                              {upaOther > 0 && (
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-purple-600/60 dark:text-purple-400/60">+ Other</span>
+                                  <span className="font-medium text-purple-600 dark:text-purple-400">₹{upaOther.toFixed(0)}</span>
+                                </div>
+                              )}
+                              {hasGst && gstPct > 0 && (
+                                <div className="flex justify-between text-[11px]">
+                                  <span className="text-purple-600/60 dark:text-purple-400/60">+ GST {gstPct}%</span>
+                                  <span className="font-medium text-purple-600 dark:text-purple-400">₹{gstOnUpa.toFixed(0)}</span>
+                                </div>
+                              )}
+                              <div className="border-t border-purple-500/20 pt-1 flex justify-between text-xs font-bold text-purple-600 dark:text-purple-400">
+                                <span>Pays</span>
+                                <span>₹{upaPays.toFixed(0)}</span>
+                              </div>
+                              <div className="border-t border-purple-500/20 pt-1 flex justify-between text-[11px]">
+                                <span className="text-purple-600/60 dark:text-purple-400/60">Profit</span>
+                                <span className={cn('font-bold', upaProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
+                                  ₹{upaProfit.toFixed(0)}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-purple-600/50 dark:text-purple-400/50 bg-purple-500/5 rounded px-1.5 py-1 leading-relaxed">
+                                (₹{upaPrice.toFixed(0)} + ₹{upaOther.toFixed(0)}) − ₹{purchase.toFixed(0)}
+                              </div>
+                              {upaDisc === 0 ? (
+                                <div className="text-[10px] text-muted-foreground mt-1">
+                                  No UPA discount set — same as regular price
+                                </div>
+                              ) : (
+                                <span className="inline-block text-[9px] bg-green-500/10 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded font-semibold mt-1">
+                                  ✓ Commission from this profit
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
                         </div>
                       )}
                     </div>
