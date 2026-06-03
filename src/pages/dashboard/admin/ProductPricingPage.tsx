@@ -654,7 +654,8 @@ export function ProductPricingPage() {
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden md:table-cell">SKU</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">MRP</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden sm:table-cell">Purchase</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden sm:table-cell">Profit</th>
+                    <th className="pb-3 pr-4 pt-4 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Regular Profit</th>
+                    <th className="pb-3 pr-4 pt-4 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">UPA Profit</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Action</th>
                   </tr>
@@ -662,7 +663,7 @@ export function ProductPricingPage() {
                 <tbody className="divide-y divide-border">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
                         No products found.
                       </td>
                     </tr>
@@ -685,12 +686,40 @@ export function ProductPricingPage() {
                       <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
                         {p.purchase_price ? `₹${fmt(Number(p.purchase_price))}` : '—'}
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td className="py-3 pr-4 hidden sm:table-cell">
                         {p.profit_amount != null ? (
-                          <span className={p.profit_amount >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
-                            ₹{fmt(p.profit_amount)}
+                          <span className={cn(
+                            'font-semibold text-sm',
+                            Number(p.profit_amount) >= 0
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-500'
+                          )}>
+                            ₹{Number(p.profit_amount).toLocaleString()}
                           </span>
-                        ) : '—'}
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 hidden sm:table-cell">
+                        {p.upa_profit_amount != null ? (
+                          <div>
+                            <span className={cn(
+                              'font-semibold text-sm',
+                              Number(p.upa_profit_amount) >= 0
+                                ? 'text-primary'
+                                : 'text-red-500'
+                            )}>
+                              ₹{Number(p.upa_profit_amount).toLocaleString()}
+                            </span>
+                            {p.upa_discount_override && Number(p.upa_discount_override) > 0 && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                after {p.upa_discount_override}% discount
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {p.pricing_configured ? (

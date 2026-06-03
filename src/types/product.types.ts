@@ -53,9 +53,11 @@ export interface ProductListItem {
   total_stock:        number;
   variant_count:      number;
   first_variant_id:   string | null;
-  pricing_configured: boolean;
-  purchase_price:     string | null;
-  profit_amount:      number | null;
+  pricing_configured:    boolean;
+  purchase_price:        string | null;
+  profit_amount:         number | null;
+  upa_profit_amount:     number | null;
+  upa_discount_override: string | null;
 }
 
 export interface Product {
