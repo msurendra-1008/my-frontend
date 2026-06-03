@@ -7,9 +7,10 @@ import type { ProductCommissionRule, CommissionDirection, ProductPricing } from 
 import type { ProductListItem } from '@/types/product.types';
 
 interface Props {
-  rule:    ProductCommissionRule | null;
-  onSave:  (r: ProductCommissionRule) => void;
-  onClose: () => void;
+  rule:            ProductCommissionRule | null;
+  initialProduct?: ProductListItem | null;
+  onSave:          (r: ProductCommissionRule) => void;
+  onClose:         () => void;
 }
 
 const LEVEL_COLORS = [
@@ -17,12 +18,12 @@ const LEVEL_COLORS = [
   '#B3ABEA','#CCC7F2','#E0DCFA','#EEEDFE','#F5F4FF',
 ];
 
-export function ProductCommissionModal({ rule, onSave, onClose }: Props) {
+export function ProductCommissionModal({ rule, initialProduct = null, onSave, onClose }: Props) {
   const isEdit = rule !== null;
 
   // Product selection (create mode)
-  const [productId,       setProductId]       = useState(rule?.product ?? '');
-  const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(null);
+  const [productId,       setProductId]       = useState(rule?.product ?? initialProduct?.id ?? '');
+  const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(initialProduct);
   const [searchQuery,     setSearchQuery]     = useState('');
   const [searchResults,   setSearchResults]   = useState<ProductListItem[]>([]);
   const [searchLoading,   setSearchLoading]   = useState(false);
