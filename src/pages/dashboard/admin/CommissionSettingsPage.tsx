@@ -228,7 +228,7 @@ export function CommissionSettingsPage() {
                               value={pool.val}
                               onChange={e => pool.set(e.target.value)}
                               disabled={!isEditing}
-                              className="w-14 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent"
+                              className="w-24 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent"
                             />
                             <span className="text-sm text-muted-foreground">%</span>
                             <span className={cn('text-sm font-semibold', pool.color)}>
@@ -330,7 +330,7 @@ export function CommissionSettingsPage() {
                       value={levels}
                       onChange={e => setLevels(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
                       disabled={!isEditing}
-                      className="w-16 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent" />
+                      className="w-24 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent" />
                   </div>
 
                   {/* Level rows */}
@@ -356,7 +356,7 @@ export function CommissionSettingsPage() {
                               newLevels[idx] = Number(e.target.value);
                               setLevelPercentages(newLevels);
                             }}
-                            className="w-14 h-7 rounded-lg border bg-background px-2 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent" />
+                            className="w-20 h-7 rounded-lg border bg-background px-2 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:border-transparent disabled:bg-transparent" />
                           <span className="text-xs text-muted-foreground">%</span>
                           <span className="text-xs font-semibold text-primary min-w-[50px] text-right">₹{networkAmt}</span>
                         </div>

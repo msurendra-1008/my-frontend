@@ -301,7 +301,7 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
                     <input type="number" min={0} max={100} step="0.01"
                       value={formData[pool.key as keyof typeof formData] as string}
                       onChange={e => setField(pool.key, e.target.value)}
-                      className="w-14 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      className="w-24 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30" />
                     <span className="text-sm text-muted-foreground">%</span>
                     <span className={cn('text-sm font-semibold', pool.color)}>= ₹{pool.amount.toFixed(0)}</span>
                   </div>
@@ -348,7 +348,7 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
               <input type="number" min={1} max={10}
                 value={formData.max_upline_levels}
                 onChange={e => setField('max_upline_levels', Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                className="w-16 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                className="w-24 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
 
             {/* Level rows */}
@@ -373,7 +373,7 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
                         newLevels[idx] = Number(e.target.value);
                         setField('level_percentages', newLevels);
                       }}
-                      className="w-14 h-7 rounded-lg border bg-background px-2 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                      className="w-20 h-7 rounded-lg border bg-background px-2 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30" />
                     <span className="text-xs text-muted-foreground">%</span>
                     <span className="text-xs font-semibold text-primary min-w-[60px] text-right">₹{amt.toFixed(2)}</span>
                   </div>
