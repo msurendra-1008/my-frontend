@@ -68,8 +68,8 @@ function PricingModal({
       const prices: Record<string, VariantPriceEntry> = {};
       p.variants?.forEach((v) => {
         prices[v.id] = {
-          purchase_price: v.purchase_price ? String(v.purchase_price) : '',
-          selling_price:  v.mrp ? String(v.mrp) : '',
+          purchase_price: v.purchase_price ? String(Number(v.purchase_price)) : '',
+          selling_price:  v.mrp            ? String(Number(v.mrp))            : '',
         };
       });
       setVariantPrices(prices);
@@ -228,6 +228,8 @@ function PricingModal({
                   const purchase = Number(vp.purchase_price) || 0;
                   const upaDisc  = upaDiscount;
 
+                  const hasBothPrices = purchase > 0 && selling > 0;
+
                   const otherAmt     = form.other_charges_type === 'flat'
                     ? (hasOtherCharges ? otherRaw : 0)
                     : selling * (hasOtherCharges ? otherRaw : 0) / 100;
@@ -237,8 +239,8 @@ function PricingModal({
                     : upaPrice * (hasOtherCharges ? otherRaw : 0) / 100;
                   const gstOnSelling = hasGst ? selling   * gstPct / 100 : 0;
                   const gstOnUpa     = hasGst ? upaPrice  * gstPct / 100 : 0;
-                  const profit       = (selling  + otherAmt) - purchase;
-                  const upaProfit    = (upaPrice + upaOther) - purchase;
+                  const profit       = hasBothPrices ? (selling  + otherAmt) - purchase : null;
+                  const upaProfit    = hasBothPrices ? (upaPrice + upaOther) - purchase : null;
                   const regularPays  = selling  + otherAmt + gstOnSelling;
                   const upaPays      = upaPrice + upaOther + gstOnUpa;
 
@@ -251,7 +253,7 @@ function PricingModal({
                           <p className="text-xs text-muted-foreground">SKU: {variant.sku}</p>
                         </div>
                         <div className="text-right shrink-0 ml-2">
-                          {purchase > 0 && selling > 0 && (
+                          {hasBothPrices && profit !== null && (
                             <>
                               <span className={cn(
                                 'text-xs font-semibold px-2.5 py-1 rounded-full',
@@ -261,7 +263,7 @@ function PricingModal({
                               )}>
                                 Profit ₹{Math.abs(profit).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                               </span>
-                              {upaDisc > 0 && (
+                              {hasBothPrices && upaProfit !== null && upaDisc > 0 && (
                                 <div className="text-[10px] text-purple-600 dark:text-purple-400 mt-1">
                                   UPA profit ₹{upaProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                 </div>
@@ -298,7 +300,7 @@ function PricingModal({
                       </div>
 
                       {/* Dual breakup boxes */}
-                      {(purchase > 0 || selling > 0) && (
+                      {hasBothPrices && (
                         <div className="grid grid-cols-2 gap-2 px-4 pb-4">
 
                           {/* Regular Customer */}
@@ -329,8 +331,8 @@ function PricingModal({
                               </div>
                               <div className="border-t border-border/40 pt-1 flex justify-between text-[11px]">
                                 <span className="text-muted-foreground">Profit</span>
-                                <span className={cn('font-bold', profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
-                                  ₹{profit.toFixed(0)}
+                                <span className={cn('font-bold', (profit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
+                                  ₹{(profit ?? 0).toFixed(0)}
                                 </span>
                               </div>
                               <div className="text-[10px] text-muted-foreground bg-background/60 rounded px-1.5 py-1 leading-relaxed">
@@ -371,8 +373,8 @@ function PricingModal({
                               </div>
                               <div className="border-t border-purple-500/20 pt-1 flex justify-between text-[11px]">
                                 <span className="text-purple-600/60 dark:text-purple-400/60">Profit</span>
-                                <span className={cn('font-bold', upaProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
-                                  ₹{upaProfit.toFixed(0)}
+                                <span className={cn('font-bold', (upaProfit ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500')}>
+                                  ₹{(upaProfit ?? 0).toFixed(0)}
                                 </span>
                               </div>
                               <div className="text-[10px] text-purple-600/50 dark:text-purple-400/50 bg-purple-500/5 rounded px-1.5 py-1 leading-relaxed">
