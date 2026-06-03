@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, X, DollarSign, CheckCircle2, Clock } from 'lucide-react';
+import { Search, DollarSign, CheckCircle2, Clock } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { productService } from '@/services/productService';
@@ -13,6 +13,16 @@ function fmt(n: number) {
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
+}
+
+function useToast() {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState(false);
+  const show = (m: string, isErr = false) => {
+    setMsg(m); setErr(isErr);
+    setTimeout(() => setMsg(null), 3000);
+  };
+  return { msg, err, show };
 }
 
 // ── Pricing Modal (Sheet from right) ─────────────────────────────────────────
@@ -44,12 +54,16 @@ function PricingModal({
     upa_discount:       '0',
   });
 
+  const toast = useToast();
+
   const [hasGst,          setHasGst]          = useState(false);
   const [hasOtherCharges, setHasOtherCharges] = useState(false);
   const [saving,          setSaving]          = useState(false);
   const [error,           setError]           = useState('');
   const [variants,        setVariants]        = useState<ProductVariant[]>([]);
   const [variantPrices,   setVariantPrices]   = useState<Record<string, VariantPriceEntry>>({});
+
+  const isEdit = product.pricing_configured;
 
   // Always fetch full product detail to get variants + pre-fill existing pricing
   useEffect(() => {
@@ -113,6 +127,9 @@ function PricingModal({
         upa_discount_override: upaDiscount,
         variant_prices:        variantPricesPayload,
       });
+      toast.show(
+        isEdit ? '✅ Pricing updated successfully' : '✅ Pricing saved successfully'
+      );
       onSaved(r.data);
     } catch {
       setError('Failed to save pricing. Please try again.');
@@ -125,14 +142,30 @@ function PricingModal({
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-background shadow-2xl flex flex-col h-full overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-background border-b px-5 py-4 flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground">Set Pricing</h3>
-            <p className="text-xs text-muted-foreground truncate max-w-[280px]">{product.name}</p>
+        {/* Toast */}
+        {toast.msg && (
+          <div className={cn(
+            'fixed top-4 right-4 z-[60] rounded-xl px-4 py-3 text-sm font-medium shadow-lg',
+            toast.err
+              ? 'bg-red-500/10 border border-red-400/40 text-red-600 dark:text-red-400'
+              : 'bg-green-500/10 border border-green-400/40 text-green-600 dark:text-green-400'
+          )}>
+            {toast.msg}
           </div>
-          <button onClick={onClose} className="rounded-md p-1 hover:bg-muted transition-colors">
-            <X size={16} />
+        )}
+
+        {/* Header — CHANGE 2 */}
+        <div className="flex items-center justify-between border-b px-5 py-4 flex-shrink-0 sticky top-0 bg-background z-10">
+          <div>
+            <h2 className="font-semibold text-base text-foreground">
+              {isEdit ? 'Edit Pricing' : 'Set Pricing'}{' — '}{product.name}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {variants.length} variants · Changes update product prices
+            </p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">
+            ×
           </button>
         </div>
 
@@ -502,9 +535,9 @@ function PricingModal({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full rounded-xl bg-purple-600 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
+            className="w-full h-11 rounded-xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors"
           >
-            {saving ? 'Saving…' : 'Save pricing'}
+            {saving ? 'Saving…' : isEdit ? 'Update pricing' : 'Save pricing'}
           </button>
         </div>
       </div>
@@ -544,20 +577,9 @@ export function ProductPricingPage() {
 
   useEffect(() => { fetchProducts(1, true); }, [fetchProducts]);
 
-  const handleSaved = (updated: Product) => {
-    setProducts((prev) =>
-      prev.map((p) =>
-        p.id === updated.id
-          ? {
-              ...p,
-              pricing_configured: updated.pricing_configured,
-              purchase_price:     updated.purchase_price,
-              profit_amount:      updated.profit_amount,
-            }
-          : p,
-      ),
-    );
+  const handleSaved = (_updated: Product) => {
     setPricingTarget(null);
+    fetchProducts(1, true);
   };
 
   // ── Computed ──────────────────────────────────────────────────────────────
@@ -739,9 +761,25 @@ export function ProductPricingPage() {
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setPricingTarget(p)}
-                          className="rounded-lg border border-purple-500/40 px-3 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 transition-colors"
+                          className={cn(
+                            'h-8 px-3 rounded-lg text-xs font-medium',
+                            'flex items-center gap-1.5 transition-colors',
+                            p.pricing_configured
+                              ? 'border border-green-500/40 text-green-600 dark:text-green-400 hover:bg-green-500/10'
+                              : 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                          )}
                         >
-                          Set pricing
+                          {p.pricing_configured ? (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                              Edit pricing
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-base leading-none">$</span>
+                              Set pricing
+                            </>
+                          )}
                         </button>
                       </td>
                     </tr>
