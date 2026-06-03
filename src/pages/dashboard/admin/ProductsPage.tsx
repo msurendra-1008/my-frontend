@@ -72,6 +72,11 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    for (const v of variants) {
+      if (!v.name.trim()) { toast.show('Each variant must have a name.', true); return; }
+      if (!v.sku.trim())  { toast.show(`Variant "${v.name || 'unnamed'}": SKU is required.`, true); return; }
+      if (!v.mrp)         { toast.show(`Variant "${v.name}": MRP is required.`, true); return; }
+    }
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
@@ -107,16 +112,22 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
           ...(v.upa_price_override ? { upa_price_override: v.upa_price_override } : {}),
         };
         if (v._new) {
-          await productService.addVariant(slug, vp).catch(() => {});
+          await productService.addVariant(slug, vp);
         } else {
-          await productService.updateVariant(slug, v.id, vp).catch(() => {});
+          await productService.updateVariant(slug, v.id, vp);
         }
       }
 
       onSaved();
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.show(msg ?? 'Save failed.', true);
+      const errData = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      const msg = errData
+        ? (errData.detail as string | undefined) ??
+          Object.entries(errData)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+            .join(' | ')
+        : 'Save failed.';
+      toast.show(msg, true);
     } finally {
       setSaving(false);
     }
