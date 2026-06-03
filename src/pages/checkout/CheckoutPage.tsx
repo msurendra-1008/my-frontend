@@ -209,6 +209,18 @@ function MiniOrderSummary({
             <span>−₹{cart.totals.upa_discount}</span>
           </div>
         )}
+        {parseFloat(cart.totals.other_charges ?? '0') > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Other charges</span>
+            <span>+₹{cart.totals.other_charges}</span>
+          </div>
+        )}
+        {parseFloat(cart.totals.gst ?? '0') > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">GST</span>
+            <span>+₹{cart.totals.gst}</span>
+          </div>
+        )}
         <div className="flex justify-between font-semibold text-sm pt-1 border-t">
           <span>Total</span>
           <span>₹{cart.totals.amount_payable}</span>

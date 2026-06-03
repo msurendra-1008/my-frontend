@@ -27,23 +27,28 @@ export interface AddressFormData {
 // ── Cart ──────────────────────────────────────────────────────────────────────
 
 export interface CartItem {
-  id:            string;
-  variant_id:    string;
-  variant_name:  string;
-  variant_type:  string;
-  product_name:  string;
-  product_slug:  string;
-  sku:           string;
-  stock:         number;
-  mrp:           string;
-  upa_price:     string;
-  primary_image: string | null;
-  quantity:      number;
+  id:                   string;
+  variant_id:           string;
+  variant_name:         string;
+  variant_type:         string;
+  product_name:         string;
+  product_slug:         string;
+  sku:                  string;
+  stock:                number;
+  mrp:                  string;
+  upa_price:            string;
+  primary_image:        string | null;
+  quantity:             number;
+  other_charges_amount: number;
+  gst_amount:           number;
+  amount_payable:       number;
 }
 
 export interface CartTotals {
   subtotal:       string;
   upa_discount:   string;
+  other_charges:  string;
+  gst:            string;
   amount_payable: string;
   item_count:     number;
 }
