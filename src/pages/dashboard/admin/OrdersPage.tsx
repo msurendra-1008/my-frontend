@@ -53,150 +53,130 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
 
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
 
-function EntryStatusBadge({ status }: { status: CommissionEntryEmbed['status'] }) {
-  if (status === 'credited')       return <span className="text-green-600 dark:text-green-400 text-[10px]">✅ Credited</span>;
-  if (status === 'pending_window') return <span className="text-blue-600 dark:text-blue-400 text-[10px]">⏳ Pending window</span>;
-  if (status === 'pending')        return <span className="text-amber-600 dark:text-amber-400 text-[10px]">⏸ Inactive</span>;
-  return                                  <span className="text-muted-foreground text-[10px]">⏸ Vacant</span>;
+function EntryStatusIcon({ status }: { status: CommissionEntryEmbed['status'] }) {
+  if (status === 'credited')       return <span className="text-green-600 dark:text-green-400">✅</span>;
+  if (status === 'pending_window') return <span className="text-blue-500">⏳</span>;
+  if (status === 'pending')        return <span className="text-amber-500">⏸</span>;
+  return                                  <span className="text-muted-foreground">—</span>;
+}
+
+function EntryTable({
+  label,
+  entries,
+  col1Key,
+}: {
+  label:   string;
+  entries: CommissionEntryEmbed[];
+  col1Key: 'level' | 'leg';
+}) {
+  if (entries.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{label}</p>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-muted-foreground">
+            <th className="text-left pb-1.5 font-medium">{col1Key === 'level' ? 'Level' : 'Leg'}</th>
+            <th className="text-left pb-1.5 font-medium">Name</th>
+            <th className="text-left pb-1.5 font-medium">Mobile</th>
+            <th className="text-right pb-1.5 font-medium">Amount</th>
+            <th className="text-right pb-1.5 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/30">
+          {entries.map((e) => (
+            <tr key={e.id}>
+              <td className="py-1.5 font-mono font-bold text-primary">
+                {col1Key === 'level' ? `L${e.level}` : <span className="capitalize">{e.leg_position || '—'}</span>}
+              </td>
+              <td className="py-1.5 font-medium">{e.recipient_name}</td>
+              <td className="py-1.5 text-muted-foreground">{e.recipient_mobile || '—'}</td>
+              <td className="py-1.5 text-right font-semibold">₹{Number(e.amount).toFixed(2)}</td>
+              <td className="py-1.5 text-right">
+                {e.status === 'vacant'
+                  ? <span className="text-muted-foreground text-[10px]">⏸ Vacant</span>
+                  : <EntryStatusIcon status={e.status} />}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: CommissionBreakupEmbed }) {
-  const networkEntries = breakup.entries.filter((e) => e.entry_type === 'network_upline');
-  const teamEntries    = breakup.entries.filter((e) => e.entry_type === 'team_downline');
+  const pd           = breakup.profit_data;
+  const netEntries   = breakup.network_entries ?? breakup.entries.filter((e) => e.entry_type === 'network_upline');
+  const teamEntries  = breakup.team_entries    ?? breakup.entries.filter((e) => e.entry_type === 'team_downline');
+  const socEntries   = breakup.social_entries  ?? [];
+  const coEntries    = breakup.company_entries ?? [];
+  const hasEntries   = netEntries.length + teamEntries.length + socEntries.length + coEntries.length > 0;
 
   const statusLabel =
-    breakup.status === 'completed'      ? 'Credited' :
+    breakup.status === 'completed'      ? '✅ Credited' :
     breakup.status === 'partial'        ? 'Partial' :
-    breakup.status === 'pending_window' ? 'Pending return window' :
+    breakup.status === 'pending_window' ? '⏳ Pending window' :
     breakup.status;
 
   const statusClass =
     breakup.status === 'completed' ? 'bg-green-500/10 text-green-700 dark:text-green-400' :
     breakup.status === 'partial'   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
-    'bg-muted/50 text-muted-foreground';
-
-  // 4-column table header — Name and UPA ID are stacked in one cell
-  const entryHeaders = (first: string) => (
-    <tr className="border-b bg-muted/40">
-      {[first, 'Beneficiary', 'Amount', 'Status'].map((h) => (
-        <th
-          key={h}
-          className="px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-        >
-          {h}
-        </th>
-      ))}
-    </tr>
-  );
-
-  const entryRow = (key: string, col1: React.ReactNode, e: CommissionEntryEmbed, poolAmount: number) => (
-    <tr key={key} className="border-b last:border-0 hover:bg-muted/20">
-      <td className="px-2 py-2 font-mono text-muted-foreground whitespace-nowrap">{col1}</td>
-      <td className="px-2 py-2">
-        <p className="font-medium text-foreground leading-tight">{e.recipient_name}</p>
-        {e.recipient_upa_id && (
-          <p className="text-[10px] text-muted-foreground font-mono leading-tight">{e.recipient_upa_id}</p>
-        )}
-      </td>
-      <td className="px-2 py-2 whitespace-nowrap">
-        <p className="font-semibold text-foreground">₹{Number(e.amount).toFixed(2)}</p>
-        <p className="text-[10px] text-muted-foreground">
-          {Number(e.percentage_applied).toFixed(1)}% of ₹{poolAmount.toFixed(0)}
-        </p>
-      </td>
-      <td className="px-2 py-2">
-        <EntryStatusBadge status={e.status} />
-      </td>
-    </tr>
-  );
+    'bg-blue-500/10 text-blue-700 dark:text-blue-400';
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
-      {/* Card header */}
-      <div className="px-4 py-3 border-b border-border/50 bg-muted/20">
-        <div className="flex items-start justify-between gap-2 mb-2">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border/50 bg-muted/20 flex items-start justify-between gap-2">
+        <div>
           <p className="text-sm font-semibold text-foreground">{item.product_name}</p>
-          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium flex-shrink-0', statusClass)}>
-            {statusLabel}
-          </span>
+          {pd && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              UPA paid: ₹{Number(pd.upa_price).toFixed(2)} · Profit: ₹{Number(pd.profit).toFixed(2)}
+            </p>
+          )}
         </div>
-
-        {/* Pool amounts — 3-column grid */}
-        {(() => {
-          const base    = Number(breakup.total_base_amount);
-          const netPool = Number(breakup.network_pool);
-          const tmPool  = Number(breakup.team_pool);
-          const netPct  = base > 0 ? (netPool / base * 100).toFixed(1) : '0';
-          const tmPct   = base > 0 ? (tmPool  / base * 100).toFixed(1) : '0';
-          return (
-            <div className="grid grid-cols-3 gap-1 text-[11px]">
-              <div className="rounded-md bg-muted/40 px-2 py-1.5">
-                <p className="text-muted-foreground">Base amount</p>
-                <p className="font-semibold text-foreground">₹{base.toLocaleString('en-IN')}</p>
-              </div>
-              <div className="rounded-md bg-purple-500/10 px-2 py-1.5">
-                <p className="text-muted-foreground">Network pool</p>
-                <p className="font-semibold text-purple-600 dark:text-purple-400">₹{netPool.toLocaleString('en-IN')}</p>
-                <p className="text-[10px] text-purple-500/70 dark:text-purple-400/60">{netPct}% of base</p>
-              </div>
-              <div className="rounded-md bg-green-500/10 px-2 py-1.5">
-                <p className="text-muted-foreground">Team pool</p>
-                <p className="font-semibold text-green-600 dark:text-green-400">₹{tmPool.toLocaleString('en-IN')}</p>
-                <p className="text-[10px] text-green-500/70 dark:text-green-400/60">{tmPct}% of base</p>
-              </div>
-            </div>
-          );
-        })()}
-
-        {breakup.return_window_expires && (
-          <p className="text-[11px] text-muted-foreground mt-1.5">
-            Credits on:{' '}
-            {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(
-              new Date(breakup.return_window_expires),
-            )}
-          </p>
-        )}
+        <span className={cn('text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0', statusClass)}>
+          {statusLabel}
+        </span>
       </div>
 
-      <div className="p-3 space-y-3">
-        {/* Network upline */}
-        {networkEntries.length > 0 && (
-          <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-              Network — Upline chain
-            </p>
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-xs">
-                <thead>{entryHeaders('Lvl')}</thead>
-                <tbody>
-                  {networkEntries.map((e) => entryRow(e.id, `L${e.level}`, e, Number(breakup.network_pool)))}
-                </tbody>
-              </table>
-            </div>
+      <div className="p-4 space-y-4">
+        {/* Profit breakdown tiles */}
+        {pd && (
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'UPA paid',            value: `₹${Number(pd.upa_price).toFixed(2)}`,                                 color: '' },
+              { label: `Network ${pd.network_pct}%`, value: `₹${Number(breakup.network_pool).toFixed(2)}`,                 color: 'text-primary' },
+              { label: `Team ${pd.team_pct}%`,      value: `₹${Number(breakup.team_pool).toFixed(2)}`,                     color: 'text-green-600 dark:text-green-400' },
+              { label: 'Profit',              value: `₹${Number(pd.profit).toFixed(2)}`,                                    color: 'text-primary font-bold' },
+            ].map((c) => (
+              <div key={c.label} className="rounded-lg bg-muted/40 p-2 text-center">
+                <p className="text-[10px] text-muted-foreground mb-1">{c.label}</p>
+                <p className={cn('text-xs font-semibold', c.color)}>{c.value}</p>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Team downline */}
-        {teamEntries.length > 0 && (
-          <div>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-              Team — Direct legs
-            </p>
-            <div className="rounded-lg border overflow-hidden">
-              <table className="w-full text-xs">
-                <thead>{entryHeaders('Leg')}</thead>
-                <tbody>
-                  {teamEntries.map((e) =>
-                    entryRow(e.id, <span className="capitalize">{e.leg_position || '—'}</span>, e, Number(breakup.team_pool))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {/* Entry tables */}
+        <EntryTable label="Network — Upline Chain" entries={netEntries}  col1Key="level" />
+        <EntryTable label="Team — Direct Legs"     entries={teamEntries} col1Key="leg"   />
+        <EntryTable label="Social Work Fund"       entries={socEntries}  col1Key="level" />
+        <EntryTable label="Company"                entries={coEntries}   col1Key="level" />
 
-        {networkEntries.length === 0 && teamEntries.length === 0 && (
+        {!hasEntries && (
           <p className="text-xs text-muted-foreground">No commission entries</p>
+        )}
+
+        {/* Return window note */}
+        {breakup.return_window_expires && breakup.status === 'pending_window' && (
+          <div className="rounded-lg bg-blue-500/10 border border-blue-400/40 px-3 py-2 text-xs text-blue-700 dark:text-blue-400">
+            ⏳ Credits on:{' '}
+            {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(
+              new Date(breakup.return_window_expires),
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -208,14 +188,72 @@ function CommissionBreakupSection({ order }: { order: Order }) {
 
   if (itemsWithBreakup.length === 0) return null;
 
+  // Aggregate entries across all items for the summary table
+  const allEntries: CommissionEntryEmbed[] = [];
+  itemsWithBreakup.forEach((item) => {
+    const b = item.commission_breakup!;
+    const nets  = b.network_entries ?? b.entries.filter((e) => e.entry_type === 'network_upline');
+    const teams = b.team_entries    ?? b.entries.filter((e) => e.entry_type === 'team_downline');
+    [...nets, ...teams].forEach((e) => allEntries.push(e));
+  });
+
+  // Group by recipient (by upa_id or name)
+  const grouped: Record<string, { name: string; mobile: string; upa_id: string; total: number; status: string }> = {};
+  allEntries.forEach((e) => {
+    const key = e.recipient_upa_id || e.recipient_name;
+    if (!grouped[key]) {
+      grouped[key] = { name: e.recipient_name, mobile: e.recipient_mobile, upa_id: e.recipient_upa_id, total: 0, status: e.status };
+    }
+    grouped[key].total += Number(e.amount);
+  });
+  const summaryRows = Object.values(grouped);
+  const grandTotal  = summaryRows.reduce((s, r) => s + r.total, 0);
+
   return (
     <div className="space-y-3">
       <div className="border-b pb-1">
         <p className="text-xs font-semibold uppercase text-muted-foreground">Commission Breakdown</p>
       </div>
+
       {itemsWithBreakup.map((item) => (
         <BreakupItemCard key={item.id} item={item} breakup={item.commission_breakup!} />
       ))}
+
+      {/* Total summary — only if multi-item or helpful */}
+      {summaryRows.length > 0 && (
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-sm font-semibold mb-1">Total Commission Summary</p>
+          <p className="text-xs text-muted-foreground mb-3">Combined across all items in this order</p>
+          <table className="w-full text-xs mb-3">
+            <thead>
+              <tr className="text-muted-foreground border-b border-border/50">
+                <th className="text-left pb-2 font-medium">Recipient</th>
+                <th className="text-left pb-2 font-medium">Mobile</th>
+                <th className="text-left pb-2 font-medium">UPA ID</th>
+                <th className="text-right pb-2 font-medium">Total</th>
+                <th className="text-right pb-2 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/30">
+              {summaryRows.map((row) => (
+                <tr key={row.upa_id || row.name}>
+                  <td className="py-2 font-medium">{row.name}</td>
+                  <td className="py-2 text-muted-foreground">{row.mobile || '—'}</td>
+                  <td className="py-2 font-mono text-muted-foreground">{row.upa_id || '—'}</td>
+                  <td className="py-2 text-right font-bold text-primary">₹{row.total.toFixed(2)}</td>
+                  <td className="py-2 text-right">
+                    <EntryStatusIcon status={row.status as CommissionEntryEmbed['status']} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="border-t border-border/50 pt-2 flex justify-between text-sm font-bold">
+            <span>Grand total commission</span>
+            <span className="text-primary">₹{grandTotal.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

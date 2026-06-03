@@ -90,12 +90,24 @@ export interface CommissionEntryEmbed {
   recipient_name:     string;
   recipient_mobile:   string;
   recipient_upa_id:   string;
-  entry_type:         'network_upline' | 'team_downline';
+  entry_type:         'network_upline' | 'team_downline' | 'social_work' | 'company';
   level:              number | null;
   leg_position:       string;
   amount:             string;
   percentage_applied: string;
   status:             EntryStatus;
+  credited_at:        string | null;
+}
+
+export interface CommissionProfitData {
+  profit:         number;
+  upa_price:      number;
+  purchase_total: number;
+  other_total:    number;
+  network_pct:    number;
+  team_pct:       number;
+  social_pct:     number;
+  company_pct:    number;
 }
 
 export interface CommissionBreakupEmbed {
@@ -106,5 +118,11 @@ export interface CommissionBreakupEmbed {
   status:                'pending_window' | 'processing' | 'completed' | 'partial';
   return_window_expires: string | null;
   processed_at:          string | null;
+  rule_snapshot:         Record<string, unknown> | null;
+  profit_data:           CommissionProfitData | null;
   entries:               CommissionEntryEmbed[];
+  network_entries:       CommissionEntryEmbed[];
+  team_entries:          CommissionEntryEmbed[];
+  social_entries:        CommissionEntryEmbed[];
+  company_entries:       CommissionEntryEmbed[];
 }
