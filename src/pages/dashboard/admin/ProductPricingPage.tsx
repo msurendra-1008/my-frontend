@@ -21,7 +21,10 @@ interface PricingFormData {
   gst_percentage:    string;
   other_charges:     string;
   other_charges_type: 'flat' | 'percent';
+  upa_discount:      string;
 }
+
+type VariantPriceEntry = { purchase_price?: string; selling_price?: string };
 
 function PricingModal({
   product,
@@ -37,6 +40,7 @@ function PricingModal({
     gst_percentage:     '0',
     other_charges:      '0',
     other_charges_type: 'flat',
+    upa_discount:       '0',
   });
 
   const [hasGst,          setHasGst]          = useState(false);
@@ -44,65 +48,70 @@ function PricingModal({
   const [saving,          setSaving]          = useState(false);
   const [error,           setError]           = useState('');
   const [variants,        setVariants]        = useState<ProductVariant[]>([]);
-  const [variantPrices,   setVariantPrices]   = useState<Record<string, string>>({});
+  const [variantPrices,   setVariantPrices]   = useState<Record<string, VariantPriceEntry>>({});
 
-  // Always fetch full product detail to get variants + existing pricing
+  // Always fetch full product detail to get variants + pre-fill existing pricing
   useEffect(() => {
     productService.getProduct(product.slug).then((r) => {
       const p = r.data;
-      if (product.pricing_configured) {
-        setForm({
-          purchase_price:     p.purchase_price ?? '',
-          gst_percentage:     p.gst_percentage ?? '0',
-          other_charges:      p.other_charges ?? '0',
-          other_charges_type: p.other_charges_type ?? 'flat',
-        });
-        setHasGst(parseFloat(p.gst_percentage ?? '0') > 0);
-        setHasOtherCharges(parseFloat(p.other_charges ?? '0') > 0);
-      }
+      setForm({
+        purchase_price:     p.purchase_price ?? '',
+        gst_percentage:     p.gst_percentage ?? '0',
+        other_charges:      p.other_charges ?? '0',
+        other_charges_type: p.other_charges_type ?? 'flat',
+        upa_discount:       p.upa_discount_override ?? '0',
+      });
+      setHasGst(parseFloat(p.gst_percentage ?? '0') > 0);
+      setHasOtherCharges(parseFloat(p.other_charges ?? '0') > 0);
       setVariants(p.variants ?? []);
-      const prices: Record<string, string> = {};
+      const prices: Record<string, VariantPriceEntry> = {};
       p.variants?.forEach((v) => {
-        if (v.purchase_price) prices[v.id] = String(v.purchase_price);
+        prices[v.id] = {
+          purchase_price: v.purchase_price ? String(v.purchase_price) : '',
+          selling_price:  v.mrp ? String(v.mrp) : '',
+        };
       });
       setVariantPrices(prices);
     }).catch(() => {});
-  }, [product.slug, product.pricing_configured]);
+  }, [product.slug]);
 
-  // ── Live calculation ────────────────────────────────────────────────────────
-  const sellingPrice  = Number(product.mrp) || 0;
-  const purchasePrice = Number(form.purchase_price) || 0;
-  const gstPct        = hasGst ? (Number(form.gst_percentage) || 0) : 0;
-  const otherRaw      = hasOtherCharges ? (Number(form.other_charges) || 0) : 0;
-  const otherCharges  = form.other_charges_type === 'flat'
-    ? otherRaw
-    : sellingPrice * otherRaw / 100;
-  const gstAmount     = sellingPrice * gstPct / 100;
-  const grossRevenue  = sellingPrice + otherCharges;
-  const netProfit     = grossRevenue - purchasePrice;
-  const customerPays  = sellingPrice + gstAmount + otherCharges;
+  const set = (field: keyof PricingFormData, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const setVariantField = (id: string, field: keyof VariantPriceEntry, value: string) =>
+    setVariantPrices((prev) => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
+
+  // ── Shared derived values ────────────────────────────────────────────────────
+  const gstPct       = hasGst ? (Number(form.gst_percentage) || 0) : 0;
+  const otherRaw     = hasOtherCharges ? (Number(form.other_charges) || 0) : 0;
+  const upaDiscount  = Number(form.upa_discount) || 0;
 
   const variantPricesPayload = Object.entries(variantPrices)
-    .filter(([, price]) => price && Number(price) > 0)
-    .map(([id, purchase_price]) => ({ id, purchase_price: Number(purchase_price) }));
+    .map(([id, vp]) => ({
+      id,
+      ...(vp.purchase_price && Number(vp.purchase_price) > 0 && { purchase_price: Number(vp.purchase_price) }),
+      ...(vp.selling_price  && Number(vp.selling_price)  > 0 && { selling_price:  Number(vp.selling_price)  }),
+    }))
+    .filter((vp) => vp.purchase_price !== undefined || vp.selling_price !== undefined);
 
   const handleSave = async () => {
     const hasProductPrice = form.purchase_price && Number(form.purchase_price) > 0;
-    if (!hasProductPrice && variantPricesPayload.length === 0) {
+    const hasVariantData  = variantPricesPayload.length > 0;
+    if (!hasProductPrice && !hasVariantData) {
       setError('Set a purchase price for the product or at least one variant.');
       return;
     }
     setError('');
     setSaving(true);
     try {
-      const payload = {
-        purchase_price:     hasProductPrice ? Number(form.purchase_price) : undefined,
-        gst_percentage:     hasGst ? (Number(form.gst_percentage) || 0) : 0,
-        other_charges:      hasOtherCharges ? (Number(form.other_charges) || 0) : 0,
-        other_charges_type: form.other_charges_type,
-        variant_prices:     variantPricesPayload,
-      };
-      const r = await productService.setPricing(product.slug, payload);
+      const r = await productService.setPricing(product.slug, {
+        purchase_price:        hasProductPrice ? Number(form.purchase_price) : undefined,
+        gst_percentage:        hasGst ? (Number(form.gst_percentage) || 0) : 0,
+        other_charges:         hasOtherCharges ? (Number(form.other_charges) || 0) : 0,
+        other_charges_type:    form.other_charges_type,
+        upa_discount_override: upaDiscount,
+        variant_prices:        variantPricesPayload,
+      });
       onSaved(r.data);
     } catch {
       setError('Failed to save pricing. Please try again.');
@@ -110,9 +119,6 @@ function PricingModal({
       setSaving(false);
     }
   };
-
-  const set = (field: keyof PricingFormData, value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -130,67 +136,27 @@ function PricingModal({
         </div>
 
         <div className="p-5 space-y-6 flex-1">
-          {/* MRP display */}
-          <div className="rounded-xl border bg-muted/30 px-4 py-3 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Selling price (MRP)</span>
-            <span className="font-semibold text-foreground">₹{fmt(sellingPrice)}</span>
-          </div>
-
-          {/* ── PRICING ──────────────────────────────────────────────────── */}
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Pricing</p>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">
-                Purchase price <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.purchase_price}
-                  onChange={(e) => set('purchase_price', e.target.value)}
-                  placeholder="0.00"
-                  className="w-full rounded-lg border bg-background pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground">What the company pays to procure this product</p>
-            </div>
-          </div>
 
           {/* ── CHARGES ──────────────────────────────────────────────────── */}
           <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Charges</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Charges & Discount</p>
 
             {/* GST toggle */}
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hasGst}
-                  onChange={(e) => setHasGst(e.target.checked)}
-                  className="h-4 w-4 rounded accent-purple-600"
-                />
+                <input type="checkbox" checked={hasGst} onChange={(e) => setHasGst(e.target.checked)}
+                  className="h-4 w-4 rounded accent-purple-600" />
                 <span className="text-sm font-medium text-foreground">This product has GST</span>
               </label>
               {hasGst && (
                 <div className="ml-6 space-y-1.5">
                   <div className="relative">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="0.01"
-                      value={form.gst_percentage}
-                      onChange={(e) => set('gst_percentage', e.target.value)}
-                      placeholder="0"
-                      className="w-full rounded-lg border bg-background pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    />
+                    <input type="number" min={0} max={100} step="0.01" value={form.gst_percentage}
+                      onChange={(e) => set('gst_percentage', e.target.value)} placeholder="0"
+                      className="w-full rounded-lg border bg-background pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Tax charged to customer — goes to government. Not included in profit.</p>
+                  <p className="text-[11px] text-muted-foreground">Charged to customer — goes to government. Not included in profit.</p>
                 </div>
               )}
             </div>
@@ -198,28 +164,20 @@ function PricingModal({
             {/* Other charges toggle */}
             <div className="space-y-2">
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={hasOtherCharges}
-                  onChange={(e) => setHasOtherCharges(e.target.checked)}
-                  className="h-4 w-4 rounded accent-purple-600"
-                />
+                <input type="checkbox" checked={hasOtherCharges} onChange={(e) => setHasOtherCharges(e.target.checked)}
+                  className="h-4 w-4 rounded accent-purple-600" />
                 <span className="text-sm font-medium text-foreground">Add other charges (shipping/packaging)</span>
               </label>
               {hasOtherCharges && (
                 <div className="ml-6 space-y-2">
-                  {/* Type toggle */}
                   <div className="flex gap-2">
                     {(['flat', 'percent'] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => set('other_charges_type', t)}
-                        className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors capitalize ${
+                      <button key={t} onClick={() => set('other_charges_type', t)}
+                        className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
                           form.other_charges_type === t
                             ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400'
                             : 'text-muted-foreground hover:bg-muted'
-                        }`}
-                      >
+                        }`}>
                         {t === 'flat' ? 'Flat amount' : 'Percentage'}
                       </button>
                     ))}
@@ -228,147 +186,203 @@ function PricingModal({
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                       {form.other_charges_type === 'flat' ? '₹' : '%'}
                     </span>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={form.other_charges}
-                      onChange={(e) => set('other_charges', e.target.value)}
-                      placeholder="0.00"
-                      className="w-full rounded-lg border bg-background pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    />
+                    <input type="number" min={0} step="0.01" value={form.other_charges}
+                      onChange={(e) => set('other_charges', e.target.value)} placeholder="0.00"
+                      className="w-full rounded-lg border bg-background pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
                   </div>
                   <p className="text-[11px] text-muted-foreground">Company keeps this — included in profit</p>
                 </div>
               )}
             </div>
+
+            {/* UPA Discount */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">UPA Discount %</label>
+              <p className="text-[11px] text-muted-foreground">Discount given to UPA users on selling price</p>
+              <div className="flex items-center gap-2">
+                <div className="relative w-28">
+                  <input type="number" min={0} max={100} step="0.01" value={form.upa_discount}
+                    onChange={(e) => set('upa_discount', e.target.value)} placeholder="e.g. 10"
+                    className="w-full h-9 rounded-lg border bg-background pl-3 pr-7 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                </div>
+                <span className="text-xs text-muted-foreground">off selling price</span>
+              </div>
+            </div>
           </div>
 
-          {/* ── VARIANTS ─────────────────────────────────────────────────── */}
-          {variants.length > 0 && (
+          {/* ── VARIANT PRICING ──────────────────────────────────────────── */}
+          {variants.length > 0 ? (
             <div className="space-y-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Variant Pricing</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Set purchase price per variant. GST and other charges apply from product settings above.
+                  Set purchase &amp; selling price per variant. GST and other charges apply from above.
                 </p>
               </div>
-
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {variants.map((variant) => {
-                  const vSelling  = Number(variant.mrp) || 0;
-                  const vPurchase = Number(variantPrices[variant.id] ?? 0);
-                  const vOther    = form.other_charges_type === 'flat'
-                    ? (hasOtherCharges ? (Number(form.other_charges) || 0) : 0)
-                    : vSelling * (hasOtherCharges ? (Number(form.other_charges) || 0) : 0) / 100;
-                  const vProfit   = (vSelling + vOther) - vPurchase;
+                  const vp         = variantPrices[variant.id] ?? {};
+                  const vSelling   = Number(vp.selling_price)  || 0;
+                  const vPurchase  = Number(vp.purchase_price) || 0;
+                  const vOther     = form.other_charges_type === 'flat'
+                    ? (hasOtherCharges ? otherRaw : 0)
+                    : vSelling * (hasOtherCharges ? otherRaw : 0) / 100;
+                  const vProfit    = vPurchase > 0 ? (vSelling + vOther) - vPurchase : null;
+                  const vUpaPrice  = vSelling > 0 && upaDiscount > 0
+                    ? vSelling * (1 - upaDiscount / 100)
+                    : null;
 
                   return (
-                    <div key={variant.id} className="rounded-xl border border-border/60 p-3">
-                      <div className="flex items-start justify-between mb-2">
+                    <div key={variant.id} className="rounded-xl border border-border/60 p-4 space-y-3">
+                      {/* Variant header */}
+                      <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-foreground">{variant.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            SKU: {variant.sku} · MRP: ₹{fmt(vSelling)}
-                          </p>
+                          <p className="text-sm font-semibold text-foreground">{variant.name}</p>
+                          <p className="text-xs text-muted-foreground">SKU: {variant.sku}</p>
                         </div>
-                        {vPurchase > 0 && (
-                          <span className={`text-xs font-semibold shrink-0 ml-2 ${
+                        {vProfit !== null && (
+                          <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${
                             vProfit >= 0
-                              ? 'text-green-600 dark:text-green-400'
-                              : 'text-red-600 dark:text-red-400'
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                              : 'bg-red-500/10 text-red-600 dark:text-red-400'
                           }`}>
-                            Profit: ₹{fmt(vProfit)}
+                            Profit ₹{fmt(vProfit)}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground w-24 shrink-0">Purchase price</span>
-                        <div className="relative flex-1">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={variantPrices[variant.id] ?? ''}
-                            onChange={(e) => setVariantPrices((prev) => ({ ...prev, [variant.id]: e.target.value }))}
-                            placeholder="e.g. 10000"
-                            className="w-full h-8 rounded-lg border bg-background pl-6 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                          />
+
+                      {/* Two-column inputs */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground">Purchase price *</label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                            <input type="number" min={0} step="0.01"
+                              value={vp.purchase_price ?? ''}
+                              onChange={(e) => setVariantField(variant.id, 'purchase_price', e.target.value)}
+                              placeholder="e.g. 40000"
+                              className="w-full h-8 rounded-lg border bg-background pl-6 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-muted-foreground">Selling price (MRP) *</label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                            <input type="number" min={0} step="0.01"
+                              value={vp.selling_price ?? ''}
+                              onChange={(e) => setVariantField(variant.id, 'selling_price', e.target.value)}
+                              placeholder="e.g. 50000"
+                              className="w-full h-8 rounded-lg border bg-background pl-6 pr-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                          </div>
                         </div>
                       </div>
+
+                      {/* Auto-calculated UPA price */}
+                      {vUpaPrice !== null && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>UPA price:</span>
+                          <span className="font-semibold text-purple-600 dark:text-purple-400">
+                            ₹{fmt(vUpaPrice)}
+                          </span>
+                          <span>({upaDiscount}% discount applied)</span>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
+          ) : (
+            /* ── PRODUCT-LEVEL PRICING (no variants) ─────────────────────── */
+            <div className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Pricing</p>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Purchase price <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">₹</span>
+                  <input type="number" min={0} step="0.01" value={form.purchase_price}
+                    onChange={(e) => set('purchase_price', e.target.value)} placeholder="0.00"
+                    className="w-full rounded-lg border bg-background pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                </div>
+                <p className="text-[11px] text-muted-foreground">What the company pays to procure this product</p>
+              </div>
+            </div>
           )}
 
-          {/* ── PROFIT CALCULATION ───────────────────────────────────────── */}
-          <div className="space-y-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Profit Calculation</p>
-
-            <div className="rounded-xl border bg-muted/30 p-4 space-y-2 text-sm font-mono">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Selling price</span>
-                <span>₹{fmt(sellingPrice)}</span>
-              </div>
-              {otherCharges > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">+ Other charges</span>
-                  <span>₹{fmt(otherCharges)}</span>
+          {/* ── PROFIT PREVIEW (product-level only, when no variants) ─────── */}
+          {variants.length === 0 && (() => {
+            const sellingPrice = Number(product.mrp) || 0;
+            const purchasePrice = Number(form.purchase_price) || 0;
+            const otherCharges  = form.other_charges_type === 'flat'
+              ? (hasOtherCharges ? otherRaw : 0)
+              : sellingPrice * (hasOtherCharges ? otherRaw : 0) / 100;
+            const gstAmount   = sellingPrice * gstPct / 100;
+            const grossRevenue = sellingPrice + otherCharges;
+            const netProfit   = grossRevenue - purchasePrice;
+            const customerPays = sellingPrice + gstAmount + otherCharges;
+            return (
+              <div className="space-y-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Profit Calculation</p>
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-2 text-sm font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Selling price</span>
+                    <span>₹{fmt(sellingPrice)}</span>
+                  </div>
+                  {otherCharges > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">+ Other charges</span>
+                      <span>₹{fmt(otherCharges)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-border/50 pt-2">
+                    <span className="text-muted-foreground">Gross revenue</span>
+                    <span>₹{fmt(grossRevenue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">− Purchase price</span>
+                    <span>₹{fmt(purchasePrice)}</span>
+                  </div>
+                  <div className={`flex justify-between border-t border-border/50 pt-2 font-semibold text-base ${
+                    netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    <span>NET PROFIT</span>
+                    <span>₹{fmt(netProfit)}</span>
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between border-t border-border/50 pt-2">
-                <span className="text-muted-foreground">Gross revenue</span>
-                <span>₹{fmt(grossRevenue)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">− Purchase price</span>
-                <span>₹{fmt(purchasePrice)}</span>
-              </div>
-              <div className={`flex justify-between border-t border-border/50 pt-2 font-semibold text-base ${
-                netProfit >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-                <span>NET PROFIT</span>
-                <span>₹{fmt(netProfit)}</span>
-              </div>
-            </div>
-
-            <div className="rounded-xl border bg-muted/30 p-4 space-y-2 text-sm font-mono">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground font-sans mb-3">Customer pays</p>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Selling price</span>
-                <span>₹{fmt(sellingPrice)}</span>
-              </div>
-              {gstAmount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">+ GST ({gstPct}%)</span>
-                  <span>₹{fmt(gstAmount)}</span>
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-2 text-sm font-mono">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground font-sans mb-3">Customer pays</p>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Selling price</span>
+                    <span>₹{fmt(sellingPrice)}</span>
+                  </div>
+                  {gstAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">+ GST ({gstPct}%)</span>
+                      <span>₹{fmt(gstAmount)}</span>
+                    </div>
+                  )}
+                  {otherCharges > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">+ Other charges</span>
+                      <span>₹{fmt(otherCharges)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t border-border/50 pt-2 font-semibold">
+                    <span>Total</span>
+                    <span>₹{fmt(customerPays)}</span>
+                  </div>
                 </div>
-              )}
-              {otherCharges > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">+ Other charges</span>
-                  <span>₹{fmt(otherCharges)}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-border/50 pt-2 font-semibold">
-                <span>Total</span>
-                <span>₹{fmt(customerPays)}</span>
+                {hasGst && gstAmount > 0 && (
+                  <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
+                    GST of ₹{fmt(gstAmount)} is collected from the customer but paid to the government. Not part of profit.
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* GST note */}
-            {hasGst && gstAmount > 0 && (
-              <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-700 dark:text-amber-400">
-                GST of ₹{fmt(gstAmount)} is collected from the customer but paid to the government.
-                It is not part of company profit.
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           {error && (
             <p className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
