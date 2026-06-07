@@ -31,17 +31,20 @@ export function CommissionSettingsPage() {
   const [isEditing,        setIsEditing]        = useState(false);
 
   // ── Editable fields ──────────────────────────────────────────────────────────
-  const [networkPct,       setNetworkPct]       = useState('7.00');
-  const [teamPct,          setTeamPct]          = useState('3.00');
-  const [socialPct,        setSocialPct]        = useState('0.00');
-  const [companyPct,       setCompanyPct]       = useState('0.00');
-  const [direction,        setDirection]        = useState<CommissionDirection>('direct_first');
-  const [levels,           setLevels]           = useState(7);
-  const [levelPercentages, setLevelPercentages] = useState<number[]>([40,25,15,10,5,3,2]);
-  const [leftLegPct,       setLeftLegPct]       = useState('40.00');
-  const [middleLegPct,     setMiddleLegPct]     = useState('30.00');
-  const [rightLegPct,      setRightLegPct]      = useState('30.00');
-  const [triggerMode,      setTriggerMode]      = useState<'auto'|'manual'>('auto');
+  const [networkPct,        setNetworkPct]        = useState('7.00');
+  const [teamPct,           setTeamPct]           = useState('3.00');
+  const [socialPct,         setSocialPct]         = useState('0.00');
+  const [companyPct,        setCompanyPct]        = useState('0.00');
+  const [selfEnabled,       setSelfEnabled]       = useState(false);
+  const [selfPct,           setSelfPct]           = useState('0.00');
+  const [deliveryPct,       setDeliveryPct]       = useState('0.00');
+  const [direction,         setDirection]         = useState<CommissionDirection>('direct_first');
+  const [levels,            setLevels]            = useState(7);
+  const [levelPercentages,  setLevelPercentages]  = useState<number[]>([40,25,15,10,5,3,2]);
+  const [leftLegPct,        setLeftLegPct]        = useState('40.00');
+  const [middleLegPct,      setMiddleLegPct]      = useState('30.00');
+  const [rightLegPct,       setRightLegPct]       = useState('30.00');
+  const [triggerMode,       setTriggerMode]       = useState<'auto'|'manual'>('auto');
 
   const [rules,     setRules]     = useState<ProductCommissionRule[]>([]);
   const [rulesLoad, setRulesLoad] = useState(true);
@@ -52,6 +55,9 @@ export function CommissionSettingsPage() {
     setTeamPct(s.team_commission_pct);
     setSocialPct(s.social_work_pct);
     setCompanyPct(s.company_pct);
+    setSelfEnabled(s.self_commission_enabled);
+    setSelfPct(s.self_commission_pct);
+    setDeliveryPct(s.delivery_packaging_pct);
     setDirection(s.direction);
     setLevels(s.max_upline_levels);
     setLevelPercentages(s.level_percentages.slice(0, s.max_upline_levels));
@@ -85,17 +91,20 @@ export function CommissionSettingsPage() {
     setSaving(true);
     try {
       const r = await commissionService.updateSettings({
-        network_commission_pct: networkPct,
-        team_commission_pct:    teamPct,
-        social_work_pct:        socialPct,
-        company_pct:            companyPct,
+        network_commission_pct:  networkPct,
+        team_commission_pct:     teamPct,
+        social_work_pct:         socialPct,
+        company_pct:             companyPct,
+        self_commission_enabled: selfEnabled,
+        self_commission_pct:     selfPct,
+        delivery_packaging_pct:  deliveryPct,
         direction,
-        max_upline_levels:      levels,
-        level_percentages:      levelPercentages,
-        left_leg_pct:           leftLegPct,
-        middle_leg_pct:         middleLegPct,
-        right_leg_pct:          rightLegPct,
-        trigger_mode:           triggerMode,
+        max_upline_levels:       levels,
+        level_percentages:       levelPercentages,
+        left_leg_pct:            leftLegPct,
+        middle_leg_pct:          middleLegPct,
+        right_leg_pct:           rightLegPct,
+        trigger_mode:            triggerMode,
       });
       setSettings(r.data); setOriginalSettings(r.data);
       setIsEditing(false);
@@ -132,7 +141,8 @@ export function CommissionSettingsPage() {
   };
 
   // ── Derived values ───────────────────────────────────────────────────────────
-  const totalPoolPct = Number(networkPct) + Number(teamPct) + Number(socialPct) + Number(companyPct);
+  const totalPoolPct = Number(networkPct) + Number(teamPct) + Number(socialPct) + Number(companyPct)
+                     + (selfEnabled ? Number(selfPct) : 0) + Number(deliveryPct);
   const remaining    = 100 - totalPoolPct;
 
   const displayPercentages = direction === 'ancestor_first'
@@ -142,10 +152,11 @@ export function CommissionSettingsPage() {
   const PREVIEW_PROFIT = 100; // ₹100 for global settings preview
 
   const pools = [
-    { key: 'network',  val: networkPct, set: setNetworkPct, title: '↑ Network',    desc: 'Goes UP the chain',      color: 'text-primary',                          bg: 'bg-primary/5 border-primary/20' },
-    { key: 'team',     val: teamPct,    set: setTeamPct,    title: '↓ Team',       desc: 'Goes to direct legs',    color: 'text-green-600 dark:text-green-400',    bg: 'bg-green-500/5 border-green-500/20' },
-    { key: 'social',   val: socialPct,  set: setSocialPct,  title: '♥ Social Work',desc: 'Social fund',            color: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-500/5 border-amber-500/20' },
-    { key: 'company',  val: companyPct, set: setCompanyPct, title: '🏢 Company',   desc: 'Stays with company',     color: 'text-muted-foreground',                 bg: 'bg-muted/40 border-border/50' },
+    { key: 'network',  val: networkPct,  set: setNetworkPct,  title: '↑ Network',     desc: 'Goes UP the chain',    color: 'text-primary',                        bg: 'bg-primary/5 border-primary/20' },
+    { key: 'team',     val: teamPct,     set: setTeamPct,     title: '↓ Team',        desc: 'Goes to direct legs',  color: 'text-green-600 dark:text-green-400',  bg: 'bg-green-500/5 border-green-500/20' },
+    { key: 'social',   val: socialPct,   set: setSocialPct,   title: '♥ Social Work', desc: 'Social fund',          color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-500/5 border-amber-500/20' },
+    { key: 'company',  val: companyPct,  set: setCompanyPct,  title: '🏢 Company',    desc: 'Stays with company',   color: 'text-muted-foreground',               bg: 'bg-muted/40 border-border/50' },
+    { key: 'delivery', val: deliveryPct, set: setDeliveryPct, title: '📦 Delivery',   desc: 'Delivery / packaging', color: 'text-blue-600 dark:text-blue-400',    bg: 'bg-blue-500/5 border-blue-500/20' },
   ];
 
   return (
@@ -232,12 +243,48 @@ export function CommissionSettingsPage() {
                             />
                             <span className="text-sm text-muted-foreground">%</span>
                             <span className={cn('text-sm font-semibold', pool.color)}>
-                              = ₹{(PREVIEW_PROFIT * Number(pool.val) / 100).toFixed(0)}
+                              = ₹{(PREVIEW_PROFIT * Number(pool.val) / 100).toFixed(2)}
                             </span>
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-1">{pool.desc}</p>
                         </div>
                       ))}
+
+                      {/* Self Commission card — with toggle */}
+                      <div className={cn('rounded-xl border p-3', selfEnabled
+                        ? 'bg-purple-500/5 border-purple-500/20'
+                        : 'bg-muted/30 border-border/40 opacity-70')}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-purple-600 dark:text-purple-400">
+                            ✦ Self Commission
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => isEditing && setSelfEnabled(v => !v)}
+                            className={cn(
+                              'relative inline-flex h-4 w-7 items-center rounded-full transition-colors',
+                              selfEnabled ? 'bg-purple-600' : 'bg-muted-foreground/30',
+                              !isEditing && 'cursor-default'
+                            )}>
+                            <span className={cn(
+                              'inline-block h-3 w-3 rounded-full bg-white transition-transform',
+                              selfEnabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                            )} />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input type="number" min={0} max={100} step="0.01"
+                            value={selfPct}
+                            onChange={e => setSelfPct(e.target.value)}
+                            disabled={!isEditing || !selfEnabled}
+                            className="w-24 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-purple-500/30 disabled:border-transparent disabled:bg-transparent disabled:opacity-50" />
+                          <span className="text-sm text-muted-foreground">%</span>
+                          <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                            = ₹{(PREVIEW_PROFIT * (selfEnabled ? Number(selfPct) : 0) / 100).toFixed(2)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">Credited back to buyer</p>
+                      </div>
                     </div>
 
                     {/* Remaining box */}
@@ -252,6 +299,8 @@ export function CommissionSettingsPage() {
                       <div style={{ width: `${Math.max(0, Number(teamPct))}%` }} className="bg-green-500 transition-all" />
                       <div style={{ width: `${Math.max(0, Number(socialPct))}%` }} className="bg-amber-500 transition-all" />
                       <div style={{ width: `${Math.max(0, Number(companyPct))}%` }} className="bg-gray-400 transition-all" />
+                      <div style={{ width: `${Math.max(0, Number(deliveryPct))}%` }} className="bg-blue-500 transition-all" />
+                      <div style={{ width: `${Math.max(0, selfEnabled ? Number(selfPct) : 0)}%` }} className="bg-purple-500 transition-all" />
                       <div style={{ width: `${Math.max(0, remaining)}%` }} className="bg-muted transition-all" />
                     </div>
                   </div>
