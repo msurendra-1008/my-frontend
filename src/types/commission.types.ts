@@ -2,20 +2,23 @@ export type CommissionDirection = 'direct_first' | 'ancestor_first';
 export type CommissionTrigger  = 'auto' | 'manual';
 
 export interface CommissionSettings {
-  id:                     string;
-  network_commission_pct: string;
-  team_commission_pct:    string;
-  social_work_pct:        string;
-  company_pct:            string;
-  max_upline_levels:      number;
-  use_max_levels:         boolean;
-  direction:              CommissionDirection;
-  level_percentages:      number[];
-  left_leg_pct:           string;
-  middle_leg_pct:         string;
-  right_leg_pct:          string;
-  trigger_mode:           CommissionTrigger;
-  updated_at:             string;
+  id:                      string;
+  network_commission_pct:  string;
+  team_commission_pct:     string;
+  social_work_pct:         string;
+  company_pct:             string;
+  self_commission_enabled: boolean;
+  self_commission_pct:     string;
+  delivery_packaging_pct:  string;
+  max_upline_levels:       number;
+  use_max_levels:          boolean;
+  direction:               CommissionDirection;
+  level_percentages:       number[];
+  left_leg_pct:            string;
+  middle_leg_pct:          string;
+  right_leg_pct:           string;
+  trigger_mode:            CommissionTrigger;
+  updated_at:              string;
 }
 
 export interface ProductPricing {
@@ -33,26 +36,67 @@ export interface ProductPricing {
 }
 
 export interface ProductCommissionRule {
-  id:                     string;
-  product:                string;
-  product_name:           string;
-  product_mrp:            string;
-  product_pricing:        ProductPricing | null;
-  is_active:              boolean;
-  network_commission_pct: string;
-  team_commission_pct:    string;
-  social_work_pct:        string;
-  company_pct:            string;
-  max_upline_levels:      number;
-  use_max_levels:         boolean;
-  direction:              CommissionDirection;
-  level_percentages:      number[];
-  left_leg_pct:           string;
-  middle_leg_pct:         string;
-  right_leg_pct:          string;
+  id:                      string;
+  product:                 string;
+  product_name:            string;
+  product_mrp:             string;
+  product_pricing:         ProductPricing | null;
+  is_active:               boolean;
+  network_commission_pct:  string;
+  team_commission_pct:     string;
+  social_work_pct:         string;
+  company_pct:             string;
+  self_commission_enabled: boolean;
+  self_commission_pct:     string;
+  delivery_packaging_pct:  string;
+  max_upline_levels:       number;
+  use_max_levels:          boolean;
+  direction:               CommissionDirection;
+  level_percentages:       number[];
+  left_leg_pct:            string;
+  middle_leg_pct:          string;
+  right_leg_pct:           string;
 }
 
-export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant';
+export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant' | 'ignored';
+export type EntryType   = 'network_upline' | 'team_downline' | 'social_work' | 'company' | 'self_commission';
+
+export interface PendingCommissionEntry {
+  id:                  string;
+  entry_type:          EntryType;
+  level:               number | null;
+  leg_position:        string;
+  recipient_name:      string;
+  recipient_mobile:    string;
+  recipient_upa_id:    string;
+  amount:              string;
+  percentage_applied:  string;
+  status:              EntryStatus;
+  order_number:        string;
+  product_name:        string;
+  buyer_name:          string;
+  buyer_upa_id:        string;
+  upa_profit:          number;
+  pool_amount:         number;
+  pending_since:       string;
+  recipient_is_active: boolean;
+  upline_chain: {
+    type:         'upline' | 'downline';
+    level?:       number;
+    leg?:         string;
+    buyer_name:   string;
+    buyer_upa_id: string;
+  } | null;
+}
+
+export interface PendingStats {
+  total_pending_amount: string;
+  pending_count:        number;
+  vacant_count:         number;
+  ignored_count:        number;
+  inactive_user_count:  number;
+  vacant_leg_count:     number;
+}
 
 export interface CommissionEntry {
   id:                    string;
@@ -62,7 +106,7 @@ export interface CommissionEntry {
   recipient_upa_id:      string;
   recipient_name:        string;
   recipient_mobile:      string;
-  entry_type:            'network_upline' | 'team_downline';
+  entry_type:            EntryType;
   level:                 number | null;
   leg_position:          string;
   amount:                string;
@@ -90,7 +134,7 @@ export interface CommissionEntryEmbed {
   recipient_name:     string;
   recipient_mobile:   string;
   recipient_upa_id:   string;
-  entry_type:         'network_upline' | 'team_downline' | 'social_work' | 'company';
+  entry_type:         EntryType;
   level:              number | null;
   leg_position:       string;
   amount:             string;
@@ -100,14 +144,17 @@ export interface CommissionEntryEmbed {
 }
 
 export interface CommissionProfitData {
-  profit:         number;
-  upa_price:      number;
-  purchase_total: number;
-  other_total:    number;
-  network_pct:    number;
-  team_pct:       number;
-  social_pct:     number;
-  company_pct:    number;
+  profit:                  number;
+  upa_price:               number;
+  purchase_total:          number;
+  other_total:             number;
+  network_pct:             number;
+  team_pct:                number;
+  social_pct:              number;
+  company_pct:             number;
+  self_commission_enabled: boolean;
+  self_pct:                number;
+  delivery_pct:            number;
 }
 
 export interface CommissionBreakupEmbed {
@@ -125,4 +172,5 @@ export interface CommissionBreakupEmbed {
   team_entries:          CommissionEntryEmbed[];
   social_entries:        CommissionEntryEmbed[];
   company_entries:       CommissionEntryEmbed[];
+  self_entries:          CommissionEntryEmbed[];
 }
