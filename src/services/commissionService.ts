@@ -4,6 +4,8 @@ import type {
   ProductCommissionRule,
   CommissionBreakup,
   CommissionEntry,
+  PendingCommissionEntry,
+  PendingStats,
 } from '@/types/commission.types';
 
 interface Paginated<T> { count: number; next: string | null; previous: string | null; results: T[]; }
@@ -36,6 +38,18 @@ export const commissionService = {
   getPendingEntries: (params?: { status?: string; search?: string }) =>
     axiosInstance.get<Paginated<CommissionEntry>>('/api/v1/commissions/pending/', { params }),
 
+  getPending: (params?: Record<string, string>) =>
+    axiosInstance.get<Paginated<PendingCommissionEntry>>('/api/v1/commissions/pending/', { params }),
+
+  getPendingStats: () =>
+    axiosInstance.get<PendingStats>('/api/v1/commissions/pending/stats/'),
+
   creditEntry: (id: string) =>
-    axiosInstance.post<CommissionEntry>(`/api/v1/commissions/pending/${id}/credit/`),
+    axiosInstance.patch<{ status: string }>(`/api/v1/commissions/pending/${id}/credit/`),
+
+  ignoreEntry: (id: string) =>
+    axiosInstance.patch<{ status: string }>(`/api/v1/commissions/pending/${id}/ignore/`),
+
+  creditBulk: () =>
+    axiosInstance.post<{ credited: string[]; errors: unknown[] }>('/api/v1/commissions/pending/credit-bulk/'),
 };
