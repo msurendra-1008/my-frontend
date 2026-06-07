@@ -34,18 +34,21 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
 
   // Commission form state
   const [formData, setFormData] = useState({
-    is_active:              rule?.is_active              ?? true,
-    direction:              (rule?.direction             ?? 'direct_first') as CommissionDirection,
-    max_upline_levels:      rule?.max_upline_levels      ?? 3,
-    use_max_levels:         rule?.use_max_levels         ?? false,
-    level_percentages:      rule?.level_percentages      ?? [40, 25, 15, 10, 5],
-    network_commission_pct: rule?.network_commission_pct ?? '7.00',
-    team_commission_pct:    rule?.team_commission_pct    ?? '3.00',
-    social_work_pct:        rule?.social_work_pct        ?? '0.00',
-    company_pct:            rule?.company_pct            ?? '0.00',
-    left_leg_pct:           rule?.left_leg_pct           ?? '40.00',
-    middle_leg_pct:         rule?.middle_leg_pct         ?? '30.00',
-    right_leg_pct:          rule?.right_leg_pct          ?? '30.00',
+    is_active:               rule?.is_active               ?? true,
+    direction:               (rule?.direction              ?? 'direct_first') as CommissionDirection,
+    max_upline_levels:       rule?.max_upline_levels       ?? 3,
+    use_max_levels:          rule?.use_max_levels          ?? false,
+    level_percentages:       rule?.level_percentages       ?? [40, 25, 15, 10, 5],
+    network_commission_pct:  rule?.network_commission_pct  ?? '7.00',
+    team_commission_pct:     rule?.team_commission_pct     ?? '3.00',
+    social_work_pct:         rule?.social_work_pct         ?? '0.00',
+    company_pct:             rule?.company_pct             ?? '0.00',
+    self_commission_enabled: rule?.self_commission_enabled ?? false,
+    self_commission_pct:     rule?.self_commission_pct     ?? '0.00',
+    delivery_packaging_pct:  rule?.delivery_packaging_pct  ?? '0.00',
+    left_leg_pct:            rule?.left_leg_pct            ?? '40.00',
+    middle_leg_pct:          rule?.middle_leg_pct          ?? '30.00',
+    right_leg_pct:           rule?.right_leg_pct           ?? '30.00',
   });
 
   const [saving, setSaving] = useState(false);
@@ -64,16 +67,19 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
         const s = r.data;
         setFormData(prev => ({
           ...prev,
-          direction:              s.direction,
-          max_upline_levels:      s.max_upline_levels,
-          level_percentages:      s.level_percentages.slice(0, s.max_upline_levels),
-          network_commission_pct: s.network_commission_pct,
-          team_commission_pct:    s.team_commission_pct,
-          social_work_pct:        s.social_work_pct,
-          company_pct:            s.company_pct,
-          left_leg_pct:           s.left_leg_pct,
-          middle_leg_pct:         s.middle_leg_pct,
-          right_leg_pct:          s.right_leg_pct,
+          direction:               s.direction,
+          max_upline_levels:       s.max_upline_levels,
+          level_percentages:       s.level_percentages.slice(0, s.max_upline_levels),
+          network_commission_pct:  s.network_commission_pct,
+          team_commission_pct:     s.team_commission_pct,
+          social_work_pct:         s.social_work_pct,
+          company_pct:             s.company_pct,
+          self_commission_enabled: s.self_commission_enabled,
+          self_commission_pct:     s.self_commission_pct,
+          delivery_packaging_pct:  s.delivery_packaging_pct,
+          left_leg_pct:            s.left_leg_pct,
+          middle_leg_pct:          s.middle_leg_pct,
+          right_leg_pct:           s.right_leg_pct,
         }));
       }
     }).catch(() => {});
@@ -124,18 +130,21 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
     setError(''); setSaving(true);
     try {
       const payload = {
-        is_active:              formData.is_active,
-        direction:              formData.direction,
-        max_upline_levels:      formData.max_upline_levels,
-        use_max_levels:         formData.use_max_levels,
-        level_percentages:      formData.level_percentages,
-        network_commission_pct: formData.network_commission_pct,
-        team_commission_pct:    formData.team_commission_pct,
-        social_work_pct:        formData.social_work_pct,
-        company_pct:            formData.company_pct,
-        left_leg_pct:           formData.left_leg_pct,
-        middle_leg_pct:         formData.middle_leg_pct,
-        right_leg_pct:          formData.right_leg_pct,
+        is_active:               formData.is_active,
+        direction:               formData.direction,
+        max_upline_levels:       formData.max_upline_levels,
+        use_max_levels:          formData.use_max_levels,
+        level_percentages:       formData.level_percentages,
+        network_commission_pct:  formData.network_commission_pct,
+        team_commission_pct:     formData.team_commission_pct,
+        social_work_pct:         formData.social_work_pct,
+        company_pct:             formData.company_pct,
+        self_commission_enabled: formData.self_commission_enabled,
+        self_commission_pct:     formData.self_commission_pct,
+        delivery_packaging_pct:  formData.delivery_packaging_pct,
+        left_leg_pct:            formData.left_leg_pct,
+        middle_leg_pct:          formData.middle_leg_pct,
+        right_leg_pct:           formData.right_leg_pct,
         ...(!isEdit && { product: productId }),
       };
       const r = isEdit
@@ -150,14 +159,18 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
   };
 
   // ── Derived values ───────────────────────────────────────────────────────────
-  const upaProfit   = pricing?.upa_profit ?? 100;
-  const networkPool = upaProfit * Number(formData.network_commission_pct) / 100;
-  const teamPool    = upaProfit * Number(formData.team_commission_pct) / 100;
-  const socialPool  = upaProfit * Number(formData.social_work_pct) / 100;
-  const companyPool = upaProfit * Number(formData.company_pct) / 100;
-  const totalPct    = Number(formData.network_commission_pct) + Number(formData.team_commission_pct)
-                    + Number(formData.social_work_pct) + Number(formData.company_pct);
-  const remaining   = upaProfit - networkPool - teamPool - socialPool - companyPool;
+  const upaProfit    = pricing?.upa_profit ?? 100;
+  const networkPool  = upaProfit * Number(formData.network_commission_pct) / 100;
+  const teamPool     = upaProfit * Number(formData.team_commission_pct) / 100;
+  const socialPool   = upaProfit * Number(formData.social_work_pct) / 100;
+  const companyPool  = upaProfit * Number(formData.company_pct) / 100;
+  const selfPool     = formData.self_commission_enabled ? upaProfit * Number(formData.self_commission_pct) / 100 : 0;
+  const deliveryPool = upaProfit * Number(formData.delivery_packaging_pct) / 100;
+  const totalPct     = Number(formData.network_commission_pct) + Number(formData.team_commission_pct)
+                     + Number(formData.social_work_pct) + Number(formData.company_pct)
+                     + (formData.self_commission_enabled ? Number(formData.self_commission_pct) : 0)
+                     + Number(formData.delivery_packaging_pct);
+  const remaining    = upaProfit - networkPool - teamPool - socialPool - companyPool - selfPool - deliveryPool;
 
   const displayPercentages = formData.direction === 'ancestor_first'
     ? [...formData.level_percentages].reverse()
@@ -286,14 +299,17 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
           <div className="space-y-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Commission Pools</p>
-              <p className="text-xs text-muted-foreground mt-0.5">from UPA profit ₹{upaProfit.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                from UPA profit ₹{upaProfit.toLocaleString()}{!pricing && ' (preview — pricing not configured)'}
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { key: 'network_commission_pct', title: '↑ Network',     desc: 'Goes UP the chain',   color: 'text-primary',                       bg: 'bg-primary/5 border-primary/20',           amount: networkPool },
-                { key: 'team_commission_pct',    title: '↓ Team',        desc: 'Goes to direct legs', color: 'text-green-600 dark:text-green-400',  bg: 'bg-green-500/5 border-green-500/20',       amount: teamPool },
-                { key: 'social_work_pct',        title: '♥ Social Work', desc: 'Social fund',         color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-500/5 border-amber-500/20',       amount: socialPool },
-                { key: 'company_pct',            title: '🏢 Company',    desc: 'Stays with company',  color: 'text-muted-foreground',               bg: 'bg-muted/40 border-border/50',             amount: companyPool },
+                { key: 'network_commission_pct', title: '↑ Network',     desc: 'Goes UP the chain',      color: 'text-primary',                       bg: 'bg-primary/5 border-primary/20',           amount: networkPool },
+                { key: 'team_commission_pct',    title: '↓ Team',        desc: 'Goes to direct legs',    color: 'text-green-600 dark:text-green-400',  bg: 'bg-green-500/5 border-green-500/20',       amount: teamPool },
+                { key: 'social_work_pct',        title: '♥ Social Work', desc: 'Social fund',            color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-500/5 border-amber-500/20',       amount: socialPool },
+                { key: 'company_pct',            title: '🏢 Company',    desc: 'Stays with company',     color: 'text-muted-foreground',               bg: 'bg-muted/40 border-border/50',             amount: companyPool },
+                { key: 'delivery_packaging_pct', title: '📦 Delivery',   desc: 'Delivery / packaging',   color: 'text-blue-600 dark:text-blue-400',    bg: 'bg-blue-500/5 border-blue-500/20',         amount: deliveryPool },
               ].map(pool => (
                 <div key={pool.key} className={cn('rounded-xl border p-3', pool.bg)}>
                   <p className={cn('text-[10px] font-bold uppercase tracking-wide mb-2', pool.color)}>{pool.title}</p>
@@ -308,7 +324,41 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
                   <p className="text-[10px] text-muted-foreground mt-1">{pool.desc}</p>
                 </div>
               ))}
+
+              {/* Self Commission card — with toggle */}
+              <div className={cn('rounded-xl border p-3', formData.self_commission_enabled
+                ? 'bg-purple-500/5 border-purple-500/20'
+                : 'bg-muted/30 border-border/40 opacity-70')}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-purple-600 dark:text-purple-400">
+                    ✦ Self Commission
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setField('self_commission_enabled', !formData.self_commission_enabled)}
+                    className={cn(
+                      'relative inline-flex h-4 w-7 items-center rounded-full transition-colors',
+                      formData.self_commission_enabled ? 'bg-purple-600' : 'bg-muted-foreground/30'
+                    )}>
+                    <span className={cn(
+                      'inline-block h-3 w-3 rounded-full bg-white transition-transform',
+                      formData.self_commission_enabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                    )} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="number" min={0} max={100} step="0.01"
+                    value={formData.self_commission_pct}
+                    onChange={e => setField('self_commission_pct', e.target.value)}
+                    disabled={!formData.self_commission_enabled}
+                    className="w-24 h-8 rounded-lg border bg-background px-2 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-purple-500/30 disabled:opacity-50" />
+                  <span className="text-sm text-muted-foreground">%</span>
+                  <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">= ₹{selfPool.toFixed(2)}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Credited back to buyer</p>
+              </div>
             </div>
+
             <div className="rounded-lg bg-muted/40 px-3 py-2 flex justify-between text-sm">
               <span className="text-muted-foreground">Remaining ({(100 - totalPct).toFixed(1)}% of profit)</span>
               <span className="font-semibold text-foreground">₹{remaining.toFixed(2)} stays with company</span>
@@ -318,6 +368,8 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
               <div style={{ width: `${Math.max(0, Number(formData.team_commission_pct))}%` }} className="bg-green-500 transition-all" />
               <div style={{ width: `${Math.max(0, Number(formData.social_work_pct))}%` }} className="bg-amber-500 transition-all" />
               <div style={{ width: `${Math.max(0, Number(formData.company_pct))}%` }} className="bg-gray-400 transition-all" />
+              <div style={{ width: `${Math.max(0, Number(formData.delivery_packaging_pct))}%` }} className="bg-blue-500 transition-all" />
+              <div style={{ width: `${Math.max(0, formData.self_commission_enabled ? Number(formData.self_commission_pct) : 0)}%` }} className="bg-purple-500 transition-all" />
               <div style={{ width: `${Math.max(0, 100 - totalPct)}%` }} className="bg-muted transition-all" />
             </div>
           </div>
