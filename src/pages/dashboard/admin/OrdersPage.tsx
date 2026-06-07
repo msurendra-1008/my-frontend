@@ -111,7 +111,8 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
   const teamEntries  = breakup.team_entries    ?? breakup.entries.filter((e) => e.entry_type === 'team_downline');
   const socEntries   = breakup.social_entries  ?? [];
   const coEntries    = breakup.company_entries ?? [];
-  const hasEntries   = netEntries.length + teamEntries.length + socEntries.length + coEntries.length > 0;
+  const selfEntries  = breakup.self_entries    ?? breakup.entries.filter((e) => e.entry_type === 'self_commission');
+  const hasEntries   = netEntries.length + teamEntries.length + socEntries.length + coEntries.length + selfEntries.length > 0;
 
   const statusLabel =
     breakup.status === 'completed'      ? '✅ Credited' :
@@ -145,12 +146,22 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
         {/* Profit breakdown tiles */}
         {pd && (
           <div className="grid grid-cols-4 gap-2">
-            {[
-              { label: 'UPA paid',            value: `₹${Number(pd.upa_price).toFixed(2)}`,                                 color: '' },
-              { label: `Network ${pd.network_pct}%`, value: `₹${Number(breakup.network_pool).toFixed(2)}`,                 color: 'text-primary' },
-              { label: `Team ${pd.team_pct}%`,      value: `₹${Number(breakup.team_pool).toFixed(2)}`,                     color: 'text-green-600 dark:text-green-400' },
-              { label: 'Profit',              value: `₹${Number(pd.profit).toFixed(2)}`,                                    color: 'text-primary font-bold' },
-            ].map((c) => (
+            {([
+              { label: 'UPA paid',                  value: `₹${Number(pd.upa_price).toFixed(2)}`,              color: '' },
+              { label: `Network ${pd.network_pct}%`, value: `₹${Number(breakup.network_pool).toFixed(2)}`,    color: 'text-primary' },
+              { label: `Team ${pd.team_pct}%`,       value: `₹${Number(breakup.team_pool).toFixed(2)}`,       color: 'text-green-600 dark:text-green-400' },
+              { label: 'Profit',                    value: `₹${Number(pd.profit).toFixed(2)}`,                 color: 'text-primary font-bold' },
+              ...(pd.self_commission_enabled ? [{
+                label: `Self ${pd.self_pct}%`,
+                value: `₹${(Number(pd.profit) * pd.self_pct / 100).toFixed(2)}`,
+                color: 'text-purple-600 dark:text-purple-400',
+              }] : []),
+              ...(pd.delivery_pct > 0 ? [{
+                label: `Delivery ${pd.delivery_pct}%`,
+                value: `₹${(Number(pd.profit) * pd.delivery_pct / 100).toFixed(2)}`,
+                color: 'text-blue-600 dark:text-blue-400',
+              }] : []),
+            ] as { label: string; value: string; color: string }[]).map((c) => (
               <div key={c.label} className="rounded-lg bg-muted/40 p-2 text-center">
                 <p className="text-[10px] text-muted-foreground mb-1">{c.label}</p>
                 <p className={cn('text-xs font-semibold', c.color)}>{c.value}</p>
@@ -162,6 +173,7 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
         {/* Entry tables */}
         <EntryTable label="Network — Upline Chain" entries={netEntries}  col1Key="level" />
         <EntryTable label="Team — Direct Legs"     entries={teamEntries} col1Key="leg"   />
+        <EntryTable label="Self Commission"        entries={selfEntries} col1Key="level" />
         <EntryTable label="Social Work Fund"       entries={socEntries}  col1Key="level" />
         <EntryTable label="Company"                entries={coEntries}   col1Key="level" />
 
@@ -194,7 +206,8 @@ function CommissionBreakupSection({ order }: { order: Order }) {
     const b = item.commission_breakup!;
     const nets  = b.network_entries ?? b.entries.filter((e) => e.entry_type === 'network_upline');
     const teams = b.team_entries    ?? b.entries.filter((e) => e.entry_type === 'team_downline');
-    [...nets, ...teams].forEach((e) => allEntries.push(e));
+    const selfs = b.self_entries    ?? b.entries.filter((e) => e.entry_type === 'self_commission');
+    [...nets, ...teams, ...selfs].forEach((e) => allEntries.push(e));
   });
 
   // Group by recipient (by upa_id or name)
