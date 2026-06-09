@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, UserCheck, Network, Package,
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
-  PieChart, LogOut, ChevronDown, X, Coins, Wallet, BadgeDollarSign,
+  PieChart, LogOut, ChevronDown, X, Coins, Wallet, BadgeDollarSign, Landmark,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -68,8 +68,9 @@ const SECTIONS: Section[] = [
   {
     key: 'finance', label: 'Finance', title: 'Finance & Commissions',
     items: [
-      { label: 'Commissions',         path: '/admin/commissions/settings', icon: Coins,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
-      { label: 'Pending Commissions', path: '/admin/commissions/pending',  icon: Wallet, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Commissions',         path: '/admin/commissions/settings', icon: Coins,    allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Pending Commissions', path: '/admin/commissions/pending',  icon: Wallet,   allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Company Wallet',      path: '/admin/company-wallet',       icon: Landmark, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
