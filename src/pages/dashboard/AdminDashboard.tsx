@@ -36,22 +36,36 @@ function ChangeTag({ value }: { value: number | null }) {
 
 // ── Revenue bar chart ─────────────────────────────────────────────────────────
 function RevenueChart({ data }: { data: { date: string; revenue: number }[] }) {
-  const max = Math.max(...data.map(d => d.revenue), 1);
-  if (data.length === 0) return <p className="text-sm text-muted-foreground py-8 text-center">No data</p>;
+  const values = data.map(d => Number(d.revenue) || 0);
+  const max    = Math.max(...values, 0);
+
+  if (!data || data.length === 0 || max === 0) {
+    return (
+      <div className="flex items-center justify-center h-28 text-sm text-muted-foreground">
+        No revenue data for this period
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-end gap-0.5 h-28">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 group relative" style={{ minWidth: '3px' }}>
-            <div
-              className={cn('w-full rounded-t transition-opacity', i === data.length - 1 ? 'bg-primary' : 'bg-primary/60 hover:bg-primary/80')}
-              style={{ height: `${Math.max((d.revenue / max) * 100, 2)}%` }}
-            />
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
-              {d.date}: {fmt(d.revenue)}
+        {data.map((d, i) => {
+          const rev = Number(d.revenue) || 0;
+          return (
+            <div key={i} className="flex-1 group relative" style={{ minWidth: '3px' }}>
+              <div
+                className={cn('w-full rounded-t transition-opacity', i === data.length - 1 ? 'bg-primary' : 'bg-primary/60 hover:bg-primary/80')}
+                style={{ height: rev > 0 ? `${Math.max((rev / max) * 100, 4)}%` : '0%' }}
+              />
+              {rev > 0 && (
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
+                  {d.date}: {fmt(rev)}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
         <span>{data[0]?.date}</span>
