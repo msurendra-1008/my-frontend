@@ -4,6 +4,7 @@ import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { Badge } from '@/components/ui/Badge'
 import { useTheme } from '@context/ThemeContext'
 import { useAuthStore } from '@/store/authStore'
+import axiosInstance from '@/utils/axiosInstance'
 import { billingService } from '@/services/billingService'
 import { cn } from '@/utils/cn'
 import type { CartItem, CustomerType, PaymentMethod, OfflineBill, DiscountCode } from '@/types/billing.types'
@@ -192,8 +193,6 @@ export function BillingPage() {
     setLoadingVariants(true)
     try {
       setExpandedProduct({ ...product, variants: [] })
-      // Fetch detail by slug
-      const axiosInstance = (await import('@/utils/axiosInstance')).default
       const detail = await axiosInstance.get(`/api/v1/products/${product.slug}/`)
       setExpandedProduct(detail.data)
     } catch {
