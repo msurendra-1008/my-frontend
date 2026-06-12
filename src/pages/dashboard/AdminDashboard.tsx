@@ -35,44 +35,89 @@ function ChangeTag({ value }: { value: number | null }) {
 }
 
 // ── Revenue bar chart ─────────────────────────────────────────────────────────
-function RevenueChart({ data }: { data: { date: string; revenue: number }[] }) {
-  const values = data.map(d => Number(d.revenue) || 0);
-  const max    = Math.max(...values, 0);
-
-  if (!data || data.length === 0 || max === 0) {
+function RevenueChart({
+  data
+}: {
+  data: { date: string; revenue: number }[]
+}) {
+  if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-28 text-sm text-muted-foreground">
-        No revenue data for this period
+      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+        No data for selected period
       </div>
-    );
+    )
   }
+
+  const values = data.map(d => Number(d.revenue) || 0)
+  const max    = Math.max(...values, 1)
+  const total  = values.reduce((s, v) => s + v, 0)
+  const peak   = Math.max(...values)
 
   return (
     <div>
-      <div className="flex items-end gap-0.5 h-28">
+      {/* Bars */}
+      <div className="flex items-end gap-1 px-1"
+        style={{ height: '100px' }}>
         {data.map((d, i) => {
-          const rev = Number(d.revenue) || 0;
+          const val = Number(d.revenue) || 0
+          const pct = val > 0
+            ? Math.max((val / max) * 100, 8)
+            : 0
+          const isLast = i === data.length - 1
+
           return (
-            <div key={i} className="flex-1 group relative" style={{ minWidth: '3px' }}>
+            <div key={i}
+              title={`${d.date}: ₹${val.toLocaleString()}`}
+              className="flex-1 flex flex-col items-center justify-end group cursor-default"
+              style={{ height: '100%' }}>
+
+              {/* Bar */}
               <div
-                className={cn('w-full rounded-t transition-opacity', i === data.length - 1 ? 'bg-primary' : 'bg-primary/60 hover:bg-primary/80')}
-                style={{ height: rev > 0 ? `${Math.max((rev / max) * 100, 4)}%` : '0%' }}
+                className={cn(
+                  'w-full rounded-t-sm transition-all',
+                  val > 0
+                    ? isLast
+                      ? 'bg-primary'
+                      : 'bg-primary/70 group-hover:bg-primary'
+                    : 'bg-border/30'
+                )}
+                style={{
+                  height: val > 0
+                    ? `${pct}%`
+                    : '3px'
+                }}
               />
-              {rev > 0 && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
-                  {d.date}: {fmt(rev)}
-                </div>
-              )}
             </div>
-          );
+          )
         })}
       </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+
+      {/* X axis labels */}
+      <div className="flex justify-between text-[10px] text-muted-foreground mt-2 px-1">
         <span>{data[0]?.date}</span>
+        {data.length > 6 && (
+          <span>{data[Math.floor(data.length / 2)]?.date}</span>
+        )}
         <span>{data[data.length - 1]?.date}</span>
       </div>
+
+      {/* Summary */}
+      <div className="flex justify-between mt-2 px-1">
+        <span className="text-[11px] text-muted-foreground">
+          Peak:{' '}
+          <span className="font-semibold text-foreground">
+            ₹{peak.toLocaleString()}
+          </span>
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          Total:{' '}
+          <span className="font-semibold text-primary">
+            ₹{total.toLocaleString()}
+          </span>
+        </span>
+      </div>
     </div>
-  );
+  )
 }
 
 // ── Donut chart ───────────────────────────────────────────────────────────────
@@ -277,7 +322,7 @@ export function AdminDashboard() {
                     <p className="text-sm font-semibold text-foreground">Revenue trend</p>
                     <span className="text-xs text-muted-foreground">{stats.period.start} → {stats.period.end}</span>
                   </div>
-                  <RevenueChart data={stats.daily_revenue} />
+                  <RevenueChart data={stats.daily_revenue ?? []} />
                 </div>
                 <div className="rounded-xl border border-border/50 bg-card p-4">
                   <p className="text-sm font-semibold text-foreground mb-3">Order status</p>
@@ -307,18 +352,26 @@ export function AdminDashboard() {
                     ))}
                   </div>
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Monthly registrations</p>
-                  <div className="flex items-end gap-0.5 h-16">
-                    {stats.upa.monthly.map((m, i) => {
+                  <div style={{ height: '64px' }} className="flex items-end gap-px bg-muted/20 rounded p-1">
+                    {(() => {
                       const maxM = Math.max(...stats.upa.monthly.map(x => x.count), 1);
-                      return (
-                        <div key={i} className="flex-1 group relative" title={`${m.month}: ${m.count}`}>
+                      return stats.upa.monthly.map((m, i) => {
+                        const pct = m.count > 0 ? Math.max((m.count / maxM) * 100, 3) : 0;
+                        return (
                           <div
-                            className={cn('w-full rounded-t', i === stats.upa.monthly.length - 1 ? 'bg-green-500' : 'bg-green-500/50')}
-                            style={{ height: `${Math.max((m.count / maxM) * 100, 4)}%` }}
-                          />
-                        </div>
-                      );
-                    })}
+                            key={i}
+                            className="flex-1 flex items-end"
+                            style={{ height: '100%' }}
+                            title={`${m.month}: ${m.count}`}
+                          >
+                            <div
+                              className={cn('w-full rounded-sm', i === stats.upa.monthly.length - 1 ? 'bg-green-500' : 'bg-green-500/50')}
+                              style={{ height: `${pct}%` }}
+                            />
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                   <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
                     <span>{stats.upa.monthly[0]?.month}</span>
