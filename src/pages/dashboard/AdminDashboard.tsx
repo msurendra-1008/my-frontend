@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
+import { Badge } from '@/components/ui/Badge';
+import { useTheme } from '@context/ThemeContext';
+import { useAuthStore } from '@/store/authStore';
 import { dashboardService } from '@/services/dashboardService';
 import { cn } from '@/utils/cn';
 import type { DashboardStats, ProductAlert } from '@/types/dashboard.types';
@@ -184,8 +188,16 @@ const ALERT_CONFIG: Record<ProductAlert['type'], { label: string; bg: string; ba
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+function roleBadgeVariant(role: string) {
+  if (role === 'superadmin') return 'danger' as const;
+  if (role === 'admin')      return 'warning' as const;
+  return 'info' as const;
+}
+
 export function AdminDashboard() {
-  const navigate = useNavigate();
+  const navigate                = useNavigate();
+  const { theme, toggleTheme }  = useTheme();
+  const { user }                = useAuthStore();
   const [sidebar, setSidebar]   = useState(false);
   const [period, setPeriod]     = useState<Period>('month');
   const [dateFrom, setDateFrom] = useState('');
@@ -220,8 +232,16 @@ export function AdminDashboard() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 bg-card px-4 py-3 flex-shrink-0">
-          <h1 className="text-base font-semibold text-foreground hidden md:block">Dashboard</h1>
+        <header className="flex h-[52px] items-center justify-between border-b bg-card px-4 flex-shrink-0">
+          {/* Left: menu + title */}
+          <div className="flex items-center gap-3">
+            <button className="md:hidden text-muted-foreground" onClick={() => setSidebar(v => !v)}>
+              <Menu size={20} />
+            </button>
+            <h1 className="text-base font-semibold text-foreground hidden md:block">Dashboard</h1>
+          </div>
+
+          {/* Center: period toggle */}
           <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
             {PERIODS.map(p => (
               <button
@@ -237,6 +257,20 @@ export function AdminDashboard() {
                 {p.label}
               </button>
             ))}
+          </div>
+
+          {/* Right: theme toggle + user badge */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <Badge variant={roleBadgeVariant(user?.role ?? '')} className="capitalize">
+              {user?.role}
+            </Badge>
           </div>
         </header>
 

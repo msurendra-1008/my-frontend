@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Menu, Trash2, Pencil } from 'lucide-react';
+import { Menu, Trash2, Pencil, Sun, Moon } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
+import { Badge } from '@components/ui/Badge';
+import { useTheme } from '@context/ThemeContext';
+import { useAuthStore } from '@/store/authStore';
 import { ProductCommissionModal } from '@/components/commissions/ProductCommissionModal';
 import { commissionService } from '@/services/commissionService';
 import type { CommissionSettings, ProductCommissionRule, CommissionDirection } from '@/types/commission.types';
@@ -22,6 +25,8 @@ const LEVEL_COLORS = [
 
 export function CommissionSettingsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggleTheme }        = useTheme();
+  const { user }                      = useAuthStore();
   const toast = useToast();
 
   const [settings,         setSettings]         = useState<CommissionSettings | null>(null);
@@ -164,19 +169,29 @@ export function CommissionSettingsPage() {
       <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen(false)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-[52px] items-center gap-3 border-b px-4 lg:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="rounded-md p-1.5 hover:bg-muted">
-            <Menu size={18} />
-          </button>
-          <span className="font-semibold">Commission Settings</span>
+        <header className="flex h-[52px] items-center justify-between border-b bg-card px-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden rounded-md p-1.5 hover:bg-muted">
+              <Menu size={18} />
+            </button>
+            <span className="text-base font-semibold text-foreground">Commission Settings</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <Badge variant={user?.role === 'superadmin' ? 'danger' : user?.role === 'admin' ? 'warning' : 'info'} className="capitalize">
+              {user?.role}
+            </Badge>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-          <div className="hidden lg:flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Commission Settings</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">Configure global commission rules and per-product overrides</p>
-            </div>
+          <div className="flex items-center justify-end">
             {!settingsLoad && (
               isEditing ? (
                 <div className="flex gap-2">
