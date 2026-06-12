@@ -11,6 +11,7 @@ import {
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
   PieChart, LogOut, ChevronDown, X, Coins, Wallet, BadgeDollarSign, Landmark,
+  Receipt, History, Tag,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -36,6 +37,14 @@ const SECTIONS: Section[] = [
     key: 'dashboard',
     items: [
       { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard, allowedRoles: ['superadmin', 'admin', 'employee'] },
+    ],
+  },
+  {
+    key: 'billing', label: 'Billing',
+    items: [
+      { label: 'New Bill',       path: '/billing',                  icon: Receipt, allowedRoles: ['superadmin', 'admin', 'employee'] as UserRole[] },
+      { label: 'Bill History',   path: '/billing/history',          icon: History, allowedRoles: ['superadmin', 'admin', 'employee'] as UserRole[] },
+      { label: 'Discount Codes', path: '/billing/discount-codes',   icon: Tag,     allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
