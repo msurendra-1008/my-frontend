@@ -35,65 +35,89 @@ function ChangeTag({ value }: { value: number | null }) {
 }
 
 // ── Revenue bar chart ─────────────────────────────────────────────────────────
-function RevenueChart({ data }: { data: { date: string; revenue: number }[] }) {
+function RevenueChart({
+  data
+}: {
+  data: { date: string; revenue: number }[]
+}) {
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-28 text-sm text-muted-foreground">
-        No revenue data for selected period
+      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+        No data for selected period
       </div>
-    );
+    )
   }
 
-  const values = data.map(d => Number(d.revenue) || 0);
-  const max    = Math.max(...values, 1);
-  const hasAny = values.some(v => v > 0);
-
-  if (!hasAny) {
-    return (
-      <div className="flex items-center justify-center h-28 text-sm text-muted-foreground">
-        No revenue in this period
-      </div>
-    );
-  }
+  const values = data.map(d => Number(d.revenue) || 0)
+  const max    = Math.max(...values, 1)
+  const total  = values.reduce((s, v) => s + v, 0)
+  const peak   = Math.max(...values)
 
   return (
     <div>
-      <div style={{ height: '112px' }} className="flex items-end gap-px bg-muted/20 rounded-lg p-2">
+      {/* Bars */}
+      <div className="flex items-end gap-1 px-1"
+        style={{ height: '100px' }}>
         {data.map((d, i) => {
-          const val = Number(d.revenue) || 0;
-          const pct = val > 0 ? Math.max((val / max) * 100, 3) : 0;
+          const val = Number(d.revenue) || 0
+          const pct = val > 0
+            ? Math.max((val / max) * 100, 8)
+            : 0
+          const isLast = i === data.length - 1
+
           return (
-            <div
-              key={i}
-              className="flex-1 group relative flex items-end"
-              style={{ height: '100%' }}
-            >
+            <div key={i}
+              title={`${d.date}: ₹${val.toLocaleString()}`}
+              className="flex-1 flex flex-col items-center justify-end group cursor-default"
+              style={{ height: '100%' }}>
+
+              {/* Bar */}
               <div
                 className={cn(
-                  'w-full rounded-sm transition-all cursor-pointer',
-                  val > 0 ? 'bg-primary hover:bg-primary/80' : 'bg-transparent'
+                  'w-full rounded-t-sm transition-all',
+                  val > 0
+                    ? isLast
+                      ? 'bg-primary'
+                      : 'bg-primary/70 group-hover:bg-primary'
+                    : 'bg-border/30'
                 )}
-                style={{ height: `${pct}%` }}
+                style={{
+                  height: val > 0
+                    ? `${pct}%`
+                    : '3px'
+                }}
               />
-              {val > 0 && (
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-foreground text-background text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
-                  {d.date}: ₹{val.toLocaleString('en-IN')}
-                </div>
-              )}
             </div>
-          );
+          )
         })}
       </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-2">
+
+      {/* X axis labels */}
+      <div className="flex justify-between text-[10px] text-muted-foreground mt-2 px-1">
         <span>{data[0]?.date}</span>
+        {data.length > 6 && (
+          <span>{data[Math.floor(data.length / 2)]?.date}</span>
+        )}
         <span>{data[data.length - 1]?.date}</span>
       </div>
-      <div className="flex justify-between text-[11px] mt-2 px-1">
-        <span className="text-muted-foreground">Peak: ₹{Math.max(...values).toLocaleString('en-IN')}</span>
-        <span className="text-muted-foreground">Total: ₹{values.reduce((s, v) => s + v, 0).toLocaleString('en-IN')}</span>
+
+      {/* Summary */}
+      <div className="flex justify-between mt-2 px-1">
+        <span className="text-[11px] text-muted-foreground">
+          Peak:{' '}
+          <span className="font-semibold text-foreground">
+            ₹{peak.toLocaleString()}
+          </span>
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          Total:{' '}
+          <span className="font-semibold text-primary">
+            ₹{total.toLocaleString()}
+          </span>
+        </span>
       </div>
     </div>
-  );
+  )
 }
 
 // ── Donut chart ───────────────────────────────────────────────────────────────
