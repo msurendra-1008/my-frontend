@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Menu, Sun, Moon } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
+import { Badge } from '@/components/ui/Badge';
+import { useTheme } from '@context/ThemeContext';
+import { useAuthStore } from '@/store/authStore';
 import { companyWalletService } from '@/services/companyWalletService';
 import type {
   CompanyWallet,
@@ -51,6 +55,8 @@ const GST_FILTER_OPTIONS = [
 /* ── component ───────────────────────────────────────────────────────────── */
 export default function CompanyWalletPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme, toggleTheme }      = useTheme();
+  const { user }                    = useAuthStore();
   const [tab, setTab] = useState<'overview' | 'ledger' | 'gst'>('overview');
 
   const [wallet, setWallet]   = useState<CompanyWallet | null>(null);
@@ -176,17 +182,31 @@ export default function CompanyWalletPage() {
       <div className="flex flex-1 flex-col overflow-hidden">
 
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-border/50 px-4 py-3 flex-shrink-0">
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Company Wallet</h1>
-            <p className="text-xs text-muted-foreground">Track income, commissions, refunds and GST</p>
+        <header className="flex h-[52px] items-center justify-between border-b border-border/50 bg-card px-4 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <button className="md:hidden text-muted-foreground" onClick={() => setMobileOpen(o => !o)}>
+              <Menu size={20} />
+            </button>
+            <h1 className="text-base font-semibold text-foreground hidden md:block">Company Wallet</h1>
           </div>
-          <button
-            onClick={() => setShowManual(true)}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            + Manual Entry
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowManual(true)}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              + Manual Entry
+            </button>
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <Badge variant={user?.role === 'superadmin' ? 'danger' : user?.role === 'admin' ? 'warning' : 'info'} className="capitalize">
+              {user?.role}
+            </Badge>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6">

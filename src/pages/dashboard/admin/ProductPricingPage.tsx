@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, DollarSign, CheckCircle2, Clock } from 'lucide-react';
+import { Menu, Search, DollarSign, CheckCircle2, Clock, Sun, Moon } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { useTheme } from '@context/ThemeContext';
+import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { productService } from '@/services/productService';
@@ -560,6 +563,8 @@ export function ProductPricingPage() {
   const [pricingTarget, setPricingTarget] = useState<ProductListItem | null>(null);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggleTheme }        = useTheme();
+  const { user }                      = useAuthStore();
 
   const fetchProducts = useCallback(async (pg = 1, reset = true) => {
     if (reset) setLoading(true);
@@ -604,20 +609,27 @@ export function ProductPricingPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top header */}
-        <header className="flex items-center gap-3 border-b bg-background px-4 py-3 md:px-6">
-          <button
-            className="rounded-md p-1.5 hover:bg-muted md:hidden"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Product Pricing</h1>
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              Set purchase price, GST and charges for each product
-            </p>
+        <header className="flex h-[52px] items-center justify-between border-b bg-background px-4">
+          <div className="flex items-center gap-3">
+            <button
+              className="rounded-md p-1.5 hover:bg-muted md:hidden"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu size={18} />
+            </button>
+            <h1 className="text-base font-semibold text-foreground">Product Pricing</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <Badge variant={user?.role === 'superadmin' ? 'danger' : user?.role === 'admin' ? 'warning' : 'info'} className="capitalize">
+              {user?.role}
+            </Badge>
           </div>
         </header>
 

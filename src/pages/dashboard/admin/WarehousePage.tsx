@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Menu, Warehouse as WarehouseIcon, MapPin, Layers } from 'lucide-react';
+import { Menu, Warehouse as WarehouseIcon, MapPin, Layers, Sun, Moon } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
+import { Badge } from '@components/ui/Badge';
+import { useTheme } from '@context/ThemeContext';
+import { useAuthStore } from '@/store/authStore';
 import { FilterToolbar } from '@/components/admin/FilterToolbar';
 import { Button } from '@components/ui/Button';
 import { CapacityBar } from '@/components/warehouse/CapacityBar';
@@ -505,6 +508,8 @@ type Tab = typeof TABS[number];
 
 export function AdminWarehousePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggleTheme }        = useTheme();
+  const { user }                      = useAuthStore();
   const [tab, setTab] = useState<Tab>('Warehouses');
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
 
@@ -517,12 +522,24 @@ export function AdminWarehousePage() {
       <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen((v) => !v)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex items-center justify-between border-b bg-card px-4 py-3">
+        <header className="flex h-[52px] items-center justify-between border-b bg-card px-4">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="md:hidden text-muted-foreground">
               <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-lg font-semibold hidden md:block">Warehouse</h1>
+            <h1 className="text-base font-semibold text-foreground hidden md:block">Warehouse</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <Badge variant={user?.role === 'superadmin' ? 'danger' : user?.role === 'admin' ? 'warning' : 'info'} className="capitalize">
+              {user?.role}
+            </Badge>
           </div>
         </header>
 
