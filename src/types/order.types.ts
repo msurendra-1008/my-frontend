@@ -139,6 +139,7 @@ export interface OrderListItem {
   first_item_name: string;
   customer_name:   string;
   customer_mobile: string;
+  is_offline:      boolean;
   created_at:      string;
 }
 
@@ -166,6 +167,9 @@ export interface Order {
   items:               OrderItem[];
   is_satisfied:        boolean;
   satisfied_at:        string | null;
+  is_offline:          boolean;
+  offline_bill_number: string | null;
+  billed_by_name:      string | null;
   created_at:          string;
   updated_at:          string;
 }

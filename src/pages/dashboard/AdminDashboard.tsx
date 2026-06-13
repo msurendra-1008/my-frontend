@@ -349,6 +349,22 @@ export function AdminDashboard() {
                 ))}
               </div>
 
+              {/* STAT ROW 3 — Offline vs Online split */}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[
+                  { label: '🏪 Offline orders', value: (stats.orders.offline_count ?? 0).toLocaleString('en-IN'), sub: fmt(stats.orders.offline_revenue ?? 0), color: 'text-amber-700 dark:text-amber-400' },
+                  { label: '🌐 Online orders',  value: (stats.orders.online_count ?? 0).toLocaleString('en-IN'),  sub: fmt(stats.orders.online_revenue ?? 0),  color: 'text-blue-600 dark:text-blue-400' },
+                  { label: 'Period revenue in',  value: fmt(stats.wallet.period_in),  sub: 'received',  color: 'text-green-600 dark:text-green-400' },
+                  { label: 'Period spend out',   value: fmt(stats.wallet.period_out), sub: 'commission + refunds', color: 'text-red-600 dark:text-red-400' },
+                ].map(s => (
+                  <div key={s.label} className="rounded-xl border border-border/50 bg-card p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">{s.label}</p>
+                    <p className={cn('text-xl font-bold', s.color)}>{s.value}</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">{s.sub}</p>
+                  </div>
+                ))}
+              </div>
+
               {/* REVENUE CHART + ORDER STATUS */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="md:col-span-2 rounded-xl border border-border/50 bg-card p-4">

@@ -13,6 +13,10 @@ export interface OrderStats {
   upa_revenue:      number;
   regular_count:    number;
   regular_revenue:  number;
+  offline_count:    number;
+  offline_revenue:  number;
+  online_count:     number;
+  online_revenue:   number;
   status_breakdown: Record<string, number>;
 }
 
