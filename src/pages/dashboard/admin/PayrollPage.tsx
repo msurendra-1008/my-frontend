@@ -9,6 +9,7 @@ import { cn } from '@utils/cn'
 import { useTheme } from '@context/ThemeContext'
 import { useAuthStore } from '@/store/authStore'
 import { payrollService } from '@/services/payrollService'
+import axiosInstance from '@/utils/axiosInstance'
 import type { PayrollMonth } from '@/types/payroll.types'
 
 const MONTHS = [
@@ -36,9 +37,10 @@ export function PayrollPage() {
   const [genMsg,      setGenMsg]      = useState<string | null>(null)
 
   /* detail sheet */
-  const [selected,    setSelected]    = useState<PayrollMonth | null>(null)
-  const [paying,      setPaying]      = useState(false)
-  const [payMsg,      setPayMsg]      = useState<string | null>(null)
+  const [selected,     setSelected]    = useState<PayrollMonth | null>(null)
+  const [paying,       setPaying]      = useState(false)
+  const [payMsg,       setPayMsg]      = useState<string | null>(null)
+  const [slipLoading,  setSlipLoading] = useState(false)
 
   /* ── load ── */
   const load = useCallback(() => {
@@ -327,15 +329,30 @@ export function PayrollPage() {
                 <span className="text-xl font-bold text-green-600 dark:text-green-400">{fmt(selected.net_salary)}</span>
               </div>
 
-              {/* salary slip link */}
-              <a
-                href={payrollService.getSalarySlipUrl(selected.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              {/* salary slip — fetched via axios so auth token is sent */}
+              <button
+                type="button"
+                disabled={slipLoading}
+                onClick={async () => {
+                  setSlipLoading(true)
+                  try {
+                    const res = await axiosInstance.get(
+                      payrollService.getSalarySlipUrl(selected.id),
+                      { responseType: 'text' },
+                    )
+                    const blob = new Blob([res.data], { type: 'text/html' })
+                    const url  = URL.createObjectURL(blob)
+                    window.open(url, '_blank')
+                    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+                  } catch {
+                    /* ignore */
+                  } finally { setSlipLoading(false) }
+                }}
+                className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-60"
               >
-                <ExternalLink className="h-4 w-4" /> View Salary Slip
-              </a>
+                <ExternalLink className="h-4 w-4" />
+                {slipLoading ? 'Opening…' : 'View Salary Slip'}
+              </button>
 
               {/* pay action */}
               {selected.status === 'pending' && (

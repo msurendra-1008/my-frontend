@@ -20,7 +20,7 @@ interface MenuItem {
   path:         string;
   icon:         LucideIcon;
   allowedRoles: UserRole[];
-  permission?:  string;
+  permission?:  string | string[];
   soon?:        boolean;
 }
 
@@ -64,7 +64,7 @@ const SECTIONS: Section[] = [
   {
     key: 'master', label: 'Master',
     items: [
-      { label: 'Products',        path: '/admin/products',        icon: Package,          allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'products.edit' },
+      { label: 'Products',        path: '/admin/products',        icon: Package,          allowedRoles: ['superadmin', 'admin', 'employee'], permission: ['products.view', 'products.edit'] },
       { label: 'Product Pricing', path: '/admin/product-pricing', icon: BadgeDollarSign,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
@@ -108,7 +108,7 @@ const SECTIONS: Section[] = [
     key: 'ops', label: 'Operations',
     items: [
       { label: 'Procurement', path: '/admin/procurement', icon: ClipboardList,  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
-      { label: 'Inspection',  path: '/admin/inspection',  icon: ClipboardCheck, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inspection.perform' },
+      { label: 'Inspection',  path: '/admin/inspection',  icon: ClipboardCheck, allowedRoles: ['superadmin', 'admin', 'employee'], permission: ['inspection.view', 'inspection.perform'] },
     ],
   },
   {
@@ -156,12 +156,13 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
     });
   };
 
-  const canAccess = (item: { allowedRoles: UserRole[]; permission?: string }): boolean => {
+  const canAccess = (item: { allowedRoles: UserRole[]; permission?: string | string[] }): boolean => {
     if (!user) return false;
     if (!item.allowedRoles.includes(user.role)) return false;
     if (!item.permission) return true;
     if (user.role === 'superadmin' || user.role === 'admin') return true;
-    return user.permissions?.includes(item.permission) ?? false;
+    const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
+    return perms.some(p => user.permissions?.includes(p)) ?? false;
   };
 
   const isActive = (path: string) =>

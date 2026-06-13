@@ -795,40 +795,85 @@ export function PayrollEmployeesPage() {
                   {permLoading ? (
                     <p className="text-sm text-muted-foreground">Loading permissions…</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module Access</p>
                       {([
-                        ['products.edit',       'Products',              'Can view and edit products'],
-                        ['orders.view',         'Orders & Returns',      'Can view orders and process returns'],
-                        ['inventory.view',      'Inventory / Warehouse', 'Can view stock and warehouse data'],
-                        ['vendors.view',        'Vendors & Procurement', 'Can view vendor and procurement data'],
-                        ['inspection.perform',  'Inspection',            'Can perform quality inspections'],
-                        ['tenders.view',        'Tenders',               'Can view tender documents'],
-                      ] as [string, string, string][]).map(([key, label, desc]) => {
-                        const checked = permList.includes(key)
-                        return (
-                          <label
-                            key={key}
-                            className={cn(
-                              'flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors',
-                              checked ? 'border-primary/40 bg-primary/5' : 'hover:bg-muted/30',
-                            )}
-                          >
-                            <input
-                              type="checkbox"
-                              className="mt-0.5 h-4 w-4 accent-primary"
-                              checked={checked}
-                              onChange={() => setPermList(prev =>
-                                prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
-                              )}
-                            />
-                            <div>
-                              <p className="text-sm font-medium">{label}</p>
-                              <p className="text-xs text-muted-foreground">{desc}</p>
-                            </div>
-                          </label>
-                        )
-                      })}
+                        {
+                          module: 'Products',
+                          perms: [
+                            { key: 'products.view', label: 'View', desc: 'Browse products & pricing' },
+                            { key: 'products.edit', label: 'Edit', desc: 'Create & edit products' },
+                          ],
+                        },
+                        {
+                          module: 'Orders & Returns',
+                          perms: [
+                            { key: 'orders.view',   label: 'View',   desc: 'View orders & returns' },
+                            { key: 'orders.manage', label: 'Manage', desc: 'Process & update orders' },
+                          ],
+                        },
+                        {
+                          module: 'Inventory / Warehouse',
+                          perms: [
+                            { key: 'inventory.view',   label: 'View',   desc: 'View stock & warehouse' },
+                            { key: 'inventory.manage', label: 'Manage', desc: 'Transfer & adjust stock' },
+                          ],
+                        },
+                        {
+                          module: 'Vendors & Procurement',
+                          perms: [
+                            { key: 'vendors.view',   label: 'View',   desc: 'View vendors & POs' },
+                            { key: 'vendors.manage', label: 'Manage', desc: 'Create & edit vendors / POs' },
+                          ],
+                        },
+                        {
+                          module: 'Inspection',
+                          perms: [
+                            { key: 'inspection.view',    label: 'View',    desc: 'View inspection records' },
+                            { key: 'inspection.perform', label: 'Perform', desc: 'Perform quality inspections' },
+                          ],
+                        },
+                        {
+                          module: 'Tenders',
+                          perms: [
+                            { key: 'tenders.view',   label: 'View',   desc: 'View tender documents' },
+                            { key: 'tenders.manage', label: 'Manage', desc: 'Create & manage tenders' },
+                          ],
+                        },
+                      ]).map(({ module, perms }) => (
+                        <div key={module} className="rounded-md border overflow-hidden">
+                          <div className="bg-muted/50 px-3 py-1.5">
+                            <p className="text-xs font-semibold text-foreground">{module}</p>
+                          </div>
+                          <div className="divide-y">
+                            {perms.map(({ key, label, desc }) => {
+                              const checked = permList.includes(key)
+                              return (
+                                <label
+                                  key={key}
+                                  className={cn(
+                                    'flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors',
+                                    checked ? 'bg-primary/5' : 'hover:bg-muted/30',
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 accent-primary shrink-0"
+                                    checked={checked}
+                                    onChange={() => setPermList(prev =>
+                                      prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
+                                    )}
+                                  />
+                                  <div className="flex items-baseline gap-2">
+                                    <span className={cn('text-sm font-medium', checked && 'text-primary')}>{label}</span>
+                                    <span className="text-xs text-muted-foreground">{desc}</span>
+                                  </div>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
 
