@@ -11,7 +11,7 @@ import {
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
   PieChart, LogOut, ChevronDown, X, Coins, Wallet, BadgeDollarSign, Landmark,
-  Receipt, Tag,
+  Receipt, Tag, Users2, Banknote,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -109,6 +109,13 @@ const SECTIONS: Section[] = [
     items: [
       { label: 'Procurement', path: '/admin/procurement', icon: ClipboardList,  allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'vendors.view' },
       { label: 'Inspection',  path: '/admin/inspection',  icon: ClipboardCheck, allowedRoles: ['superadmin', 'admin', 'employee'], permission: 'inspection.perform' },
+    ],
+  },
+  {
+    key: 'hr', label: 'HR', title: 'Human Resources',
+    items: [
+      { label: 'Employees', path: '/admin/hr/employees', icon: Users2,   allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Payroll',   path: '/admin/hr/payroll',   icon: Banknote, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
