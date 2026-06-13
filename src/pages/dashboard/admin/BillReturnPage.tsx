@@ -306,13 +306,13 @@ export function BillReturnPage() {
                           return_window_enabled: !prev.return_window_enabled,
                         }))}
                         className={cn(
-                          'relative w-10 h-6 rounded-full transition-colors flex-shrink-0',
-                          settingsForm.return_window_enabled ? 'bg-primary' : 'bg-border',
+                          'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors',
+                          settingsForm.return_window_enabled ? 'bg-primary' : 'bg-muted-foreground/30',
                         )}
                       >
                         <span className={cn(
-                          'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
-                          settingsForm.return_window_enabled ? 'translate-x-5' : 'translate-x-1',
+                          'inline-block h-4 w-4 rounded-full bg-white transition-transform',
+                          settingsForm.return_window_enabled ? 'translate-x-6' : 'translate-x-1',
                         )} />
                       </button>
                     </div>
