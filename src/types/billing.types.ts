@@ -20,8 +20,9 @@ export interface CartItem {
   gst_rate:      number
   other_charges: number
   other_charges_type: 'flat' | 'percent'
-  stock:         number
-  image:         string | null
+  stock:          number
+  image:          string | null
+  purchase_price?: number
 }
 
 export interface DiscountCode {

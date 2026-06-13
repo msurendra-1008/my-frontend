@@ -109,6 +109,70 @@ function generateA4HTML(bill: OfflineBill): string {
   </body></html>`
 }
 
+// ── Commission preview (outside main to avoid re-declaration on re-render) ────
+function CommissionPreview({ item, upaProfit }: { item: CartItem; upaProfit: number }) {
+  const [rule, setRule] = useState<any>(null)
+
+  useEffect(() => {
+    if (!item.product_id) return
+    axiosInstance.get('/api/v1/commissions/rules/', { params: { product: item.product_id } })
+      .then(res => {
+        const results = res.data.results ?? res.data
+        if (results.length > 0) setRule(results[0])
+      })
+      .catch(() => {})
+  }, [item.product_id])
+
+  if (!rule) {
+    return (
+      <div className="mt-2 text-[10px] text-muted-foreground bg-muted/40 rounded-md px-2 py-1.5">
+        No commission rule — commission not applicable
+      </div>
+    )
+  }
+
+  const networkPool = upaProfit * Number(rule.network_commission_pct) / 100
+  const teamPool    = upaProfit * Number(rule.team_commission_pct) / 100
+  const socialPool  = upaProfit * Number(rule.social_work_pct) / 100
+  const selfPool    = rule.self_commission_enabled
+    ? upaProfit * Number(rule.self_commission_pct) / 100
+    : 0
+
+  const pools = [
+    { label: '↑ Network', pct: rule.network_commission_pct, amt: networkPool, desc: 'goes to upline chain', show: networkPool > 0 },
+    { label: '↓ Team',    pct: rule.team_commission_pct,    amt: teamPool,    desc: 'goes to direct legs',  show: teamPool > 0 },
+    { label: '♥ Social',  pct: rule.social_work_pct,        amt: socialPool,  desc: 'social fund',          show: socialPool > 0 },
+    { label: '👤 Self',   pct: rule.self_commission_pct,    amt: selfPool,    desc: "→ buyer's wallet",     show: rule.self_commission_enabled && selfPool > 0 },
+  ].filter(p => p.show)
+
+  if (pools.length === 0) return null
+
+  return (
+    <div className="mt-2 rounded-lg bg-primary/5 border border-primary/20 p-2.5">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-primary/70 mb-2">⭐ UPA Commission Preview</p>
+      <div className="flex justify-between text-[11px] mb-1.5">
+        <span className="text-primary/60">UPA profit base</span>
+        <span className="font-semibold text-primary">₹{upaProfit.toFixed(2)}</span>
+      </div>
+      <div className="border-t border-primary/20 pt-1.5 space-y-1">
+        {pools.map(pool => (
+          <div key={pool.label} className="flex justify-between text-[11px]">
+            <span className="text-primary/60">{pool.label} ({pool.pct}%)</span>
+            <span className="font-semibold text-primary">
+              ₹{pool.amt.toFixed(2)}{' '}
+              <span className="text-primary/50 font-normal">{pool.desc}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-primary/20 mt-1.5 pt-1.5 flex justify-between text-[10px] text-primary/50">
+        <span>Credits after 2-day return window</span>
+        <span>⏳ Pending</span>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export function BillingPage() {
   const { theme, toggleTheme } = useTheme()
@@ -116,41 +180,41 @@ export function BillingPage() {
   const [sidebar, setSidebar]  = useState(false)
 
   // Customer state
-  const [customerType, setCustomerType]       = useState<CustomerType>('walkin')
+  const [customerType, setCustomerType]         = useState<CustomerType>('walkin')
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
-  const [customerSearch, setCustomerSearch]   = useState('')
-  const [customerResults, setCustomerResults] = useState<any[]>([])
-  const [walkinName, setWalkinName]           = useState('')
-  const [walkinMobile, setWalkinMobile]       = useState('')
-  const customerSearchTimeout                 = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [customerSearch, setCustomerSearch]     = useState('')
+  const [customerResults, setCustomerResults]   = useState<any[]>([])
+  const [walkinName, setWalkinName]             = useState('')
+  const [walkinMobile, setWalkinMobile]         = useState('')
+  const customerSearchTimeout                   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Product state
-  const [productSearch, setProductSearch]     = useState('')
-  const [products, setProducts]               = useState<any[]>([])
-  const [productLoading, setProductLoading]   = useState(false)
-  const [expandedProduct, setExpandedProduct] = useState<any>(null)
-  const [loadingVariants, setLoadingVariants] = useState(false)
-  const productSearchTimeout                  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [productSearch, setProductSearch]       = useState('')
+  const [products, setProducts]                 = useState<any[]>([])
+  const [productLoading, setProductLoading]     = useState(false)
+  const [expandedProduct, setExpandedProduct]   = useState<any>(null)
+  const [loadingVariants, setLoadingVariants]   = useState(false)
+  const productSearchTimeout                    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Cart state
-  const [cart, setCart]                       = useState<CartItem[]>([])
+  const [cart, setCart] = useState<CartItem[]>([])
 
   // Discount state
-  const [discountInput, setDiscountInput]     = useState('')
-  const [appliedCode, setAppliedCode]         = useState<DiscountCode | null>(null)
-  const [discountAmount, setDiscountAmount]   = useState(0)
-  const [discountError, setDiscountError]     = useState('')
-  const [validatingCode, setValidatingCode]   = useState(false)
+  const [discountInput, setDiscountInput]   = useState('')
+  const [appliedCode, setAppliedCode]       = useState<DiscountCode | null>(null)
+  const [discountAmount, setDiscountAmount] = useState(0)
+  const [discountError, setDiscountError]   = useState('')
+  const [validatingCode, setValidatingCode] = useState(false)
 
   // Payment state
-  const [paymentMethod, setPaymentMethod]     = useState<PaymentMethod>('cash')
-  const [cashReceived, setCashReceived]       = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [cashReceived, setCashReceived]   = useState(0)
 
   // Bill state
-  const [saving, setSaving]                   = useState(false)
-  const [saveError, setSaveError]             = useState('')
-  const [completedBill, setCompletedBill]     = useState<OfflineBill | null>(null)
-  const [showPrintModal, setShowPrintModal]   = useState(false)
+  const [saving, setSaving]               = useState(false)
+  const [saveError, setSaveError]         = useState('')
+  const [completedBill, setCompletedBill] = useState<OfflineBill | null>(null)
+  const [showPrintModal, setShowPrintModal] = useState(false)
 
   // ── Customer search ──────────────────────────────────────────────────────
   const searchCustomers = useCallback((q: string) => {
@@ -180,16 +244,11 @@ export function BillingPage() {
   }, [])
 
   useEffect(() => { searchProducts(productSearch) }, [productSearch, searchProducts])
-
-  // Initial load
   useEffect(() => { searchProducts('') }, [])
 
   // ── Load product variants ─────────────────────────────────────────────────
   const loadVariants = async (product: any) => {
-    if (expandedProduct?.id === product.id) {
-      setExpandedProduct(null)
-      return
-    }
+    if (expandedProduct?.id === product.id) { setExpandedProduct(null); return }
     setLoadingVariants(true)
     try {
       setExpandedProduct({ ...product, variants: [] })
@@ -203,7 +262,7 @@ export function BillingPage() {
   }
 
   // ── Cart helpers ──────────────────────────────────────────────────────────
-  const getPrice = (variant: any, _product: any) => {
+  const getPrice = (variant: any) => {
     if (customerType === 'upa' && selectedCustomer && variant.upa_price) {
       return Number(variant.upa_price)
     }
@@ -211,7 +270,7 @@ export function BillingPage() {
   }
 
   const addToCart = (variant: any, product: any) => {
-    const unitPrice = getPrice(variant, product)
+    const unitPrice = getPrice(variant)
     setCart(prev => {
       const existing = prev.find(i => i.variant_id === variant.id)
       if (existing) {
@@ -231,9 +290,10 @@ export function BillingPage() {
         quantity:           1,
         gst_rate:           Number(product.gst_percentage || 0),
         other_charges:      Number(product.other_charges || 0),
-        other_charges_type: product.other_charges_type || 'flat',
+        other_charges_type: (product.other_charges_type || 'flat') as 'flat' | 'percent',
         stock:              variant.stock_quantity,
         image:              null,
+        purchase_price:     variant.purchase_price ? Number(variant.purchase_price) : 0,
       }]
     })
   }
@@ -250,7 +310,7 @@ export function BillingPage() {
     setCart(prev => prev.filter(i => i.variant_id !== variantId))
   }
 
-  // Recalculate prices when customer type changes
+  // Recalculate prices when customer type or selected customer changes
   useEffect(() => {
     setCart(prev => prev.map(i => ({
       ...i,
@@ -261,7 +321,12 @@ export function BillingPage() {
   }, [customerType, selectedCustomer])
 
   // ── Bill calculations ─────────────────────────────────────────────────────
-  const subtotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+  const upaDiscountTotal = cart.reduce((s, i) => {
+    if (customerType === 'upa' && i.upa_price) {
+      return s + (i.mrp - i.upa_price) * i.quantity
+    }
+    return s
+  }, 0)
 
   const otherChargesTotal = cart.reduce((s, i) => {
     const charge = i.other_charges_type === 'flat'
@@ -274,10 +339,22 @@ export function BillingPage() {
     (s, i) => s + i.unit_price * i.gst_rate / 100 * i.quantity, 0
   )
 
-  const grossTotal  = subtotal + otherChargesTotal + gstTotal
+  const subtotal     = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0)
+  const grossTotal   = subtotal + otherChargesTotal + gstTotal
   const totalPayable = Math.max(grossTotal - discountAmount, 0)
-  const cashChange   = paymentMethod === 'cash' && cashReceived
-    ? Number(cashReceived) - totalPayable : 0
+  const change       = cashReceived > 0 ? cashReceived - totalPayable : 0
+
+  const canComplete =
+    cart.length > 0 &&
+    (paymentMethod !== 'cash' || (cashReceived > 0 && change >= 0))
+
+  // ── UPA profit calculator ─────────────────────────────────────────────────
+  const calculateUpaProfit = (item: CartItem): number => {
+    const upaPrice     = item.upa_price ?? item.unit_price
+    const purchasePrice = item.purchase_price ?? 0
+    const otherCharges = item.other_charges ?? 0
+    return Math.max((upaPrice + otherCharges) - purchasePrice, 0)
+  }
 
   // ── Discount code ─────────────────────────────────────────────────────────
   const applyDiscount = async () => {
@@ -306,23 +383,22 @@ export function BillingPage() {
 
   // ── Complete bill ─────────────────────────────────────────────────────────
   const handleCompleteBill = async () => {
-    if (cart.length === 0) return
+    if (!canComplete) return
     setSaving(true)
     setSaveError('')
     try {
       const res = await billingService.createBill({
-        customer_type:     customerType,
-        customer_user_id:  selectedCustomer?.id,
-        walkin_name:       walkinName,
-        walkin_mobile:     walkinMobile,
-        items:             cart.map(i => ({ variant_id: i.variant_id, quantity: i.quantity })),
-        payment_method:    paymentMethod,
-        cash_received:     cashReceived ? Number(cashReceived) : undefined,
-        discount_code:     appliedCode?.code,
+        customer_type:    customerType,
+        customer_user_id: selectedCustomer?.id,
+        walkin_name:      walkinName,
+        walkin_mobile:    walkinMobile,
+        items:            cart.map(i => ({ variant_id: i.variant_id, quantity: i.quantity })),
+        payment_method:   paymentMethod,
+        cash_received:    cashReceived > 0 ? cashReceived : undefined,
+        discount_code:    appliedCode?.code,
       })
       setCompletedBill(res.data)
       setShowPrintModal(true)
-      // Reset
       setCart([])
       setSelectedCustomer(null)
       setCustomerType('walkin')
@@ -332,7 +408,7 @@ export function BillingPage() {
       setAppliedCode(null)
       setDiscountAmount(0)
       setDiscountInput('')
-      setCashReceived('')
+      setCashReceived(0)
       setPaymentMethod('cash')
     } catch (err: any) {
       setSaveError(err?.response?.data?.error || 'Bill creation failed. Please try again.')
@@ -388,12 +464,11 @@ export function BillingPage() {
         {/* POS Layout */}
         <div className="flex flex-1 overflow-hidden">
 
-          {/* LEFT — Product search */}
+          {/* LEFT — Product search (unchanged) */}
           <div className="flex flex-col border-r border-border/50 w-[55%] overflow-hidden">
 
             {/* Customer selector */}
             <div className="border-b border-border/50 p-3 flex-shrink-0 space-y-2">
-              {/* Type buttons */}
               <div className="flex gap-2">
                 {(['walkin', 'upa', 'regular'] as CustomerType[]).map(t => (
                   <button
@@ -411,7 +486,6 @@ export function BillingPage() {
                 ))}
               </div>
 
-              {/* Walk-in fields */}
               {customerType === 'walkin' && (
                 <div className="flex gap-2">
                   <input
@@ -429,7 +503,6 @@ export function BillingPage() {
                 </div>
               )}
 
-              {/* UPA/Regular customer search */}
               {customerType !== 'walkin' && (
                 <div className="relative">
                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -456,7 +529,6 @@ export function BillingPage() {
                 </div>
               )}
 
-              {/* Selected customer card */}
               {selectedCustomer && (
                 <div className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded-lg px-3 py-2">
                   <div>
@@ -515,13 +587,12 @@ export function BillingPage() {
                         </div>
                       </button>
 
-                      {/* Expanded variants */}
                       {expandedProduct?.id === product.id && (
                         <div className="bg-muted/20 px-3 pb-2">
                           {loadingVariants ? (
                             <p className="text-xs text-muted-foreground py-2">Loading variants...</p>
                           ) : (expandedProduct.variants || []).map((v: any) => {
-                            const price = getPrice(v, expandedProduct)
+                            const price = getPrice(v)
                             return (
                               <div key={v.id} className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0">
                                 <div>
@@ -553,15 +624,29 @@ export function BillingPage() {
             </div>
           </div>
 
-          {/* RIGHT — Cart */}
+          {/* RIGHT — Cart (redesigned) */}
           <div className="flex flex-col w-[45%] bg-card overflow-hidden">
 
-            {/* Cart header */}
-            <div className="px-4 py-3 border-b border-border/50 flex-shrink-0 flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">Cart ({cart.length} item{cart.length !== 1 ? 's' : ''})</p>
-              {cart.length > 0 && (
-                <button onClick={() => setCart([])} className="text-xs text-red-500 hover:text-red-600">Clear</button>
-              )}
+            {/* CHANGE 1 — Cart header with customer context */}
+            <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Cart</span>
+                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                  {cart.length} items
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {customerType === 'upa' && selectedCustomer && (
+                  <span className="text-[11px] bg-primary/10 text-primary px-2 py-1 rounded-md font-medium">
+                    ⭐ {selectedCustomer.full_name || selectedCustomer.name} · UPA pricing
+                  </span>
+                )}
+                {cart.length > 0 && (
+                  <button onClick={() => setCart([])} className="text-xs text-red-500 hover:text-red-600">
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Cart items */}
@@ -575,13 +660,40 @@ export function BillingPage() {
               ) : (
                 <div className="divide-y divide-border/30">
                   {cart.map(item => (
-                    <div key={item.variant_id} className="px-4 py-2.5 flex items-start gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground truncate">{item.product_name}</p>
-                        <p className="text-[10px] text-muted-foreground">{item.variant_name} · {item.sku}</p>
-                        <p className="text-[10px] text-primary">₹{item.unit_price.toFixed(2)} each</p>
+                    <div key={item.variant_id} className="px-4 py-2.5">
+                      <div className="flex items-start gap-2">
+                        {/* Item info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">{item.product_name}</p>
+                          <p className="text-[10px] text-muted-foreground">{item.variant_name} · {item.sku}</p>
+                        </div>
+
+                        {/* CHANGE 2 — Price column with UPA discount */}
+                        <div className="text-right min-w-[80px]">
+                          <p className="text-sm font-semibold">
+                            ₹{(item.unit_price * item.quantity).toLocaleString()}
+                          </p>
+                          {customerType === 'upa' && item.upa_price && item.upa_price < item.mrp && (
+                            <>
+                              <p className="text-[10px] text-muted-foreground line-through">
+                                ₹{(item.mrp * item.quantity).toLocaleString()}
+                              </p>
+                              <p className="text-[10px] text-green-600 dark:text-green-400 font-medium">
+                                −₹{((item.mrp - item.upa_price) * item.quantity).toLocaleString()}
+                                {' '}({(((item.mrp - item.upa_price) / item.mrp) * 100).toFixed(0)}% off)
+                              </p>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Trash */}
+                        <button onClick={() => removeFromCart(item.variant_id)} className="text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0 mt-0.5">
+                          <Trash2 size={12} />
+                        </button>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+
+                      {/* Qty controls */}
+                      <div className="flex items-center gap-1.5 mt-1.5">
                         <button onClick={() => updateQty(item.variant_id, -1)} className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted/50 transition-colors">
                           <Minus size={10} />
                         </button>
@@ -593,132 +705,192 @@ export function BillingPage() {
                         >
                           <Plus size={10} />
                         </button>
-                        <span className="w-16 text-right text-xs font-semibold text-foreground">
-                          ₹{(item.unit_price * item.quantity).toFixed(2)}
-                        </span>
-                        <button onClick={() => removeFromCart(item.variant_id)} className="text-muted-foreground hover:text-red-500 transition-colors">
-                          <Trash2 size={12} />
-                        </button>
+                        <span className="text-[10px] text-muted-foreground ml-1">₹{item.unit_price.toFixed(2)} each</span>
                       </div>
+
+                      {/* Commission preview for UPA customers */}
+                      {customerType === 'upa' && selectedCustomer && (
+                        <CommissionPreview item={item} upaProfit={calculateUpaProfit(item)} />
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Bill details (fixed bottom) */}
-            <div className="flex-shrink-0 border-t border-border/50 space-y-3 p-4">
+            {/* Bottom fixed section */}
+            <div className="flex-shrink-0 border-t border-border/50">
+
+              {/* CHANGE 3 — Summary with UPA discount line */}
+              <div className="px-4 py-3 border-b bg-muted/20 space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal (MRP)</span>
+                  <span>₹{cart.reduce((s, i) => s + i.mrp * i.quantity, 0).toLocaleString()}</span>
+                </div>
+
+                {customerType === 'upa' && upaDiscountTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600 dark:text-green-400">UPA discount</span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">
+                      −₹{upaDiscountTotal.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                {otherChargesTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Other charges</span>
+                    <span>+₹{otherChargesTotal.toLocaleString()}</span>
+                  </div>
+                )}
+
+                {gstTotal > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">GST</span>
+                    <span>+₹{gstTotal.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600 dark:text-green-400">
+                      Discount code ({appliedCode?.code})
+                    </span>
+                    <span className="text-green-600 dark:text-green-400">
+                      −₹{discountAmount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between text-base font-bold pt-2 border-t border-border/50">
+                  <span>Total payable</span>
+                  <span className="text-primary">₹{totalPayable.toLocaleString()}</span>
+                </div>
+              </div>
 
               {/* Discount code */}
-              {!appliedCode ? (
-                <div className="flex gap-2">
-                  <input
-                    placeholder="Discount code"
-                    value={discountInput}
-                    onChange={e => setDiscountInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && applyDiscount()}
-                    className="flex-1 h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                  <button
-                    onClick={applyDiscount}
-                    disabled={validatingCode || !discountInput.trim()}
-                    className="h-8 px-3 rounded-md bg-muted text-xs font-medium hover:bg-muted/70 disabled:opacity-50"
-                  >
-                    {validatingCode ? '...' : 'Apply'}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between bg-green-500/10 border border-green-400/40 rounded-md px-3 py-1.5">
-                  <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    {appliedCode.code} — {appliedCode.type === 'percent' ? `${appliedCode.value}%` : fmt(Number(appliedCode.value))} off
-                  </span>
-                  <button onClick={removeDiscount} className="text-muted-foreground hover:text-foreground">
-                    <X size={12} />
-                  </button>
-                </div>
-              )}
-              {discountError && (
-                <p className="text-[10px] text-red-500">{discountError}</p>
-              )}
-
-              {/* Payment method */}
-              <div className="flex gap-2">
-                {(['cash', 'upi', 'card'] as PaymentMethod[]).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setPaymentMethod(m)}
-                    className={cn(
-                      'flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors',
-                      paymentMethod === m
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'border-border text-muted-foreground hover:border-primary/50'
-                    )}
-                  >
-                    {m.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-
-              {/* Cash received */}
-              {paymentMethod === 'cash' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    placeholder="Cash received"
-                    type="number"
-                    value={cashReceived}
-                    onChange={e => setCashReceived(e.target.value)}
-                    className="flex-1 h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                  {cashChange > 0 && (
-                    <span className="text-xs text-green-600 dark:text-green-400 font-semibold whitespace-nowrap">
-                      Change: {fmt(cashChange)}
+              <div className="px-4 pt-3">
+                {!appliedCode ? (
+                  <div className="flex gap-2 mb-3">
+                    <input
+                      placeholder="Discount code"
+                      value={discountInput}
+                      onChange={e => setDiscountInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && applyDiscount()}
+                      className="flex-1 h-8 rounded-md border border-border bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <button
+                      onClick={applyDiscount}
+                      disabled={validatingCode || !discountInput.trim()}
+                      className="h-8 px-3 rounded-md bg-muted text-xs font-medium hover:bg-muted/70 disabled:opacity-50"
+                    >
+                      {validatingCode ? '...' : 'Apply'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between bg-green-500/10 border border-green-400/40 rounded-md px-3 py-1.5 mb-3">
+                    <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                      {appliedCode.code} — {appliedCode.type === 'percent' ? `${appliedCode.value}%` : fmt(Number(appliedCode.value))} off
                     </span>
-                  )}
-                </div>
-              )}
+                    <button onClick={removeDiscount} className="text-muted-foreground hover:text-foreground">
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+                {discountError && <p className="text-[10px] text-red-500 mb-2">{discountError}</p>}
 
-              {/* Bill summary */}
-              <div className="space-y-1 text-xs border-t border-border/30 pt-2">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span>{fmt(subtotal)}</span>
-                </div>
-                {otherChargesTotal > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Other charges</span>
-                    <span>{fmt(otherChargesTotal)}</span>
-                  </div>
-                )}
-                {gstTotal > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>GST</span>
-                    <span>{fmt(gstTotal)}</span>
-                  </div>
-                )}
-                {discountAmount > 0 && (
-                  <div className="flex justify-between text-green-600 dark:text-green-400">
-                    <span>Discount</span>
-                    <span>-{fmt(discountAmount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold text-base border-t border-border/50 pt-1 mt-1">
-                  <span>Total</span>
-                  <span className="text-primary">{fmt(totalPayable)}</span>
+                {/* Payment method */}
+                <div className="flex gap-2 mb-3">
+                  {(['cash', 'upi', 'card'] as PaymentMethod[]).map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setPaymentMethod(m)}
+                      className={cn(
+                        'flex-1 py-1.5 rounded-md text-xs font-medium border transition-colors',
+                        paymentMethod === m
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-muted-foreground hover:border-primary/50'
+                      )}
+                    >
+                      {m.toUpperCase()}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {saveError && (
-                <p className="text-xs text-red-500 rounded-md bg-red-500/10 border border-red-400/40 px-2 py-1">{saveError}</p>
-              )}
+              {/* CHANGE 4 — Cash / UPI / Card section */}
+              <div className="px-4 pb-3">
+                {paymentMethod === 'cash' && (
+                  <div className="rounded-xl bg-muted/40 p-3 mb-3">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-xs text-muted-foreground">Amount to collect from customer</span>
+                      <span className="text-base font-bold text-primary">₹{totalPayable.toLocaleString()}</span>
+                    </div>
+                    <label className="text-xs text-muted-foreground block mb-1.5">Enter cash received:</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-primary">₹</span>
+                      <input
+                        type="number"
+                        value={cashReceived || ''}
+                        onChange={e => setCashReceived(Number(e.target.value))}
+                        placeholder={totalPayable.toFixed(0)}
+                        className="w-full h-11 rounded-lg border-2 border-primary/30 pl-7 pr-3 text-base font-semibold bg-background focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                    {cashReceived > 0 && (
+                      <div className={cn(
+                        'mt-2 rounded-lg px-3 py-2.5 flex justify-between items-center',
+                        change >= 0
+                          ? 'bg-green-500/10 border border-green-500/20'
+                          : 'bg-red-500/10 border border-red-500/20'
+                      )}>
+                        <span className={cn(
+                          'text-sm font-semibold',
+                          change >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600'
+                        )}>
+                          {change >= 0 ? '💰 Change to return' : '⚠ Cash not enough'}
+                        </span>
+                        <span className={cn(
+                          'text-lg font-bold',
+                          change >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-600'
+                        )}>
+                          ₹{Math.abs(change).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* Complete button */}
-              <button
-                onClick={handleCompleteBill}
-                disabled={cart.length === 0 || saving}
-                className="w-full h-10 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {saving ? 'Creating bill...' : 'Complete Bill'}
-              </button>
+                {(paymentMethod === 'upi' || paymentMethod === 'card') && (
+                  <div className="rounded-xl bg-muted/40 p-3 mb-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Amount to charge</span>
+                      <span className="text-base font-bold text-primary">₹{totalPayable.toLocaleString()}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {paymentMethod === 'upi' ? '📱 Show QR code or enter UPI ID' : '💳 Swipe / tap / insert card'}
+                    </p>
+                  </div>
+                )}
+
+                {saveError && (
+                  <p className="text-xs text-red-500 rounded-md bg-red-500/10 border border-red-400/40 px-2 py-1 mb-2">{saveError}</p>
+                )}
+
+                {/* CHANGE 5 — Complete button */}
+                <button
+                  onClick={handleCompleteBill}
+                  disabled={!canComplete || saving}
+                  className={cn(
+                    'w-full h-11 rounded-xl text-sm font-semibold transition-colors',
+                    canComplete && !saving
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                      : 'bg-muted text-muted-foreground cursor-not-allowed'
+                  )}
+                >
+                  {saving ? 'Creating bill...' : 'Complete Bill & Print Receipt'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
