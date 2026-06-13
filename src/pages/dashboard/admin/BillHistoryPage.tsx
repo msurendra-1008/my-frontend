@@ -72,9 +72,16 @@ function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClose: () 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 flex-shrink-0">
           <div>
-            <p className="font-semibold text-foreground text-sm">
-              {order?.offline_bill_number ?? 'Offline Order'}
-            </p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                🏪 In-store / Offline sale
+              </span>
+              {order?.offline_bill_number && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground font-mono">
+                  {order.offline_bill_number}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {order ? new Date(order.created_at).toLocaleString('en-IN') : ''}
             </p>
@@ -344,7 +351,7 @@ export function BillHistoryPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    {['Order / Bill', 'Customer', 'Amount', 'Status', ''].map(h => (
+                    {['Order / Bill', 'Type', 'Customer', 'Amount', 'Status', ''].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {h}
                       </th>
@@ -359,6 +366,11 @@ export function BillHistoryPage() {
                         <p className="text-xs text-muted-foreground">
                           {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(order.created_at))}
                         </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                          🏪 Offline
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-foreground">{order.customer_name}</p>
