@@ -76,6 +76,12 @@ export function PayrollEmployeesPage() {
   const [userSearchDone,    setUserSearchDone]    = useState(false)
   const [selectedUserLabel, setSelectedUserLabel] = useState('')
 
+  /* permissions tab */
+  const [permList,    setPermList]    = useState<string[]>([])
+  const [permLoading, setPermLoading] = useState(false)
+  const [permSaving,  setPermSaving]  = useState(false)
+  const [permMsg,     setPermMsg]     = useState<string | null>(null)
+
   /* inline create-account form */
   const [showCreateUser,  setShowCreateUser]  = useState(false)
   const [newUserName,     setNewUserName]     = useState('')
@@ -107,6 +113,16 @@ export function PayrollEmployeesPage() {
   }, [search, filterDept, filterActive])
 
   useEffect(() => { loadData() }, [loadData])
+
+  /* ── load permissions when Permissions tab opens ── */
+  useEffect(() => {
+    if (drawerTab !== 'permissions' || !editing) return
+    setPermLoading(true); setPermMsg(null)
+    axiosInstance.get(`/api/v1/employees/${editing.user}/`)
+      .then(r => setPermList(r.data.permissions ?? []))
+      .catch(() => setPermList([]))
+      .finally(() => setPermLoading(false))
+  }, [drawerTab, editing])
 
   /* ── user search (debounced) ── */
   useEffect(() => {
@@ -771,14 +787,76 @@ export function PayrollEmployeesPage() {
               {/* ── Permissions tab ── */}
               {drawerTab === 'permissions' && editing && (
                 <div className="space-y-4">
-                  <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-                    Permissions are managed via the Employee Profile in the People section.
-                    Go to <strong>People → Employees</strong> to edit module-level permissions for this user.
-                  </div>
-                  <div className="rounded-md border bg-muted/30 p-4">
+                  <div className="rounded-md border bg-muted/30 p-3">
                     <p className="text-sm font-medium">{editing.full_name}</p>
-                    <p className="text-xs text-muted-foreground">{editing.email}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">Role: <span className="font-medium text-foreground">{editing.role}</span></p>
+                    <p className="text-xs text-muted-foreground">{editing.email} · Role: <span className="font-medium text-foreground">{editing.role}</span></p>
+                  </div>
+
+                  {permLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading permissions…</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module Access</p>
+                      {([
+                        ['products.edit',       'Products',              'Can view and edit products'],
+                        ['orders.view',         'Orders & Returns',      'Can view orders and process returns'],
+                        ['inventory.view',      'Inventory / Warehouse', 'Can view stock and warehouse data'],
+                        ['vendors.view',        'Vendors & Procurement', 'Can view vendor and procurement data'],
+                        ['inspection.perform',  'Inspection',            'Can perform quality inspections'],
+                        ['tenders.view',        'Tenders',               'Can view tender documents'],
+                      ] as [string, string, string][]).map(([key, label, desc]) => {
+                        const checked = permList.includes(key)
+                        return (
+                          <label
+                            key={key}
+                            className={cn(
+                              'flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors',
+                              checked ? 'border-primary/40 bg-primary/5' : 'hover:bg-muted/30',
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 h-4 w-4 accent-primary"
+                              checked={checked}
+                              onChange={() => setPermList(prev =>
+                                prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
+                              )}
+                            />
+                            <div>
+                              <p className="text-sm font-medium">{label}</p>
+                              <p className="text-xs text-muted-foreground">{desc}</p>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {permMsg && (
+                    <p className={cn(
+                      'rounded-md px-3 py-2 text-sm',
+                      permMsg.startsWith('Error') ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-green-500/10 text-green-600 dark:text-green-400',
+                    )}>{permMsg}</p>
+                  )}
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      disabled={permSaving || permLoading}
+                      onClick={async () => {
+                        setPermSaving(true); setPermMsg(null)
+                        try {
+                          await axiosInstance.patch(`/api/v1/employees/${editing.user}/`, { permissions: permList })
+                          setPermMsg('Permissions saved.')
+                        } catch (err: unknown) {
+                          const e = err as { response?: { data?: unknown } }
+                          setPermMsg('Error: ' + JSON.stringify(e.response?.data ?? 'Failed'))
+                        } finally { setPermSaving(false) }
+                      }}
+                      className="flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                    >
+                      {permSaving ? 'Saving…' : <><Check className="h-4 w-4" /> Save Permissions</>}
+                    </button>
                   </div>
                 </div>
               )}
