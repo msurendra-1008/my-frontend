@@ -115,10 +115,11 @@ function CommissionPreview({ item, upaProfit }: { item: CartItem; upaProfit: num
 
   useEffect(() => {
     if (!item.product_id) return
-    axiosInstance.get('/api/v1/commissions/rules/', { params: { product: item.product_id } })
+    axiosInstance.get('/api/v1/commissions/product-rules/by-product/', {
+      params: { product_id: item.product_id },
+    })
       .then(res => {
-        const results = res.data.results ?? res.data
-        if (results.length > 0) setRule(results[0])
+        if (res.data && res.data.is_active) setRule(res.data)
       })
       .catch(() => {})
   }, [item.product_id])
