@@ -62,24 +62,25 @@ export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant' |
 export type EntryType   = 'network_upline' | 'team_downline' | 'social_work' | 'company' | 'self_commission';
 
 export interface PendingCommissionEntry {
-  id:                  string;
-  entry_type:          EntryType;
-  level:               number | null;
-  leg_position:        string;
-  recipient_name:      string;
-  recipient_mobile:    string;
-  recipient_upa_id:    string;
-  amount:              string;
-  percentage_applied:  string;
-  status:              EntryStatus;
-  order_number:        string;
-  product_name:        string;
-  buyer_name:          string;
-  buyer_upa_id:        string;
-  upa_profit:          number;
-  pool_amount:         number;
-  pending_since:       string;
-  recipient_is_active: boolean;
+  id:                    string;
+  entry_type:            EntryType;
+  level:                 number | null;
+  leg_position:          string;
+  recipient_name:        string;
+  recipient_mobile:      string;
+  recipient_upa_id:      string;
+  amount:                string;
+  percentage_applied:    string;
+  status:                EntryStatus;
+  order_number:          string;
+  product_name:          string;
+  buyer_name:            string;
+  buyer_upa_id:          string;
+  upa_profit:            number;
+  pool_amount:           number;
+  pending_since:         string;
+  recipient_is_active:   boolean;
+  return_window_expires: string | null;
   upline_chain: {
     type:         'upline' | 'downline';
     level?:       number;
