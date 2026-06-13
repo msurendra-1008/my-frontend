@@ -70,10 +70,19 @@ export function PayrollEmployeesPage() {
   const [salaryMsg,    setSalaryMsg]    = useState<string | null>(null)
 
   /* user search (for create) */
-  const [userSearch,      setUserSearch]      = useState('')
-  const [userResults,     setUserResults]     = useState<{ id: string; full_name: string; email: string }[]>([])
-  const [userSearching,   setUserSearching]   = useState(false)
+  const [userSearch,        setUserSearch]        = useState('')
+  const [userResults,       setUserResults]       = useState<{ id: string; full_name: string; email: string }[]>([])
+  const [userSearching,     setUserSearching]     = useState(false)
+  const [userSearchDone,    setUserSearchDone]    = useState(false)
   const [selectedUserLabel, setSelectedUserLabel] = useState('')
+
+  /* inline create-account form */
+  const [showCreateUser,  setShowCreateUser]  = useState(false)
+  const [newUserName,     setNewUserName]     = useState('')
+  const [newUserEmail,    setNewUserEmail]    = useState('')
+  const [newUserMobile,   setNewUserMobile]   = useState('')
+  const [creatingUser,    setCreatingUser]    = useState(false)
+  const [createUserError, setCreateUserError] = useState<string | null>(null)
 
   /* dept modal */
   const [deptModalOpen, setDeptModalOpen] = useState(false)
@@ -101,7 +110,8 @@ export function PayrollEmployeesPage() {
 
   /* ── user search (debounced) ── */
   useEffect(() => {
-    if (!userSearch.trim()) { setUserResults([]); return }
+    if (!userSearch.trim()) { setUserResults([]); setUserSearchDone(false); return }
+    setUserSearchDone(false)
     const t = setTimeout(async () => {
       setUserSearching(true)
       try {
@@ -112,8 +122,8 @@ export function PayrollEmployeesPage() {
           email: u.email,
         })))
       } catch { setUserResults([]) }
-      finally   { setUserSearching(false) }
-    }, 300)
+      finally   { setUserSearching(false); setUserSearchDone(true) }
+    }, 400)
     return () => clearTimeout(t)
   }, [userSearch])
 
@@ -122,7 +132,8 @@ export function PayrollEmployeesPage() {
     setEditing(null)
     setProfileForm(blankProfile())
     setSalaryForm(blankSalary())
-    setUserSearch(''); setUserResults([]); setSelectedUserLabel('')
+    setUserSearch(''); setUserResults([]); setSelectedUserLabel(''); setUserSearchDone(false)
+    setShowCreateUser(false); setNewUserName(''); setNewUserEmail(''); setNewUserMobile(''); setCreateUserError(null)
     setMsg(null); setSalaryMsg(null)
     setDrawerTab('basic')
     setDrawerOpen(true)
@@ -392,6 +403,8 @@ export function PayrollEmployeesPage() {
                             onClick={() => {
                               setSelectedUserLabel('')
                               setUserSearch('')
+                              setUserSearchDone(false)
+                              setShowCreateUser(false)
                               setProfileForm(prev => ({ ...prev, user: '' }))
                             }}
                             className="text-muted-foreground hover:text-foreground"
@@ -400,40 +413,122 @@ export function PayrollEmployeesPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="relative">
-                          <input
-                            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                            placeholder="Type name or email to search…"
-                            value={userSearch}
-                            onChange={e => {
-                              setUserSearch(e.target.value)
-                              setProfileForm(prev => ({ ...prev, user: '' }))
-                            }}
-                          />
-                          {(userResults.length > 0 || userSearching) && (
-                            <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-md border bg-card shadow-lg">
-                              {userSearching && <p className="px-3 py-2 text-xs text-muted-foreground">Searching…</p>}
-                              {userResults.map(u => (
-                                <button
-                                  key={u.id}
-                                  type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50"
-                                  onClick={() => {
-                                    setProfileForm(prev => ({ ...prev, user: u.id }))
-                                    setSelectedUserLabel(`${u.full_name} — ${u.email}`)
-                                    setUserSearch('')
-                                    setUserResults([])
-                                  }}
-                                >
-                                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                  <span className="font-medium">{u.full_name}</span>
-                                  <span className="text-xs text-muted-foreground">{u.email}</span>
-                                </button>
-                              ))}
+                        <div className="space-y-2">
+                          <div className="relative">
+                            <input
+                              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                              placeholder="Type name or email to search…"
+                              value={userSearch}
+                              onChange={e => {
+                                setUserSearch(e.target.value)
+                                setShowCreateUser(false)
+                                setProfileForm(prev => ({ ...prev, user: '' }))
+                              }}
+                            />
+                            {(userResults.length > 0 || userSearching) && (
+                              <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-md border bg-card shadow-lg">
+                                {userSearching && <p className="px-3 py-2 text-xs text-muted-foreground">Searching…</p>}
+                                {userResults.map(u => (
+                                  <button
+                                    key={u.id}
+                                    type="button"
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50"
+                                    onClick={() => {
+                                      setProfileForm(prev => ({ ...prev, user: u.id }))
+                                      setSelectedUserLabel(`${u.full_name} — ${u.email}`)
+                                      setUserSearch('')
+                                      setUserResults([])
+                                      setUserSearchDone(false)
+                                    }}
+                                  >
+                                    <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                    <span className="font-medium">{u.full_name}</span>
+                                    <span className="text-xs text-muted-foreground">{u.email}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* No results — offer to create account */}
+                          {userSearchDone && !userSearching && userResults.length === 0 && userSearch.trim() && !showCreateUser && (
+                            <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2.5 text-sm">
+                              <p className="text-amber-700 dark:text-amber-400">No user found for "{userSearch}".</p>
+                              <button
+                                type="button"
+                                onClick={() => { setShowCreateUser(true); setNewUserName(userSearch); setCreateUserError(null) }}
+                                className="mt-1 text-xs font-medium text-primary hover:underline"
+                              >
+                                + Create a new account for this person
+                              </button>
                             </div>
                           )}
-                          {!userSearch && (
-                            <p className="mt-1 text-xs text-muted-foreground">Search and click a result to select a user.</p>
+
+                          {/* Inline create account form */}
+                          {showCreateUser && (
+                            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Create New Account</p>
+                              <input
+                                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="Full name *"
+                                value={newUserName}
+                                onChange={e => setNewUserName(e.target.value)}
+                              />
+                              <input
+                                type="email"
+                                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="Email"
+                                value={newUserEmail}
+                                onChange={e => setNewUserEmail(e.target.value)}
+                              />
+                              <input
+                                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="Mobile"
+                                value={newUserMobile}
+                                onChange={e => setNewUserMobile(e.target.value)}
+                              />
+                              {createUserError && (
+                                <p className="text-xs text-red-600 dark:text-red-400">{createUserError}</p>
+                              )}
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCreateUser(false)}
+                                  className="flex-1 rounded-md border py-1.5 text-xs hover:bg-muted/50"
+                                >Cancel</button>
+                                <button
+                                  type="button"
+                                  disabled={creatingUser || !newUserName.trim() || (!newUserEmail.trim() && !newUserMobile.trim())}
+                                  onClick={async () => {
+                                    setCreatingUser(true); setCreateUserError(null)
+                                    try {
+                                      const res = await axiosInstance.post('/api/v1/employees/', {
+                                        name: newUserName.trim(),
+                                        email: newUserEmail.trim() || undefined,
+                                        mobile: newUserMobile.trim() || undefined,
+                                        role: 'employee',
+                                      })
+                                      const created = res.data
+                                      setProfileForm(prev => ({ ...prev, user: created.id }))
+                                      setSelectedUserLabel(`${created.full_name} — ${created.email ?? created.mobile}`)
+                                      setShowCreateUser(false)
+                                      setUserSearch('')
+                                      setUserSearchDone(false)
+                                    } catch (err: unknown) {
+                                      const e = err as { response?: { data?: unknown } }
+                                      setCreateUserError('Error: ' + JSON.stringify(e.response?.data ?? 'Failed'))
+                                    } finally { setCreatingUser(false) }
+                                  }}
+                                  className="flex-1 rounded-md bg-primary py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                                >
+                                  {creatingUser ? 'Creating…' : 'Create & Select'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {!userSearch && !showCreateUser && (
+                            <p className="text-xs text-muted-foreground">Search and click a result to select a user.</p>
                           )}
                         </div>
                       )}
