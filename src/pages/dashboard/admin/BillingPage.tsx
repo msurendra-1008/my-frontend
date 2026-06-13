@@ -152,7 +152,12 @@ function CommissionPreview({ item, upaProfit }: { item: CartItem; upaProfit: num
     <div className="mt-2 rounded-lg bg-primary/5 border border-primary/20 p-2.5">
       <p className="text-[10px] font-bold uppercase tracking-wide text-primary/70 mb-2">⭐ UPA Commission Preview</p>
       <div className="flex justify-between text-[11px] mb-1.5">
-        <span className="text-primary/60">UPA profit base</span>
+        <span className="text-primary/60">
+          UPA profit base
+          {item.quantity > 1 && (
+            <span className="text-primary/40 ml-1">(×{item.quantity} units)</span>
+          )}
+        </span>
         <span className="font-semibold text-primary">₹{upaProfit.toFixed(2)}</span>
       </div>
       <div className="border-t border-primary/20 pt-1.5 space-y-1">
@@ -351,10 +356,11 @@ export function BillingPage() {
 
   // ── UPA profit calculator ─────────────────────────────────────────────────
   const calculateUpaProfit = (item: CartItem): number => {
-    const upaPrice     = item.upa_price ?? item.unit_price
+    const upaPrice      = item.upa_price ?? item.unit_price
     const purchasePrice = item.purchase_price ?? 0
-    const otherCharges = item.other_charges ?? 0
-    return Math.max((upaPrice + otherCharges) - purchasePrice, 0)
+    const otherCharges  = item.other_charges ?? 0
+    const profitPerUnit = Math.max((upaPrice + otherCharges) - purchasePrice, 0)
+    return profitPerUnit * item.quantity
   }
 
   // ── Discount code ─────────────────────────────────────────────────────────
