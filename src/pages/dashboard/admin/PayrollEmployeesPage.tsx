@@ -104,10 +104,10 @@ export function PayrollEmployeesPage() {
     const t = setTimeout(async () => {
       setUserSearching(true)
       try {
-        const res = await axiosInstance.get('/api/v1/accounts/users/', { params: { search: userSearch, page_size: 10 } })
-        setUserResults((res.data.results ?? []).map((u: { id: string; first_name: string; last_name: string; email: string }) => ({
+        const res = await axiosInstance.get('/api/v1/auth/users/', { params: { search: userSearch } })
+        setUserResults((res.data ?? []).map((u: { id: string; full_name: string; email: string }) => ({
           id: u.id,
-          full_name: `${u.first_name} ${u.last_name}`.trim(),
+          full_name: u.full_name,
           email: u.email,
         })))
       } catch { setUserResults([]) }
