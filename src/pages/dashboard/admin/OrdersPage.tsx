@@ -198,7 +198,7 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
   );
 }
 
-function CommissionBreakupSection({ order }: { order: Order }) {
+export function CommissionBreakupSection({ order }: { order: Order }) {
   const itemsWithBreakup = order.items.filter((item) => item.commission_breakup !== null);
 
   if (itemsWithBreakup.length === 0) return null;
@@ -403,54 +403,77 @@ function OrderDetailSheet({
               })}
             </div>
 
-            {/* Address */}
-            <div className="rounded-xl border p-4 text-sm">
-              <p className="font-semibold mb-1">Delivery Address</p>
-              <p className="font-medium">{order.address_name}</p>
-              <p className="text-muted-foreground">{order.address_phone}</p>
-              <p className="text-muted-foreground leading-snug">
-                {order.address_line}, {order.address_city}, {order.address_state} — {order.address_pincode}
-              </p>
-            </div>
-
-            {/* Admin actions */}
-            <div className="rounded-xl border p-4 space-y-3">
-              <p className="font-semibold text-sm">Update Order</p>
-
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
-                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                >
-                  {ORDER_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                  ))}
-                </select>
-              </div>
-
-              {newStatus === 'shipped' && (
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Tracking Number</label>
-                  <input
-                    type="text"
-                    value={tracking}
-                    onChange={(e) => setTracking(e.target.value)}
-                    placeholder="Enter tracking number"
-                    className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  />
+            {/* Offline Bill Info */}
+            {order.is_offline && order.offline_bill_number && (
+              <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-sm">
+                <p className="font-semibold mb-2 text-amber-700 dark:text-amber-400">🏪 POS Bill</p>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Bill No.</span>
+                    <span className="font-mono font-semibold">{order.offline_bill_number}</span>
+                  </div>
+                  {order.billed_by_name && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Billed by</span>
+                      <span className="font-medium">{order.billed_by_name}</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
 
-              <button
-                onClick={handleUpdate}
-                disabled={updating}
-                className="w-full rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
-              >
-                {updating ? 'Updating…' : 'Update Order'}
-              </button>
-            </div>
+            {/* Address — online orders only */}
+            {!order.is_offline && (
+              <div className="rounded-xl border p-4 text-sm">
+                <p className="font-semibold mb-1">Delivery Address</p>
+                <p className="font-medium">{order.address_name}</p>
+                <p className="text-muted-foreground">{order.address_phone}</p>
+                <p className="text-muted-foreground leading-snug">
+                  {order.address_line}, {order.address_city}, {order.address_state} — {order.address_pincode}
+                </p>
+              </div>
+            )}
+
+            {/* Admin actions — online orders only */}
+            {!order.is_offline && (
+              <div className="rounded-xl border p-4 space-y-3">
+                <p className="font-semibold text-sm">Update Order</p>
+
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
+                    className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  >
+                    {ORDER_STATUSES.map((s) => (
+                      <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {newStatus === 'shipped' && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Tracking Number</label>
+                    <input
+                      type="text"
+                      value={tracking}
+                      onChange={(e) => setTracking(e.target.value)}
+                      placeholder="Enter tracking number"
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    />
+                  </div>
+                )}
+
+                <button
+                  onClick={handleUpdate}
+                  disabled={updating}
+                  className="w-full rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
+                >
+                  {updating ? 'Updating…' : 'Update Order'}
+                </button>
+              </div>
+            )}
 
             {/* Commission Breakdown */}
             <CommissionBreakupSection order={order} />
@@ -637,7 +660,7 @@ export function AdminOrdersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/40">
-                    {['Order', 'Customer', 'Amount', 'Payment', 'Status', ''].map((h) => (
+                    {['Order', 'Source', 'Customer', 'Amount', 'Payment', 'Status', ''].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {h}
                       </th>
@@ -652,6 +675,16 @@ export function AdminOrdersPage() {
                         <p className="text-xs text-muted-foreground">
                           {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(order.created_at))}
                         </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn(
+                          'text-[11px] font-medium px-2 py-0.5 rounded-full',
+                          order.is_offline
+                            ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                            : 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+                        )}>
+                          {order.is_offline ? '🏪 Offline' : '🌐 Online'}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-foreground">{order.customer_name}</p>

@@ -33,6 +33,10 @@ export const billingService = {
   getBills: (params?: Record<string, string>) =>
     axiosInstance.get('/api/v1/billing/bills/', { params }),
 
+  // List offline orders (paginated) — includes commission data
+  getOfflineOrders: (params?: Record<string, string>) =>
+    axiosInstance.get('/api/v1/billing/offline-orders/', { params }),
+
   // Submit return request
   createReturn: (formData: FormData) =>
     axiosInstance.post('/api/v1/billing/returns/', formData, {
