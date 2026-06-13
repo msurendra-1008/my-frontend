@@ -502,11 +502,10 @@ export function PayrollEmployeesPage() {
                                   onClick={async () => {
                                     setCreatingUser(true); setCreateUserError(null)
                                     try {
-                                      const res = await axiosInstance.post('/api/v1/employees/', {
+                                      const res = await axiosInstance.post('/api/v1/auth/quick-create/', {
                                         name: newUserName.trim(),
                                         email: newUserEmail.trim() || undefined,
                                         mobile: newUserMobile.trim() || undefined,
-                                        role: 'employee',
                                       })
                                       const created = res.data
                                       setProfileForm(prev => ({ ...prev, user: created.id }))
