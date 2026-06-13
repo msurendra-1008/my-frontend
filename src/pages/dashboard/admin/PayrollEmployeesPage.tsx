@@ -70,9 +70,10 @@ export function PayrollEmployeesPage() {
   const [salaryMsg,    setSalaryMsg]    = useState<string | null>(null)
 
   /* user search (for create) */
-  const [userSearch,   setUserSearch]   = useState('')
-  const [userResults,  setUserResults]  = useState<{ id: string; full_name: string; email: string }[]>([])
-  const [userSearching, setUserSearching] = useState(false)
+  const [userSearch,      setUserSearch]      = useState('')
+  const [userResults,     setUserResults]     = useState<{ id: string; full_name: string; email: string }[]>([])
+  const [userSearching,   setUserSearching]   = useState(false)
+  const [selectedUserLabel, setSelectedUserLabel] = useState('')
 
   /* dept modal */
   const [deptModalOpen, setDeptModalOpen] = useState(false)
@@ -121,7 +122,7 @@ export function PayrollEmployeesPage() {
     setEditing(null)
     setProfileForm(blankProfile())
     setSalaryForm(blankSalary())
-    setUserSearch(''); setUserResults([])
+    setUserSearch(''); setUserResults([]); setSelectedUserLabel('')
     setMsg(null); setSalaryMsg(null)
     setDrawerTab('basic')
     setDrawerOpen(true)
@@ -380,35 +381,62 @@ export function PayrollEmployeesPage() {
                   {!editing && (
                     <div>
                       <label className="mb-1 block text-sm font-medium">User *</label>
-                      <div className="relative">
-                        <input
-                          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="Search by name or email…"
-                          value={userSearch}
-                          onChange={e => setUserSearch(e.target.value)}
-                        />
-                        {(userResults.length > 0 || userSearching) && (
-                          <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-md border bg-card shadow-lg">
-                            {userSearching && <p className="px-3 py-2 text-xs text-muted-foreground">Searching…</p>}
-                            {userResults.map(u => (
-                              <button
-                                key={u.id}
-                                type="button"
-                                className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50"
-                                onClick={() => {
-                                  setProfileForm(prev => ({ ...prev, user: u.id }))
-                                  setUserSearch(u.full_name + ' — ' + u.email)
-                                  setUserResults([])
-                                }}
-                              >
-                                <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                <span className="font-medium">{u.full_name}</span>
-                                <span className="text-muted-foreground">{u.email}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+
+                      {/* Selected user chip */}
+                      {selectedUserLabel ? (
+                        <div className="flex items-center gap-2 rounded-md border border-green-400/40 bg-green-500/10 px-3 py-2">
+                          <Check className="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
+                          <span className="flex-1 text-sm text-green-600 dark:text-green-400">{selectedUserLabel}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedUserLabel('')
+                              setUserSearch('')
+                              setProfileForm(prev => ({ ...prev, user: '' }))
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <input
+                            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            placeholder="Type name or email to search…"
+                            value={userSearch}
+                            onChange={e => {
+                              setUserSearch(e.target.value)
+                              setProfileForm(prev => ({ ...prev, user: '' }))
+                            }}
+                          />
+                          {(userResults.length > 0 || userSearching) && (
+                            <div className="absolute left-0 top-full z-10 mt-1 w-full rounded-md border bg-card shadow-lg">
+                              {userSearching && <p className="px-3 py-2 text-xs text-muted-foreground">Searching…</p>}
+                              {userResults.map(u => (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50"
+                                  onClick={() => {
+                                    setProfileForm(prev => ({ ...prev, user: u.id }))
+                                    setSelectedUserLabel(`${u.full_name} — ${u.email}`)
+                                    setUserSearch('')
+                                    setUserResults([])
+                                  }}
+                                >
+                                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  <span className="font-medium">{u.full_name}</span>
+                                  <span className="text-xs text-muted-foreground">{u.email}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {!userSearch && (
+                            <p className="mt-1 text-xs text-muted-foreground">Search and click a result to select a user.</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
