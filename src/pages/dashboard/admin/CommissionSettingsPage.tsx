@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, Trash2, Pencil, Sun, Moon } from 'lucide-react';
+import { Menu, Trash2, Pencil, Sun, Moon, Settings, Package, X, ChevronRight } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Badge } from '@components/ui/Badge';
 import { useTheme } from '@context/ThemeContext';
@@ -28,6 +28,8 @@ export function CommissionSettingsPage() {
   const { theme, toggleTheme }        = useTheme();
   const { user }                      = useAuthStore();
   const toast = useToast();
+
+  const [globalModalOpen, setGlobalModalOpen] = useState(false);
 
   const [settings,         setSettings]         = useState<CommissionSettings | null>(null);
   const [originalSettings, setOriginalSettings] = useState<CommissionSettings | null>(null);
@@ -113,6 +115,7 @@ export function CommissionSettingsPage() {
       });
       setSettings(r.data); setOriginalSettings(r.data);
       setIsEditing(false);
+      setGlobalModalOpen(false);
       toast.show('Settings saved');
     } catch {
       toast.show('Failed to save settings', true);
@@ -124,6 +127,11 @@ export function CommissionSettingsPage() {
   const cancelEdit = () => {
     if (originalSettings) fillFromSettings(originalSettings);
     setIsEditing(false);
+  };
+
+  const closeModal = () => {
+    if (isEditing) cancelEdit();
+    setGlobalModalOpen(false);
   };
 
   const handleRuleSaved = (saved: ProductCommissionRule) => {
@@ -154,7 +162,7 @@ export function CommissionSettingsPage() {
     ? [...levelPercentages].reverse()
     : levelPercentages;
 
-  const PREVIEW_PROFIT = 100; // ₹100 for global settings preview
+  const PREVIEW_PROFIT = 100;
 
   const pools = [
     { key: 'network',  val: networkPct,  set: setNetworkPct,  title: '↑ Network',     desc: 'Goes UP the chain',    color: 'text-primary',                        bg: 'bg-primary/5 border-primary/20' },
@@ -191,27 +199,6 @@ export function CommissionSettingsPage() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-          <div className="flex items-center justify-end">
-            {!settingsLoad && (
-              isEditing ? (
-                <div className="flex gap-2">
-                  <button onClick={handleSave} disabled={saving}
-                    className="h-9 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60">
-                    {saving ? 'Saving…' : 'Save Settings'}
-                  </button>
-                  <button onClick={cancelEdit} disabled={saving}
-                    className="h-9 rounded-lg border px-5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60">
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-1.5 h-9 rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
-                  <Pencil size={14} /> Edit settings
-                </button>
-              )
-            )}
-          </div>
 
           {toast.msg && (
             <div className={cn('rounded-lg px-4 py-2.5 text-sm font-medium',
@@ -223,13 +210,205 @@ export function CommissionSettingsPage() {
             </div>
           )}
 
-          {settingsLoad ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {[1,2,3,4].map(i => <div key={i} className="h-40 animate-pulse rounded-xl bg-muted" />)}
+          {/* ── Summary cards ──────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Card 1 — Global Settings (clickable) */}
+            <button
+              onClick={() => !settingsLoad && setGlobalModalOpen(true)}
+              className={cn(
+                'group text-left rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/40',
+                settingsLoad && 'opacity-70 cursor-wait'
+              )}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Settings size={20} className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">Global Commission Settings</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Click to view or edit</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-muted-foreground/50 group-hover:text-primary transition-colors mt-0.5" />
+              </div>
+
+              {settingsLoad ? (
+                <div className="mt-4 space-y-2">
+                  <div className="h-4 animate-pulse rounded bg-muted" />
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+                </div>
+              ) : (
+                <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">Network pool</p>
+                    <p className="text-sm font-bold text-primary">{networkPct}%</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">Team pool</p>
+                    <p className="text-sm font-bold text-green-600 dark:text-green-400">{teamPct}%</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">Upline levels</p>
+                    <p className="text-sm font-bold text-foreground">{levels}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">Trigger</p>
+                    <p className="text-sm font-bold text-foreground capitalize">{triggerMode}</p>
+                  </div>
+                </div>
+              )}
+            </button>
+
+            {/* Card 2 — Product Rules info */}
+            <div className="rounded-xl border bg-card p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
+                    <Package size={20} className="text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground text-sm">Product-specific Rules</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Override settings per product</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setModalRule(null)}
+                  className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  + Add Rule
+                </button>
+              </div>
+
+              {rulesLoad ? (
+                <div className="mt-4 h-4 animate-pulse rounded bg-muted w-1/2" />
+              ) : (
+                <div className="mt-4 flex items-center gap-6">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">Total rules</p>
+                    <p className="text-2xl font-bold text-foreground">{rules.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">Active</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {rules.filter(r => r.is_active).length}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70 font-medium">Inactive</p>
+                    <p className="text-2xl font-bold text-muted-foreground">
+                      {rules.filter(r => !r.is_active).length}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
-          ) : (
-            <>
-              {/* ── Two-column layout ──────────────────────────────────────────── */}
+          </div>
+
+          {/* ── Product Rules Table ────────────────────────────────────────────── */}
+          <div className="rounded-xl border bg-card shadow-sm">
+            <div className="border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-foreground">Product-specific Rules</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Override commission settings per product</p>
+              </div>
+              <button onClick={() => setModalRule(null)}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                + Add Product Rule
+              </button>
+            </div>
+            {rulesLoad ? (
+              <div className="p-6 space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />)}</div>
+            ) : rules.length === 0 ? (
+              <div className="p-8 text-center text-sm text-muted-foreground">No product-specific rules. Click "+ Add Product Rule" to create one.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      {['Product', 'Direction', 'Levels', 'Network', 'Team', 'Enabled', 'Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rules.map(rule => (
+                      <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-3 font-medium text-foreground">{rule.product_name}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                          {rule.direction === 'direct_first' ? '↓ Direct first' : '↑ Ancestor first'}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{rule.max_upline_levels}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{rule.network_commission_pct}%</td>
+                        <td className="px-4 py-3 text-muted-foreground">{rule.team_commission_pct}%</td>
+                        <td className="px-4 py-3">
+                          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                            rule.is_active ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-muted/50 text-muted-foreground')}>
+                            {rule.is_active ? 'Yes' : 'No'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setModalRule(rule)}
+                              className="rounded-md p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => handleDeleteRule(rule)}
+                              className="rounded-md p-1.5 hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Delete">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* ── Global Settings Modal ───────────────────────────────────────────────── */}
+      {globalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeModal} />
+          <div className="relative z-10 w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl border bg-card shadow-2xl flex flex-col">
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between border-b px-6 py-4 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <Settings size={18} className="text-primary" />
+                <h2 className="font-semibold text-foreground">Global Commission Settings</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {!isEditing ? (
+                  <button onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-1.5 h-8 rounded-lg border px-3 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">
+                    <Pencil size={12} /> Edit settings
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={handleSave} disabled={saving}
+                      className="h-8 rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60">
+                      {saving ? 'Saving…' : 'Save Settings'}
+                    </button>
+                    <button onClick={cancelEdit} disabled={saving}
+                      className="h-8 rounded-lg border px-4 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60">
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                <button onClick={closeModal}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal body — two-column settings grid */}
+            <div className="p-6 space-y-6 overflow-y-auto">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* LEFT COLUMN */}
@@ -265,7 +444,7 @@ export function CommissionSettingsPage() {
                         </div>
                       ))}
 
-                      {/* Self Commission card — with toggle */}
+                      {/* Self Commission card */}
                       <div className={cn('rounded-xl border p-3', selfEnabled
                         ? 'bg-purple-500/5 border-purple-500/20'
                         : 'bg-muted/30 border-border/40 opacity-70')}>
@@ -433,94 +612,39 @@ export function CommissionSettingsPage() {
                       Last updated: {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(settings.updated_at))}
                     </p>
                   )}
-
-                  {/* Mobile edit buttons */}
-                  <div className="lg:hidden flex gap-2 pt-2">
-                    {isEditing ? (
-                      <>
-                        <button onClick={handleSave} disabled={saving}
-                          className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-60">
-                          {saving ? 'Saving…' : 'Save'}
-                        </button>
-                        <button onClick={cancelEdit} className="flex-1 h-9 rounded-lg border text-sm font-medium text-muted-foreground hover:bg-muted">
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button onClick={() => setIsEditing(true)}
-                        className="flex items-center gap-1.5 h-9 rounded-lg border px-4 text-sm font-medium text-muted-foreground hover:bg-muted">
-                        <Pencil size={14} /> Edit
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* ── Product Rules ──────────────────────────────────────────────── */}
-              <div className="rounded-xl border bg-card shadow-sm">
-                <div className="border-b px-6 py-4 flex items-center justify-between">
-                  <div>
-                    <h2 className="font-semibold text-foreground">Product-specific Rules</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Override commission settings per product</p>
-                  </div>
-                  <button onClick={() => setModalRule(null)}
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-                    + Add Product Rule
+            {/* Modal footer */}
+            <div className="border-t px-6 py-4 flex items-center justify-end gap-2 flex-shrink-0">
+              {isEditing ? (
+                <>
+                  <button onClick={cancelEdit} disabled={saving}
+                    className="h-9 rounded-lg border px-5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-60">
+                    Cancel
                   </button>
-                </div>
-                {rulesLoad ? (
-                  <div className="p-6 space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />)}</div>
-                ) : rules.length === 0 ? (
-                  <div className="p-8 text-center text-sm text-muted-foreground">No product-specific rules. Click "+ Add Product Rule" to create one.</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-muted/40">
-                          {['Product', 'Direction', 'Levels', 'Network', 'Team', 'Enabled', 'Actions'].map(h => (
-                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rules.map(rule => (
-                          <tr key={rule.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                            <td className="px-4 py-3 font-medium text-foreground">{rule.product_name}</td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground">
-                              {rule.direction === 'direct_first' ? '↓ Direct first' : '↑ Ancestor first'}
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground">{rule.max_upline_levels}</td>
-                            <td className="px-4 py-3 text-muted-foreground">{rule.network_commission_pct}%</td>
-                            <td className="px-4 py-3 text-muted-foreground">{rule.team_commission_pct}%</td>
-                            <td className="px-4 py-3">
-                              <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                                rule.is_active ? 'bg-green-500/10 text-green-600 dark:text-green-400' : 'bg-muted/50 text-muted-foreground')}>
-                                {rule.is_active ? 'Yes' : 'No'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => setModalRule(rule)}
-                                  className="rounded-md p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Edit">
-                                  <Pencil size={14} />
-                                </button>
-                                <button onClick={() => handleDeleteRule(rule)}
-                                  className="rounded-md p-1.5 hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Delete">
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </main>
-      </div>
+                  <button onClick={handleSave} disabled={saving}
+                    className="h-9 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60">
+                    {saving ? 'Saving…' : 'Save Settings'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={closeModal}
+                    className="h-9 rounded-lg border px-5 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+                    Close
+                  </button>
+                  <button onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-1.5 h-9 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
+                    <Pencil size={14} /> Edit Settings
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalRule !== undefined && (
         <ProductCommissionModal rule={modalRule} onSave={handleRuleSaved} onClose={() => setModalRule(undefined)} />
