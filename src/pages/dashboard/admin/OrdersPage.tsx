@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Menu, X, ChevronRight, Search } from 'lucide-react';
+import { Menu, X, ChevronRight, Search, Sun, Moon } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
+import { Badge } from '@/components/ui/Badge';
+import { useTheme } from '@context/ThemeContext';
+import { useAuthStore } from '@/store/authStore';
 import { orderService } from '@/services/orderService';
 import type { OrderListItem, Order, OrderItem, OrderStatus, PaymentStatus } from '@/types/order.types';
 import type { CommissionBreakupEmbed, CommissionEntryEmbed } from '@/types/commission.types';
@@ -464,6 +467,8 @@ function OrderDetailSheet({
 
 export function AdminOrdersPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { theme, toggleTheme }        = useTheme();
+  const { user }                      = useAuthStore();
   const toast = useToast();
 
   const [orders,  setOrders]  = useState<OrderListItem[]>([]);
@@ -526,18 +531,28 @@ export function AdminOrdersPage() {
       <AdminSidebar mobileOpen={sidebarOpen} onMobileToggle={() => setSidebarOpen(false)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile header */}
-        <header className="flex h-[52px] items-center gap-3 border-b px-4 lg:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="rounded-md p-1.5 hover:bg-muted">
-            <Menu size={18} />
-          </button>
-          <span className="font-semibold">Orders</span>
+        <header className="flex h-[52px] items-center justify-between border-b bg-card px-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden rounded-md p-1.5 hover:bg-muted">
+              <Menu size={18} />
+            </button>
+            <span className="text-base font-semibold text-foreground">Orders</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <Badge variant={user?.role === 'superadmin' ? 'danger' : user?.role === 'admin' ? 'warning' : 'info'} className="capitalize">
+              {user?.role}
+            </Badge>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-          <div className="hidden lg:block">
-            <h1 className="text-xl font-bold text-foreground">Orders</h1>
-          </div>
 
           {/* Toast */}
           {toast.msg && (

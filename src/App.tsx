@@ -35,6 +35,10 @@ import { CommissionSettingsPage } from '@/pages/dashboard/admin/CommissionSettin
 import { PendingCommissionsPage } from '@/pages/dashboard/admin/PendingCommissionsPage';
 import CompanyWalletPage          from '@/pages/dashboard/admin/CompanyWalletPage';
 import { ProductPricingPage }     from '@/pages/dashboard/admin/ProductPricingPage';
+import { BillingPage }           from '@/pages/dashboard/admin/BillingPage';
+import { BillReturnPage }        from '@/pages/dashboard/admin/BillReturnPage';
+import { BillHistoryPage }       from '@/pages/dashboard/admin/BillHistoryPage';
+import { DiscountCodesPage }     from '@/pages/dashboard/admin/DiscountCodesPage';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -224,6 +228,40 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
             <ProductPricingPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Billing routes */}
+      <Route
+        path="/billing"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <BillingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/billing/return"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <BillReturnPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/billing/history"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <BillHistoryPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/billing/discount-codes"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin']}>
+            <DiscountCodesPage />
           </ProtectedRoute>
         }
       />

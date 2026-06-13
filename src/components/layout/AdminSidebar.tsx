@@ -11,6 +11,7 @@ import {
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
   PieChart, LogOut, ChevronDown, X, Coins, Wallet, BadgeDollarSign, Landmark,
+  Receipt, Tag,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -36,6 +37,15 @@ const SECTIONS: Section[] = [
     key: 'dashboard',
     items: [
       { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard, allowedRoles: ['superadmin', 'admin', 'employee'] },
+    ],
+  },
+  {
+    key: 'billing', label: 'Billing',
+    items: [
+      { label: 'New Bill',     path: '/billing',         icon: Receipt,       allowedRoles: ['superadmin', 'admin', 'employee'] as UserRole[] },
+      { label: 'Bill History', path: '/billing/history', icon: ClipboardList, allowedRoles: ['superadmin', 'admin', 'employee'] as UserRole[] },
+      { label: 'Return Bill',  path: '/billing/return',  icon: RotateCcw,     allowedRoles: ['superadmin', 'admin', 'employee'] as UserRole[] },
+      { label: 'Discount Codes', path: '/billing/discount-codes', icon: Tag,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
@@ -148,9 +158,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
   };
 
   const isActive = (path: string) =>
-    path === '/admin/dashboard'
-      ? location.pathname === path
-      : location.pathname.startsWith(path);
+    location.pathname === path || location.pathname.startsWith(path + '/');
 
   const handleLogout = async () => {
     const refresh = tokenStorage.getRefresh();

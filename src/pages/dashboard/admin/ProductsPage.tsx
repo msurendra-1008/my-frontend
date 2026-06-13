@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Menu, Plus, Pencil, Trash2, Eye, EyeOff, Package } from 'lucide-react';
+import { Menu, Plus, Pencil, Trash2, Eye, EyeOff, Package, Sun, Moon } from 'lucide-react';
+import { useTheme } from '@context/ThemeContext';
 import { FilterToolbar } from '@/components/admin/FilterToolbar';
 import { cn } from '@utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
@@ -1131,7 +1132,8 @@ function SectionHeader({ label }: { label: string }) {
 type PageTab = 'products' | 'categories';
 
 export function ProductsPage() {
-  const { user }     = useAuthStore();
+  const { user }               = useAuthStore();
+  const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab,  setActiveTab]   = useState<PageTab>('products');
   const [categories, setCategories]  = useState<Category[]>([]);
@@ -1175,14 +1177,26 @@ export function ProductsPage() {
             </button>
             <h1 className="text-sm font-semibold text-foreground">Products</h1>
           </div>
-          {canEdit && (
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <button
+                onClick={() => { setEditProduct(null); setFormOpen(true); }}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus size={13} /> New Product
+              </button>
+            )}
             <button
-              onClick={() => { setEditProduct(null); setFormOpen(true); }}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
-              <Plus size={13} /> New Product
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
-          )}
+            <Badge variant={user?.role === 'superadmin' ? 'danger' : user?.role === 'admin' ? 'warning' : 'info'} className="capitalize">
+              {user?.role}
+            </Badge>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
