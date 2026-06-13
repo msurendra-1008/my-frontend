@@ -95,3 +95,12 @@ export interface OfflineReturn {
   review_notes: string
   created_at:   string
 }
+
+export interface BillingSettings {
+  id:                    string
+  return_window_enabled: boolean
+  return_window_days:    number
+  effective_days:        number
+  updated_at:            string
+  updated_by_name:       string | null
+}

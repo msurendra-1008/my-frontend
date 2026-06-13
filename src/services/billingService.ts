@@ -1,5 +1,5 @@
 import axiosInstance from '@/utils/axiosInstance'
-import type { CreateBillPayload, OfflineBill, ValidateCodeResponse } from '@/types/billing.types'
+import type { CreateBillPayload, OfflineBill, ValidateCodeResponse, BillingSettings } from '@/types/billing.types'
 
 export const billingService = {
   // Product search for billing (returns paginated variants)
@@ -55,4 +55,11 @@ export const billingService = {
 
   deleteDiscountCode: (id: string) =>
     axiosInstance.delete(`/api/v1/billing/discount-codes/${id}/`),
+
+  // Billing settings (return window config)
+  getSettings: () =>
+    axiosInstance.get<BillingSettings>('/api/v1/billing/settings/'),
+
+  updateSettings: (data: { return_window_enabled: boolean; return_window_days: number }) =>
+    axiosInstance.patch<BillingSettings>('/api/v1/billing/settings/update/', data),
 }

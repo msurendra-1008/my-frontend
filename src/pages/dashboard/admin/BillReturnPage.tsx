@@ -1,12 +1,12 @@
-import { useState, useRef } from 'react'
-import { Menu, Search, Sun, Moon, Upload, X, CheckCircle, AlertCircle } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Menu, Search, Sun, Moon, Upload, X, CheckCircle, AlertCircle, Pencil } from 'lucide-react'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { Badge } from '@/components/ui/Badge'
 import { useTheme } from '@context/ThemeContext'
 import { useAuthStore } from '@/store/authStore'
 import { billingService } from '@/services/billingService'
 import { cn } from '@/utils/cn'
-import type { OfflineBill, OfflineBillItem } from '@/types/billing.types'
+import type { OfflineBill, OfflineBillItem, BillingSettings } from '@/types/billing.types'
 
 function roleBadgeVariant(role: string) {
   if (role === 'superadmin') return 'danger' as const
@@ -23,25 +23,77 @@ interface ReturnLineItem {
 export function BillReturnPage() {
   const { theme, toggleTheme } = useTheme()
   const { user }               = useAuthStore()
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin'
 
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  // ── Billing settings ──────────────────────────────────────────────────────
+  const [billingSettings,  setBillingSettings]  = useState<BillingSettings | null>(null)
+  const [editingSettings,  setEditingSettings]  = useState(false)
+  const [settingsSaving,   setSettingsSaving]   = useState(false)
+  const [settingsMsg,      setSettingsMsg]      = useState<{ text: string; err: boolean } | null>(null)
+  const [settingsForm,     setSettingsForm]     = useState({
+    return_window_enabled: false,
+    return_window_days:    2,
+  })
+
+  useEffect(() => {
+    billingService.getSettings()
+      .then(res => {
+        setBillingSettings(res.data)
+        setSettingsForm({
+          return_window_enabled: res.data.return_window_enabled,
+          return_window_days:    res.data.return_window_days,
+        })
+      })
+      .catch(() => {/* non-critical */})
+  }, [])
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true)
+    try {
+      const res = await billingService.updateSettings(settingsForm)
+      setBillingSettings(res.data)
+      setEditingSettings(false)
+      setSettingsMsg({ text: 'Return window settings saved', err: false })
+      setTimeout(() => setSettingsMsg(null), 3500)
+    } catch (e: any) {
+      setSettingsMsg({
+        text: e?.response?.data?.error || 'Failed to save settings',
+        err:  true,
+      })
+      setTimeout(() => setSettingsMsg(null), 3500)
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
+  const cancelSettingsEdit = () => {
+    setEditingSettings(false)
+    if (billingSettings) {
+      setSettingsForm({
+        return_window_enabled: billingSettings.return_window_enabled,
+        return_window_days:    billingSettings.return_window_days,
+      })
+    }
+  }
+
   // ── Step 1: lookup bill ───────────────────────────────────────────────────
-  const [billSearch, setBillSearch]     = useState('')
-  const [bill, setBill]                 = useState<OfflineBill | null>(null)
+  const [billSearch,    setBillSearch]    = useState('')
+  const [bill,          setBill]          = useState<OfflineBill | null>(null)
   const [lookupLoading, setLookupLoading] = useState(false)
-  const [lookupError, setLookupError]   = useState('')
+  const [lookupError,   setLookupError]  = useState('')
 
   // ── Step 2: select items + photo ─────────────────────────────────────────
-  const [lineItems, setLineItems]       = useState<ReturnLineItem[]>([])
-  const [billPhoto, setBillPhoto]       = useState<File | null>(null)
+  const [lineItems,    setLineItems]    = useState<ReturnLineItem[]>([])
+  const [billPhoto,    setBillPhoto]    = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const fileRef                         = useRef<HTMLInputElement>(null)
 
   // ── Submit state ─────────────────────────────────────────────────────────
-  const [submitting, setSubmitting]     = useState(false)
-  const [submitError, setSubmitError]   = useState('')
-  const [success, setSuccess]           = useState(false)
+  const [submitting,  setSubmitting]  = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [success,     setSuccess]     = useState(false)
 
   // ── Lookup ────────────────────────────────────────────────────────────────
   const handleLookup = async () => {
@@ -93,8 +145,8 @@ export function BillReturnPage() {
     }))
   }
 
-  const selectedItems  = lineItems.filter(li => li.selected)
-  const totalRefund    = selectedItems.reduce((sum, li) => {
+  const selectedItems = lineItems.filter(li => li.selected)
+  const totalRefund   = selectedItems.reduce((sum, li) => {
     const perUnit = Number(li.item.line_total) / li.item.quantity
     return sum + perUnit * li.qty
   }, 0)
@@ -114,7 +166,9 @@ export function BillReturnPage() {
       await billingService.createReturn(fd)
       setSuccess(true)
     } catch (e: any) {
-      setSubmitError(e?.response?.data?.detail ?? 'Failed to submit return request.')
+      setSubmitError(
+        e?.response?.data?.error ?? e?.response?.data?.detail ?? 'Failed to submit return request.'
+      )
     } finally {
       setSubmitting(false)
     }
@@ -167,7 +221,165 @@ export function BillReturnPage() {
             <SuccessCard onNew={handleReset} />
           ) : (
             <div className="mx-auto max-w-2xl space-y-5">
-              {/* Step 1 — Bill lookup */}
+
+              {/* ── Return Window Settings ─────────────────────────────── */}
+              <div className={cn(
+                'rounded-xl border overflow-hidden',
+                billingSettings?.return_window_enabled
+                  ? 'border-primary/30'
+                  : 'border-border/50',
+              )}>
+                {/* Header row */}
+                <div className={cn(
+                  'flex items-center justify-between px-4 py-3',
+                  billingSettings?.return_window_enabled ? 'bg-primary/5' : 'bg-muted/30',
+                )}>
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center text-base',
+                      billingSettings?.return_window_enabled
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                    )}>
+                      ⏱
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Return Window</p>
+                      <p className="text-xs text-muted-foreground">
+                        {billingSettings?.return_window_enabled
+                          ? `Custom: ${billingSettings.return_window_days} days`
+                          : 'Default: 2 days'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      'text-[10px] px-2 py-0.5 rounded-full font-medium',
+                      billingSettings?.return_window_enabled
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                    )}>
+                      {billingSettings?.return_window_enabled
+                        ? `Custom (${billingSettings.effective_days}d)`
+                        : 'Default (2 days)'}
+                    </span>
+                    {isAdmin && !editingSettings && (
+                      <button
+                        onClick={() => setEditingSettings(true)}
+                        className="flex items-center gap-1 h-7 px-2.5 rounded-lg text-xs font-medium border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <Pencil size={11} /> Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Settings toast message */}
+                {settingsMsg && (
+                  <div className={cn(
+                    'px-4 py-2 text-xs font-medium border-b',
+                    settingsMsg.err
+                      ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40'
+                      : 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-400/40',
+                  )}>
+                    {settingsMsg.text}
+                  </div>
+                )}
+
+                {/* Edit form — admin only */}
+                {editingSettings && isAdmin && (
+                  <div className="px-4 py-4 border-t border-border/50 space-y-4">
+
+                    {/* Toggle */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Custom return window</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          OFF = default 2 days · ON = use custom days below
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSettingsForm(prev => ({
+                          ...prev,
+                          return_window_enabled: !prev.return_window_enabled,
+                        }))}
+                        className={cn(
+                          'relative w-10 h-6 rounded-full transition-colors flex-shrink-0',
+                          settingsForm.return_window_enabled ? 'bg-primary' : 'bg-border',
+                        )}
+                      >
+                        <span className={cn(
+                          'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
+                          settingsForm.return_window_enabled ? 'translate-x-5' : 'translate-x-1',
+                        )} />
+                      </button>
+                    </div>
+
+                    {/* Days input */}
+                    {settingsForm.return_window_enabled && (
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block mb-2">
+                          Return window (days)
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min={1}
+                            max={30}
+                            value={settingsForm.return_window_days}
+                            onChange={e => setSettingsForm(prev => ({
+                              ...prev,
+                              return_window_days: Math.max(1, Math.min(30, Number(e.target.value))),
+                            }))}
+                            className="w-24 h-10 rounded-lg border bg-background px-3 text-sm font-semibold text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <span className="text-sm text-muted-foreground">days from purchase date</span>
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+                          Customer has{' '}
+                          <strong>
+                            {settingsForm.return_window_days} day{settingsForm.return_window_days !== 1 ? 's' : ''}
+                          </strong>{' '}
+                          from purchase to return items.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Buttons */}
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={cancelSettingsEdit}
+                        className="h-8 px-4 rounded-lg border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveSettings}
+                        disabled={settingsSaving}
+                        className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        {settingsSaving ? 'Saving…' : 'Save settings'}
+                      </button>
+                    </div>
+
+                    {/* Last updated */}
+                    {billingSettings?.updated_at && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Last updated:{' '}
+                        {new Date(billingSettings.updated_at).toLocaleDateString('en-IN', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                        {billingSettings.updated_by_name && ` by ${billingSettings.updated_by_name}`}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Step 1 — Bill lookup ────────────────────────────────── */}
               <div className="rounded-lg border border-border/50 bg-card p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-3">Step 1 — Find Bill</p>
                 <div className="flex gap-2">
@@ -184,7 +396,7 @@ export function BillReturnPage() {
                     disabled={lookupLoading || !billSearch.trim()}
                     className={cn(
                       'flex items-center gap-1.5 h-9 px-3 rounded-md text-sm font-medium transition-colors',
-                      'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50'
+                      'bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50',
                     )}
                   >
                     <Search size={14} />
@@ -199,7 +411,7 @@ export function BillReturnPage() {
                 )}
               </div>
 
-              {/* Bill info */}
+              {/* ── Bill info ───────────────────────────────────────────── */}
               {bill && (
                 <>
                   <div className="rounded-lg border border-border/50 bg-card p-4 space-y-2">
@@ -222,6 +434,35 @@ export function BillReturnPage() {
                     <p className="text-sm text-muted-foreground">
                       Billed by: <span className="text-foreground">{bill.billed_by_name}</span>
                     </p>
+
+                    {/* Return window status */}
+                    {(() => {
+                      const effectiveDays = billingSettings?.effective_days ?? 2
+                      const expiresAt     = new Date(
+                        new Date(bill.created_at).getTime() + effectiveDays * 24 * 60 * 60 * 1000
+                      )
+                      const isWithin = new Date() <= expiresAt
+                      return (
+                        <div className={cn(
+                          'flex items-center justify-between text-xs rounded-lg px-3 py-2 mt-1',
+                          isWithin
+                            ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                            : 'bg-red-500/10 text-red-600 dark:text-red-400',
+                        )}>
+                          <span>
+                            {isWithin
+                              ? `✅ Within return window (${effectiveDays} days)`
+                              : `❌ Return period expired (${effectiveDays} days)`}
+                          </span>
+                          <span className="font-medium">
+                            {isWithin ? 'Expires' : 'Expired'}{' '}
+                            {expiresAt.toLocaleDateString('en-IN', {
+                              day: 'numeric', month: 'short', year: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   {/* Step 2 — select items */}
@@ -296,7 +537,9 @@ export function BillReturnPage() {
                   {selectedItems.length > 0 && (
                     <div className="rounded-lg border border-border/50 bg-card p-4 space-y-3">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{selectedItems.length} item{selectedItems.length > 1 ? 's' : ''} selected</span>
+                        <span className="text-muted-foreground">
+                          {selectedItems.length} item{selectedItems.length > 1 ? 's' : ''} selected
+                        </span>
                         <span className="font-semibold text-foreground">
                           Est. refund: ₹{totalRefund.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
