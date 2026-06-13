@@ -350,6 +350,24 @@ function EntryRow({
           ))}
         </div>
 
+        {/* Return window */}
+        {entry.return_window_expires && (
+          <div className="mt-2 pt-2 border-t border-border/30">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground/60 font-medium mb-0.5">Return window</p>
+            {new Date(entry.return_window_expires) > new Date() ? (
+              <span className="font-medium text-amber-700 dark:text-amber-400">
+                ⏳ Until {new Date(entry.return_window_expires).toLocaleDateString('en-IN', {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                })}
+              </span>
+            ) : (
+              <span className="font-medium text-green-600 dark:text-green-400">
+                ✅ Window expired — can credit
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Chain visualization */}
         {entry.upline_chain && (
           <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
