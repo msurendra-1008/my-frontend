@@ -39,6 +39,8 @@ import { BillingPage }           from '@/pages/dashboard/admin/BillingPage';
 import { BillReturnPage }        from '@/pages/dashboard/admin/BillReturnPage';
 import { BillHistoryPage }       from '@/pages/dashboard/admin/BillHistoryPage';
 import { DiscountCodesPage }     from '@/pages/dashboard/admin/DiscountCodesPage';
+import { PayrollEmployeesPage } from '@/pages/dashboard/admin/PayrollEmployeesPage';
+import { PayrollPage }          from '@/pages/dashboard/admin/PayrollPage';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -262,6 +264,24 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin']}>
             <DiscountCodesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* HR routes */}
+      <Route
+        path="/admin/hr/employees"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <PayrollEmployeesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/hr/payroll"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <PayrollPage />
           </ProtectedRoute>
         }
       />
