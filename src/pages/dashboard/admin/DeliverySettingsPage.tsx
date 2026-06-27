@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { deliveryService } from '@/services/deliveryService';
 import type { DeliveryZone, DeliveryPartner, DeliverySettings } from '@/types/delivery.types';
-import { Settings, MapPin, Users, Plus, Pencil, Trash2, X } from 'lucide-react';
+import axiosInstance from '@/utils/axiosInstance';
+import { Settings, MapPin, Users, Plus, Pencil, Trash2, X, Check } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 /* ── Types ── */
@@ -48,6 +49,12 @@ export function DeliverySettingsPage() {
 
   const [error, setError] = useState('');
 
+  // Employee picker for new partner
+  const [empSearch,     setEmpSearch]     = useState('');
+  const [empResults,    setEmpResults]    = useState<any[]>([]);
+  const [empSearching,  setEmpSearching]  = useState(false);
+  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null); // user UUID
+
   useEffect(() => {
     loadSettings();
     loadZones();
@@ -67,6 +74,17 @@ export function DeliverySettingsPage() {
 
   function loadPartners() {
     deliveryService.getPartners().then(r => setPartners(r.data.results ?? [])).catch(() => {});
+  }
+
+  async function searchEmployees(query: string) {
+    setEmpSearching(true);
+    try {
+      const res = await axiosInstance.get('/api/v1/hr/employees/', {
+        params: { search: query, page_size: 20 },
+      });
+      setEmpResults(res.data.results ?? []);
+    } catch { setEmpResults([]); }
+    finally { setEmpSearching(false); }
   }
 
   async function saveSettings() {
@@ -115,6 +133,7 @@ export function DeliverySettingsPage() {
   }
 
   function openPartnerModal(partner?: DeliveryPartner) {
+    setEmpSearch(''); setEmpResults([]); setSelectedEmpId(null); setEmpSearching(false);
     if (partner) {
       setEditingPartner(partner);
       setPartnerForm({
@@ -126,12 +145,17 @@ export function DeliverySettingsPage() {
     } else {
       setEditingPartner(null);
       setPartnerForm({ user: '', vehicle_type: 'bike', vehicle_number: '', zone_ids: [] });
+      searchEmployees('');
     }
     setShowPartnerModal(true);
     setError('');
   }
 
   async function savePartner() {
+    if (!editingPartner && !partnerForm.user) {
+      setError('Please select an employee.');
+      return;
+    }
     setPartnerSaving(true);
     setError('');
     try {
@@ -399,14 +423,63 @@ export function DeliverySettingsPage() {
             </div>
             <div className="space-y-3">
               {!editingPartner && (
-                <div>
-                  <label className="text-xs text-muted-foreground">User ID (delivery_partner role)</label>
-                  <input
-                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
-                    value={partnerForm.user}
-                    onChange={e => setPartnerForm(f => ({ ...f, user: e.target.value }))}
-                    placeholder="UUID of user with delivery_partner role"
-                  />
+                <div className="relative">
+                  <label className="text-xs text-muted-foreground block mb-1">Employee *</label>
+                  {selectedEmpId ? (
+                    <div className="flex items-center gap-2 rounded-md border border-green-400/40 bg-green-500/10 px-3 py-2">
+                      <Check size={13} className="shrink-0 text-green-600 dark:text-green-400" />
+                      <span className="flex-1 text-sm text-green-600 dark:text-green-400">{empSearch}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedEmpId(null);
+                          setEmpSearch('');
+                          setPartnerForm(f => ({ ...f, user: '' }));
+                          searchEmployees('');
+                        }}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={empSearch}
+                        onChange={e => {
+                          setEmpSearch(e.target.value);
+                          setPartnerForm(f => ({ ...f, user: '' }));
+                          searchEmployees(e.target.value);
+                        }}
+                        placeholder="Search by name or employee code…"
+                        className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      {(empResults.length > 0 || empSearching) && (
+                        <div className="absolute z-10 top-full left-0 right-0 bg-card border border-border/50 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                          {empSearching && <p className="px-3 py-2 text-xs text-muted-foreground">Searching…</p>}
+                          {empResults.map((emp: any) => (
+                            <button
+                              key={emp.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedEmpId(emp.user);
+                                setPartnerForm(f => ({ ...f, user: emp.user }));
+                                setEmpSearch(`${emp.full_name} (${emp.employee_code})`);
+                                setEmpResults([]);
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-muted/30 border-b border-border/30 last:border-0"
+                            >
+                              <p className="font-medium text-foreground">{emp.full_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {emp.employee_code}{emp.designation ? ` · ${emp.designation}` : ''} · {emp.department_name || 'No dept'}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
               <div>
