@@ -3,6 +3,7 @@ import { Search, Package, ChevronRight, X, RotateCcw } from 'lucide-react';
 import { orderService } from '@/services/orderService';
 import { returnsService } from '@/services/returnsService';
 import { productService } from '@/services/productService';
+import axiosInstance from '@/utils/axiosInstance';
 import type { OrderListItem, Order, OrderStatus, PaymentStatus, OrderItem } from '@/types/order.types';
 import type { ReturnSettings, ReturnRequestType } from '@/types/returns.types';
 import type { ProductVariant } from '@/types/product.types';
@@ -289,10 +290,18 @@ function OrderDetailSheet({
   const [showSatisfiedConfirm, setShowSatisfiedConfirm] = useState(false);
   const [satisfying,          setSatisfying]          = useState(false);
   const [satisfiedError,      setSatisfiedError]      = useState('');
+  const [deliveryOtp,         setDeliveryOtp]         = useState<string | null>(null);
 
   useEffect(() => {
     orderService.getMyOrder(orderId)
-      .then((o) => setOrder(o.data))
+      .then((o) => {
+        setOrder(o.data);
+        if (['packed', 'shipped'].includes(o.data.order_status)) {
+          axiosInstance.get<{ otp: string | null; status: string | null }>(
+            `/api/v1/orders/${orderId}/delivery-otp/`
+          ).then(r => setDeliveryOtp(r.data.otp)).catch(() => {});
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
     returnsService.getSettings()
@@ -503,6 +512,17 @@ function OrderDetailSheet({
                 <div className="rounded-xl border p-4 text-sm">
                   <p className="font-semibold mb-1">Tracking</p>
                   <p className="font-mono text-muted-foreground">{order.tracking_number}</p>
+                </div>
+              )}
+
+              {/* Delivery OTP */}
+              {deliveryOtp && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+                  <p className="font-semibold mb-1 text-foreground">Delivery OTP</p>
+                  <p className="text-xs text-muted-foreground mb-2">Share this OTP with the delivery partner to confirm receipt.</p>
+                  <div className="flex items-center justify-center rounded-lg bg-background border border-border py-3">
+                    <span className="font-mono text-2xl font-bold tracking-widest text-primary">{deliveryOtp}</span>
+                  </div>
                 </div>
               )}
             </div>

@@ -39,8 +39,12 @@ import { BillingPage }           from '@/pages/dashboard/admin/BillingPage';
 import { BillReturnPage }        from '@/pages/dashboard/admin/BillReturnPage';
 import { BillHistoryPage }       from '@/pages/dashboard/admin/BillHistoryPage';
 import { DiscountCodesPage }     from '@/pages/dashboard/admin/DiscountCodesPage';
-import { PayrollEmployeesPage } from '@/pages/dashboard/admin/PayrollEmployeesPage';
-import { PayrollPage }          from '@/pages/dashboard/admin/PayrollPage';
+import { PayrollEmployeesPage }    from '@/pages/dashboard/admin/PayrollEmployeesPage';
+import { PayrollPage }             from '@/pages/dashboard/admin/PayrollPage';
+import { DeliverySettingsPage }    from '@/pages/dashboard/admin/DeliverySettingsPage';
+import { DeliveryAssignPage }      from '@/pages/dashboard/admin/DeliveryAssignPage';
+import { DeliveryTrackingPage }    from '@/pages/dashboard/admin/DeliveryTrackingPage';
+import { DeliveryPartnerDashboard } from '@/pages/delivery/DeliveryPartnerDashboard';
 import { VendorLogin }        from '@/pages/vendor/VendorLogin';
 import { VendorRegister }     from '@/pages/vendor/VendorRegister';
 import { VendorDashboard }    from '@/pages/vendor/VendorDashboard';
@@ -264,6 +268,42 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin']}>
             <DiscountCodesPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Delivery admin routes */}
+      <Route
+        path="/admin/delivery/settings"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <DeliverySettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/delivery/assign"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <DeliveryAssignPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/delivery/tracking"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <DeliveryTrackingPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Delivery partner dashboard */}
+      <Route
+        path="/delivery"
+        element={
+          <ProtectedRoute allowedRoles={['delivery_partner']}>
+            <DeliveryPartnerDashboard />
           </ProtectedRoute>
         }
       />

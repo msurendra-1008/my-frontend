@@ -24,7 +24,9 @@ export function AdminLogin() {
   const [apiError, setApiError] = useState('');
 
   useEffect(() => {
-    if (isAuthenticated && user?.role !== 'upa_user') navigate('/admin/dashboard', { replace: true });
+    if (!isAuthenticated || !user) return;
+    if (user.role === 'delivery_partner') navigate('/delivery', { replace: true });
+    else if (user.role !== 'upa_user') navigate('/admin/dashboard', { replace: true });
   }, [isAuthenticated, user, navigate]);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
@@ -36,7 +38,11 @@ export function AdminLogin() {
     try {
       const res = await authService.adminLogin(data);
       setAuth(res.data.user, res.data.access, res.data.refresh);
-      navigate('/admin/dashboard', { replace: true });
+      if (res.data.user.role === 'delivery_partner') {
+        navigate('/delivery', { replace: true });
+      } else {
+        navigate('/admin/dashboard', { replace: true });
+      }
     } catch (err: unknown) {
       const errObj = err as { response?: { data?: { non_field_errors?: string[]; detail?: string } } };
       const msg = errObj?.response?.data?.non_field_errors?.[0]
