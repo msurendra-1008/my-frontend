@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { deliveryService } from '@/services/deliveryService';
 import type { DeliveryZone, DeliveryPartner, DeliverySettings } from '@/types/delivery.types';
-import { Settings, MapPin, Users, Plus, Pencil, Trash2, X, Check } from 'lucide-react';
+import { Settings, MapPin, Users, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 /* ── Types ── */
@@ -41,7 +41,7 @@ export function DeliverySettingsPage() {
 
   // Partners state
   const [partners, setPartners]     = useState<DeliveryPartner[]>([]);
-  const [partnerForm, setPartnerForm] = useState({ user: '', vehicle_type: 'bike', vehicle_number: '', zone_ids: [] as string[] });
+  const [partnerForm, setPartnerForm] = useState<{ user: string; vehicle_type: 'bike' | 'scooter' | 'car' | 'van' | 'other'; vehicle_number: string; zone_ids: string[] }>({ user: '', vehicle_type: 'bike', vehicle_number: '', zone_ids: [] });
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [editingPartner, setEditingPartner] = useState<DeliveryPartner | null>(null);
   const [partnerSaving, setPartnerSaving] = useState(false);
@@ -413,10 +413,10 @@ export function DeliverySettingsPage() {
                 <label className="text-xs text-muted-foreground">Vehicle Type</label>
                 <select
                   value={partnerForm.vehicle_type}
-                  onChange={e => setPartnerForm(f => ({ ...f, vehicle_type: e.target.value }))}
+                  onChange={e => setPartnerForm(f => ({ ...f, vehicle_type: e.target.value as 'bike' | 'scooter' | 'car' | 'van' | 'other' }))}
                   className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
                 >
-                  {['bike', 'scooter', 'car', 'van', 'other'].map(v => (
+                  {(['bike', 'scooter', 'car', 'van', 'other'] as const).map(v => (
                     <option key={v} value={v} className="capitalize">{v}</option>
                   ))}
                 </select>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { deliveryService } from '@/services/deliveryService';
 import type { DeliveryAssignment, DeliveryStatus } from '@/types/delivery.types';
-import { Package, Truck, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; icon: React.ReactNode; color: string }> = {
