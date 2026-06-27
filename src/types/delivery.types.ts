@@ -74,6 +74,17 @@ export interface PartnerAssignment {
   logs:            DeliveryStatusLog[];
 }
 
+export interface UnassignedOrder {
+  order_id:          string;
+  order_number:      string;
+  customer_name:     string;
+  address_city:      string;
+  address_pincode:   string;
+  total_amount:      string;
+  item_count:        number;
+  suggested_partner: DeliveryPartner | null;
+}
+
 export interface Paginated<T> {
   count:    number;
   next:     string | null;

@@ -1,7 +1,7 @@
 import axiosInstance from '@/utils/axiosInstance';
 import type {
   DeliveryZone, DeliveryPartner, DeliverySettings,
-  DeliveryAssignment, PartnerAssignment, Paginated,
+  DeliveryAssignment, PartnerAssignment, Paginated, UnassignedOrder,
 } from '@/types/delivery.types';
 
 // ── Zones ─────────────────────────────────────────────────────────────────────
@@ -36,6 +36,10 @@ export const deliveryService = {
 
   updateSettings: (data: Partial<DeliverySettings>) =>
     axiosInstance.patch<DeliverySettings>('/api/v1/delivery/settings/', data),
+
+  // Unassigned packed orders (admin)
+  getUnassignedOrders: () =>
+    axiosInstance.get<UnassignedOrder[]>('/api/v1/delivery/admin/unassigned/'),
 
   // Assignments (admin)
   getAssignments: (params?: { status?: string; partner?: string }) =>

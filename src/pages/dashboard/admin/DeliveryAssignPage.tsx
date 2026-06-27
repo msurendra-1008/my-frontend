@@ -1,54 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { deliveryService } from '@/services/deliveryService';
-import type { DeliveryPartner } from '@/types/delivery.types';
-import axiosInstance from '@/utils/axiosInstance';
+import type { DeliveryPartner, UnassignedOrder } from '@/types/delivery.types';
 import { Search, Truck, CheckCircle } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
-interface OrderItem { id: string; order_number: string; address_pincode: string; address_city: string; }
-
-interface Paginated<T> { count: number; results: T[]; }
-
 export function DeliveryAssignPage() {
-  const [mobileOpen, setMobileOpen]           = useState(false);
-  const [orders, setOrders]                   = useState<OrderItem[]>([]);
-  const [loading, setLoading]                 = useState(true);
-  const [search, setSearch]                   = useState('');
-  const [selected, setSelected]               = useState<OrderItem | null>(null);
+  const [mobileOpen, setMobileOpen]             = useState(false);
+  const [orders, setOrders]                     = useState<UnassignedOrder[]>([]);
+  const [loading, setLoading]                   = useState(true);
+  const [search, setSearch]                     = useState('');
+  const [selected, setSelected]                 = useState<UnassignedOrder | null>(null);
   const [eligiblePartners, setEligiblePartners] = useState<DeliveryPartner[]>([]);
-  const [allPartners, setAllPartners]         = useState<DeliveryPartner[]>([]);
-  const [loadingPartners, setLoadingPartners] = useState(false);
-  const [manualPartnerId, setManualPartnerId] = useState('');
-  const [assigning, setAssigning]             = useState(false);
-  const [success, setSuccess]                 = useState('');
-  const [error, setError]                     = useState('');
+  const [allPartners, setAllPartners]           = useState<DeliveryPartner[]>([]);
+  const [loadingPartners, setLoadingPartners]   = useState(false);
+  const [manualPartnerId, setManualPartnerId]   = useState('');
+  const [assigning, setAssigning]               = useState(false);
+  const [success, setSuccess]                   = useState('');
+  const [error, setError]                       = useState('');
 
-  // Load all partners once on mount for the fallback dropdown
   useEffect(() => {
     deliveryService.getPartners()
       .then(r => setAllPartners(r.data.results ?? []))
       .catch(() => {});
+    loadUnassigned();
   }, []);
 
-  useEffect(() => { loadPackedOrders(); }, [search]);
-
-  function loadPackedOrders() {
+  function loadUnassigned() {
     setLoading(true);
-    axiosInstance.get<Paginated<any>>('/api/v1/orders/admin/', {
-      params: { order_status: 'packed', search: search || undefined },
-    }).then(r => {
-      const results = r.data.results ?? [];
-      setOrders(results.map((o: any) => ({
-        id: o.id,
-        order_number: o.order_number,
-        address_pincode: o.address_pincode ?? '',
-        address_city: o.address_city ?? '',
-      })));
-    }).catch(() => {}).finally(() => setLoading(false));
+    deliveryService.getUnassignedOrders()
+      .then(r => setOrders(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }
 
-  async function selectOrder(order: OrderItem) {
+  // Client-side search filter
+  const filteredOrders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return orders;
+    return orders.filter(o =>
+      o.order_number.toLowerCase().includes(q) ||
+      o.customer_name.toLowerCase().includes(q) ||
+      o.address_city.toLowerCase().includes(q) ||
+      o.address_pincode.includes(q),
+    );
+  }, [orders, search]);
+
+  async function selectOrder(order: UnassignedOrder) {
     setSelected(order);
     setEligiblePartners([]);
     setManualPartnerId('');
@@ -56,7 +54,7 @@ export function DeliveryAssignPage() {
     setError('');
     setLoadingPartners(true);
     try {
-      const r = await deliveryService.suggestPartners(order.id);
+      const r = await deliveryService.suggestPartners(order.order_id);
       setEligiblePartners(r.data.eligible_partners ?? []);
     } catch { setError('Failed to load eligible partners.'); }
     finally { setLoadingPartners(false); }
@@ -67,30 +65,29 @@ export function DeliveryAssignPage() {
     setAssigning(true);
     setError('');
     try {
-      await deliveryService.assignPartner(selected.id, partnerId);
+      await deliveryService.assignPartner(selected.order_id, partnerId);
       setSuccess(`Assigned! Order ${selected.order_number} is now in transit.`);
-      loadPackedOrders();
+      loadUnassigned();
       setSelected(null);
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Assignment failed.');
     } finally { setAssigning(false); }
   }
 
-  async function doAutoAssign(order: OrderItem) {
+  async function doAutoAssign(order: UnassignedOrder) {
     setAssigning(true);
     setError('');
     setSuccess('');
     try {
-      await deliveryService.autoAssign(order.id);
+      await deliveryService.autoAssign(order.order_id);
       setSuccess(`Auto-assigned! Order ${order.order_number} is now in transit.`);
-      loadPackedOrders();
+      loadUnassigned();
       setSelected(null);
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'No eligible partner found.');
     } finally { setAssigning(false); }
   }
 
-  // Label shown in the <select> option for a partner
   function partnerLabel(p: DeliveryPartner) {
     const parts = [p.full_name];
     if (p.mobile) parts.push(p.mobile);
@@ -120,13 +117,13 @@ export function DeliveryAssignPage() {
           )}
 
           <div className="flex gap-4">
-            {/* Packed orders list */}
+            {/* Unassigned orders list */}
             <div className="flex-1 space-y-3">
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-2 text-sm text-foreground"
-                  placeholder="Search packed orders…"
+                  placeholder="Search by order number, customer, city…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
@@ -134,21 +131,24 @@ export function DeliveryAssignPage() {
               <div className="rounded-lg border border-border/50 overflow-hidden">
                 {loading ? (
                   <div className="p-8 text-center text-muted-foreground text-sm">Loading…</div>
-                ) : orders.length === 0 ? (
+                ) : filteredOrders.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground text-sm">No packed orders awaiting delivery</div>
                 ) : (
                   <div className="divide-y divide-border/30">
-                    {orders.map(o => (
+                    {filteredOrders.map(o => (
                       <div
-                        key={o.id}
+                        key={o.order_id}
                         className={cn(
                           'flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors',
-                          selected?.id === o.id && 'bg-primary/5',
+                          selected?.order_id === o.order_id && 'bg-primary/5',
                         )}
                       >
                         <button className="flex-1 text-left" onClick={() => selectOrder(o)}>
                           <span className="font-medium text-sm text-foreground">{o.order_number}</span>
-                          <p className="text-xs text-muted-foreground">{o.address_city} · {o.address_pincode}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {o.customer_name} · {o.address_city} · {o.address_pincode}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{o.item_count} item{o.item_count !== 1 ? 's' : ''}</p>
                         </button>
                         <button
                           onClick={() => doAutoAssign(o)}
@@ -173,7 +173,6 @@ export function DeliveryAssignPage() {
                     <p className="text-xs text-muted-foreground">for {selected.order_number} · {selected.address_pincode}</p>
                   </div>
 
-                  {/* Zone-matched suggestions */}
                   {loadingPartners && <p className="text-sm text-muted-foreground">Finding partners…</p>}
 
                   {!loadingPartners && eligiblePartners.length > 0 && (
@@ -203,7 +202,7 @@ export function DeliveryAssignPage() {
                     <p className="text-xs text-muted-foreground">No zone-matched partners for this pincode.</p>
                   )}
 
-                  {/* Divider */}
+                  {/* Fallback: choose any active partner */}
                   <div className="border-t border-border/40 pt-3">
                     <p className="text-xs font-medium text-muted-foreground mb-2">
                       {eligiblePartners.length > 0 ? 'Or choose any partner:' : 'Choose any active partner:'}
