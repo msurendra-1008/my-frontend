@@ -34,6 +34,7 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo }: Protected
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     if (user.role === 'upa_user') return <Navigate to="/dashboard" replace />;
     if (user.role === 'vendor') return <Navigate to="/vendor/dashboard" replace />;
+    if (user.role === 'delivery_partner') return <Navigate to="/delivery" replace />;
     return <Navigate to="/admin/dashboard" replace />;
   }
 
