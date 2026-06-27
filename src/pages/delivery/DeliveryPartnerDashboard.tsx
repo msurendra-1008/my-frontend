@@ -6,8 +6,8 @@ import { tokenStorage } from '@/utils/axiosInstance';
 import { deliveryService } from '@/services/deliveryService';
 import type { PartnerAssignment, DeliveryStatus } from '@/types/delivery.types';
 import {
-  Package, Truck, CheckCircle, XCircle, Clock,
-  Camera, AlertTriangle, LogOut, RefreshCw,
+  Package, Truck, CheckCircle, XCircle,
+  Camera, LogOut, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -318,9 +318,6 @@ export function DeliveryPartnerDashboard() {
 
   function load() {
     setLoading(true);
-    const params = tab === 'active'
-      ? { status: 'assigned,picked_up' }
-      : { status: 'delivered,failed,cancelled' };
     // For active: fetch both assigned and picked_up separately
     if (tab === 'active') {
       Promise.all([
