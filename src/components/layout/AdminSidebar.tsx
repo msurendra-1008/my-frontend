@@ -11,7 +11,7 @@ import {
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
   Building2, PackageSearch, FileText, ClipboardList, ClipboardCheck,
   PieChart, LogOut, ChevronDown, X, Coins, Wallet, BadgeDollarSign, Landmark,
-  Receipt, Tag, Users2, Banknote,
+  Receipt, Tag, Users2, Banknote, Truck, MapPin, Settings2,
 } from 'lucide-react';
 
 /* ── Types ── */
@@ -119,6 +119,14 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    key: 'delivery', label: 'Delivery', title: 'Delivery & Logistics',
+    items: [
+      { label: 'Settings & Zones', path: '/admin/delivery/settings',  icon: Settings2, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Assign Orders',    path: '/admin/delivery/assign',    icon: Truck,     allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Tracking',         path: '/admin/delivery/tracking',  icon: MapPin,    allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+    ],
+  },
+  {
     key: 'reports', label: 'Reports',
     items: [
       { label: 'Reports', path: '/admin/reports', icon: PieChart, allowedRoles: ['superadmin', 'admin'], soon: true },
@@ -143,7 +151,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       return saved ? JSON.parse(saved) : {
         people: true, network: true, master: true,
         sales: true, ims: true, vm: true,
-        tm: true, ops: true, finance: true, reports: true,
+        tm: true, ops: true, finance: true, delivery: true, reports: true,
       };
     } catch { return {}; }
   });

@@ -27,6 +27,10 @@ const blankProfile = (): Partial<CreateEmployeeProfilePayload & UpdateEmployeePr
   user: '', employee_code: '', department: null, designation: '',
   employment_type: 'full_time', date_of_joining: '',
   bank_name: '', bank_account: '', bank_ifsc: '', is_active: true,
+  needs_system_access: false,
+  can_manage_orders: false, can_manage_products: false, can_manage_billing: false,
+  can_view_reports: false, can_manage_returns: false, can_manage_warehouse: false,
+  can_manage_vendors: false, can_manage_tenders: false, can_manage_procurement: false,
 })
 
 const blankSalary = (): SalaryStructurePayload => ({
@@ -77,10 +81,12 @@ export function PayrollEmployeesPage() {
   const [selectedUserLabel, setSelectedUserLabel] = useState('')
 
   /* permissions tab */
-  const [permList,    setPermList]    = useState<string[]>([])
-  const [permLoading, setPermLoading] = useState(false)
-  const [permSaving,  setPermSaving]  = useState(false)
-  const [permMsg,     setPermMsg]     = useState<string | null>(null)
+  const [permList,     setPermList]     = useState<string[]>([])
+  const [permLoading,  setPermLoading]  = useState(false)
+  const [permSaving,   setPermSaving]   = useState(false)
+  const [permMsg,      setPermMsg]      = useState<string | null>(null)
+  const [moduleSaving, setModuleSaving] = useState(false)
+  const [moduleMsg,    setModuleMsg]    = useState<string | null>(null)
 
   /* inline create-account form */
   const [showCreateUser,  setShowCreateUser]  = useState(false)
@@ -158,15 +164,25 @@ export function PayrollEmployeesPage() {
   function openEdit(emp: EmployeeProfile) {
     setEditing(emp)
     setProfileForm({
-      employee_code:   emp.employee_code,
-      department:      emp.department,
-      designation:     emp.designation,
-      employment_type: emp.employment_type,
-      date_of_joining: emp.date_of_joining ?? '',
-      bank_name:       emp.bank_name,
-      bank_account:    emp.bank_account,
-      bank_ifsc:       emp.bank_ifsc,
-      is_active:       emp.is_active,
+      employee_code:          emp.employee_code,
+      department:             emp.department,
+      designation:            emp.designation,
+      employment_type:        emp.employment_type,
+      date_of_joining:        emp.date_of_joining ?? '',
+      bank_name:              emp.bank_name,
+      bank_account:           emp.bank_account,
+      bank_ifsc:              emp.bank_ifsc,
+      is_active:              emp.is_active,
+      needs_system_access:    emp.needs_system_access,
+      can_manage_orders:      emp.can_manage_orders,
+      can_manage_products:    emp.can_manage_products,
+      can_manage_billing:     emp.can_manage_billing,
+      can_view_reports:       emp.can_view_reports,
+      can_manage_returns:     emp.can_manage_returns,
+      can_manage_warehouse:   emp.can_manage_warehouse,
+      can_manage_vendors:     emp.can_manage_vendors,
+      can_manage_tenders:     emp.can_manage_tenders,
+      can_manage_procurement: emp.can_manage_procurement,
     })
     if (emp.salary_structure) {
       const s = emp.salary_structure
@@ -223,6 +239,30 @@ export function PayrollEmployeesPage() {
       const e = err as { response?: { data?: unknown } }
       setSalaryMsg('Error: ' + JSON.stringify(e.response?.data ?? 'Unknown error'))
     } finally { setSalarySaving(false) }
+  }
+
+  /* ── save module access flags ── */
+  async function saveModuleAccess() {
+    if (!editing) return
+    setModuleSaving(true); setModuleMsg(null)
+    try {
+      await payrollService.updateEmployee(editing.id, {
+        can_manage_orders:      profileForm.can_manage_orders,
+        can_manage_products:    profileForm.can_manage_products,
+        can_manage_billing:     profileForm.can_manage_billing,
+        can_view_reports:       profileForm.can_view_reports,
+        can_manage_returns:     profileForm.can_manage_returns,
+        can_manage_warehouse:   profileForm.can_manage_warehouse,
+        can_manage_vendors:     profileForm.can_manage_vendors,
+        can_manage_tenders:     profileForm.can_manage_tenders,
+        can_manage_procurement: profileForm.can_manage_procurement,
+      } as UpdateEmployeeProfilePayload)
+      setModuleMsg('Module access saved.')
+      loadData()
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: unknown } }
+      setModuleMsg('Error: ' + JSON.stringify(e.response?.data ?? 'Failed'))
+    } finally { setModuleSaving(false) }
   }
 
   /* ── add dept ── */
@@ -405,7 +445,28 @@ export function PayrollEmployeesPage() {
               {/* ── Basic Info tab ── */}
               {drawerTab === 'basic' && (
                 <form onSubmit={saveProfile} className="space-y-4">
-                  {!editing && (
+                  {/* needs_system_access toggle — always visible */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setProfileForm(prev => ({ ...prev, needs_system_access: !prev.needs_system_access }))}
+                      className={cn(
+                        'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors',
+                        profileForm.needs_system_access ? 'bg-primary' : 'bg-muted-foreground/30',
+                      )}
+                    >
+                      <span className={cn(
+                        'inline-block h-4 w-4 rounded-full bg-white transition-transform',
+                        profileForm.needs_system_access ? 'translate-x-6' : 'translate-x-1',
+                      )} />
+                    </button>
+                    <div>
+                      <span className="text-sm font-medium">Needs System Access</span>
+                      <p className="text-xs text-muted-foreground">Can log in to the system. Disable for payroll-only employees.</p>
+                    </div>
+                  </div>
+
+                  {!editing && profileForm.needs_system_access && (
                     <div>
                       <label className="mb-1 block text-sm font-medium">User *</label>
 
@@ -792,11 +853,67 @@ export function PayrollEmployeesPage() {
                     <p className="text-xs text-muted-foreground">{editing.email} · Role: <span className="font-medium text-foreground">{editing.role}</span></p>
                   </div>
 
+                  {/* Module feature access flags (saved to payroll endpoint) */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module Feature Access</p>
+                    <p className="text-xs text-muted-foreground">Payroll-tracked feature flags for this employee.</p>
+                    {([
+                      { key: 'can_manage_orders',      label: 'Manage Orders' },
+                      { key: 'can_manage_products',     label: 'Manage Products' },
+                      { key: 'can_manage_billing',      label: 'Manage Billing' },
+                      { key: 'can_view_reports',        label: 'View Reports' },
+                      { key: 'can_manage_returns',      label: 'Manage Returns' },
+                      { key: 'can_manage_warehouse',    label: 'Manage Warehouse' },
+                      { key: 'can_manage_vendors',      label: 'Manage Vendors' },
+                      { key: 'can_manage_tenders',      label: 'Manage Tenders' },
+                      { key: 'can_manage_procurement',  label: 'Manage Procurement' },
+                    ] as const).map(({ key, label }) => {
+                      const checked = !!profileForm[key]
+                      return (
+                        <label
+                          key={key}
+                          className={cn(
+                            'flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition-colors',
+                            checked ? 'border-primary/20 bg-primary/5' : 'hover:bg-muted/30',
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary shrink-0"
+                            checked={checked}
+                            onChange={() => setProfileForm(prev => ({ ...prev, [key]: !prev[key] }))}
+                          />
+                          <span className={cn('text-sm', checked && 'font-medium text-primary')}>{label}</span>
+                        </label>
+                      )
+                    })}
+
+                    {moduleMsg && (
+                      <p className={cn(
+                        'rounded-md px-3 py-2 text-sm',
+                        moduleMsg.startsWith('Error') ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-green-500/10 text-green-600 dark:text-green-400',
+                      )}>{moduleMsg}</p>
+                    )}
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        disabled={moduleSaving}
+                        onClick={saveModuleAccess}
+                        className="flex items-center gap-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                      >
+                        {moduleSaving ? 'Saving…' : <><Check className="h-4 w-4" /> Save Module Access</>}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border/40 pt-4" />
+
                   {permLoading ? (
                     <p className="text-sm text-muted-foreground">Loading permissions…</p>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module Access</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">System Access Permissions</p>
                       {([
                         {
                           module: 'Products',
