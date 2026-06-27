@@ -26,49 +26,79 @@ export interface SalaryStructure {
 }
 
 export interface EmployeeProfile {
-  id:              string
-  user:            string
-  full_name:       string
-  email:           string
-  mobile:          string
-  role:            string
-  employee_code:   string
-  department:      string | null
-  department_name: string | null
-  designation:     string
-  employment_type: EmploymentType
-  date_of_joining: string | null
-  bank_name:       string
-  bank_account:    string
-  bank_ifsc:       string
-  is_active:       boolean
-  salary_structure: SalaryStructure | null
-  created_at:      string
-  updated_at:      string
+  id:                     string
+  user:                   string
+  full_name:              string
+  email:                  string
+  mobile:                 string
+  role:                   string
+  employee_code:          string
+  department:             string | null
+  department_name:        string | null
+  designation:            string
+  employment_type:        EmploymentType
+  date_of_joining:        string | null
+  bank_name:              string
+  bank_account:           string
+  bank_ifsc:              string
+  is_active:              boolean
+  needs_system_access:    boolean
+  can_manage_orders:      boolean
+  can_manage_products:    boolean
+  can_manage_billing:     boolean
+  can_view_reports:       boolean
+  can_manage_returns:     boolean
+  can_manage_warehouse:   boolean
+  can_manage_vendors:     boolean
+  can_manage_tenders:     boolean
+  can_manage_procurement: boolean
+  salary_structure:       SalaryStructure | null
+  created_at:             string
+  updated_at:             string
 }
 
 export interface CreateEmployeeProfilePayload {
-  user:            string
-  employee_code:   string
-  department?:     string | null
-  designation?:    string
-  employment_type?: EmploymentType
-  date_of_joining?: string | null
-  bank_name?:      string
-  bank_account?:   string
-  bank_ifsc?:      string
+  user:                    string
+  employee_code:           string
+  department?:             string | null
+  designation?:            string
+  employment_type?:        EmploymentType
+  date_of_joining?:        string | null
+  bank_name?:              string
+  bank_account?:           string
+  bank_ifsc?:              string
+  needs_system_access?:    boolean
+  can_manage_orders?:      boolean
+  can_manage_products?:    boolean
+  can_manage_billing?:     boolean
+  can_view_reports?:       boolean
+  can_manage_returns?:     boolean
+  can_manage_warehouse?:   boolean
+  can_manage_vendors?:     boolean
+  can_manage_tenders?:     boolean
+  can_manage_procurement?: boolean
 }
 
 export interface UpdateEmployeeProfilePayload {
-  employee_code?:   string
-  department?:      string | null
-  designation?:     string
-  employment_type?: EmploymentType
-  date_of_joining?: string | null
-  bank_name?:       string
-  bank_account?:    string
-  bank_ifsc?:       string
-  is_active?:       boolean
+  employee_code?:          string
+  department?:             string | null
+  designation?:            string
+  employment_type?:        EmploymentType
+  date_of_joining?:        string | null
+  bank_name?:              string
+  bank_account?:           string
+  bank_ifsc?:              string
+  is_active?:              boolean
+  needs_system_access?:    boolean
+  can_manage_orders?:      boolean
+  can_manage_products?:    boolean
+  can_manage_billing?:     boolean
+  can_view_reports?:       boolean
+  can_manage_returns?:     boolean
+  can_manage_warehouse?:   boolean
+  can_manage_vendors?:     boolean
+  can_manage_tenders?:     boolean
+  can_manage_procurement?: boolean
 }
 
 export interface SalaryStructurePayload {
