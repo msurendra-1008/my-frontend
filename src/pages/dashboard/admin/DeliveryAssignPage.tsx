@@ -11,16 +11,25 @@ interface OrderItem { id: string; order_number: string; address_pincode: string;
 interface Paginated<T> { count: number; results: T[]; }
 
 export function DeliveryAssignPage() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [orders, setOrders]         = useState<OrderItem[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState('');
-  const [selected, setSelected]     = useState<OrderItem | null>(null);
-  const [partners, setPartners]     = useState<DeliveryPartner[]>([]);
+  const [mobileOpen, setMobileOpen]           = useState(false);
+  const [orders, setOrders]                   = useState<OrderItem[]>([]);
+  const [loading, setLoading]                 = useState(true);
+  const [search, setSearch]                   = useState('');
+  const [selected, setSelected]               = useState<OrderItem | null>(null);
+  const [eligiblePartners, setEligiblePartners] = useState<DeliveryPartner[]>([]);
+  const [allPartners, setAllPartners]         = useState<DeliveryPartner[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(false);
-  const [assigning, setAssigning]   = useState(false);
-  const [success, setSuccess]       = useState('');
-  const [error, setError]           = useState('');
+  const [manualPartnerId, setManualPartnerId] = useState('');
+  const [assigning, setAssigning]             = useState(false);
+  const [success, setSuccess]                 = useState('');
+  const [error, setError]                     = useState('');
+
+  // Load all partners once on mount for the fallback dropdown
+  useEffect(() => {
+    deliveryService.getPartners()
+      .then(r => setAllPartners(r.data.results ?? []))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => { loadPackedOrders(); }, [search]);
 
@@ -41,19 +50,20 @@ export function DeliveryAssignPage() {
 
   async function selectOrder(order: OrderItem) {
     setSelected(order);
-    setPartners([]);
+    setEligiblePartners([]);
+    setManualPartnerId('');
     setSuccess('');
     setError('');
     setLoadingPartners(true);
     try {
       const r = await deliveryService.suggestPartners(order.id);
-      setPartners(r.data.eligible_partners ?? []);
+      setEligiblePartners(r.data.eligible_partners ?? []);
     } catch { setError('Failed to load eligible partners.'); }
     finally { setLoadingPartners(false); }
   }
 
   async function doAssign(partnerId: string) {
-    if (!selected) return;
+    if (!selected || !partnerId) return;
     setAssigning(true);
     setError('');
     try {
@@ -78,6 +88,15 @@ export function DeliveryAssignPage() {
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'No eligible partner found.');
     } finally { setAssigning(false); }
+  }
+
+  // Label shown in the <select> option for a partner
+  function partnerLabel(p: DeliveryPartner) {
+    const parts = [p.full_name];
+    if (p.mobile) parts.push(p.mobile);
+    parts.push(p.vehicle_type);
+    parts.push(`${p.active_assignments} active`);
+    return parts.join(' · ');
   }
 
   return (
@@ -147,30 +166,75 @@ export function DeliveryAssignPage() {
 
             {/* Partner selection panel */}
             {selected && (
-              <div className="w-72 flex-shrink-0 space-y-3">
-                <div className="rounded-lg border border-border/50 bg-card p-4">
-                  <h2 className="text-sm font-semibold text-foreground mb-1">Eligible Partners</h2>
-                  <p className="text-xs text-muted-foreground mb-3">for {selected.order_number} · {selected.address_pincode}</p>
+              <div className="w-80 flex-shrink-0 space-y-3">
+                <div className="rounded-lg border border-border/50 bg-card p-4 space-y-4">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground mb-0.5">Eligible Partners</h2>
+                    <p className="text-xs text-muted-foreground">for {selected.order_number} · {selected.address_pincode}</p>
+                  </div>
+
+                  {/* Zone-matched suggestions */}
                   {loadingPartners && <p className="text-sm text-muted-foreground">Finding partners…</p>}
-                  {!loadingPartners && partners.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No eligible partners for this pincode.</p>
-                  )}
-                  <div className="space-y-2">
-                    {partners.map(p => (
-                      <div key={p.id} className="rounded-md border border-border/50 bg-muted/30 p-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{p.full_name}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{p.vehicle_type} · {p.active_assignments} active</p>
+
+                  {!loadingPartners && eligiblePartners.length > 0 && (
+                    <div className="space-y-2">
+                      {eligiblePartners.map(p => (
+                        <div key={p.id} className="rounded-md border border-border/50 bg-muted/30 p-3 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{p.full_name}</p>
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {p.vehicle_type}{p.vehicle_number ? ` · ${p.vehicle_number}` : ''} · {p.active_assignments} active
+                            </p>
+                            {p.mobile && <p className="text-xs text-muted-foreground">{p.mobile}</p>}
+                          </div>
+                          <button
+                            onClick={() => doAssign(p.id)}
+                            disabled={assigning}
+                            className="flex-shrink-0 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                          >
+                            Assign
+                          </button>
                         </div>
-                        <button
-                          onClick={() => doAssign(p.id)}
-                          disabled={assigning}
-                          className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
-                        >
-                          Assign
-                        </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+
+                  {!loadingPartners && eligiblePartners.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No zone-matched partners for this pincode.</p>
+                  )}
+
+                  {/* Divider */}
+                  <div className="border-t border-border/40 pt-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      {eligiblePartners.length > 0 ? 'Or choose any partner:' : 'Choose any active partner:'}
+                    </p>
+                    <div className="flex gap-2">
+                      <select
+                        value={manualPartnerId}
+                        onChange={e => setManualPartnerId(e.target.value)}
+                        className="flex-1 min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+                      >
+                        <option value="">Select partner…</option>
+                        {allPartners
+                          .filter(p => p.is_active)
+                          .map(p => (
+                            <option key={p.id} value={p.id}>
+                              {partnerLabel(p)}
+                            </option>
+                          ))
+                        }
+                      </select>
+                      <button
+                        onClick={() => doAssign(manualPartnerId)}
+                        disabled={assigning || !manualPartnerId}
+                        className="flex-shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                      >
+                        Assign
+                      </button>
+                    </div>
+                    {allPartners.filter(p => p.is_active).length === 0 && (
+                      <p className="mt-1 text-xs text-muted-foreground">No active partners available.</p>
+                    )}
                   </div>
                 </div>
               </div>
