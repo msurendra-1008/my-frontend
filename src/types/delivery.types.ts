@@ -21,9 +21,11 @@ export interface DeliveryPartner {
 }
 
 export interface DeliverySettings {
-  auto_assign:     boolean;
-  assignment_mode: 'zone_match' | 'manual';
-  updated_at:      string;
+  auto_assign:            boolean;
+  assignment_mode:        'manual' | 'suggested' | 'automatic';
+  default_proof_type:     'photo' | 'otp' | 'either';
+  max_orders_per_partner: number;
+  updated_at:             string;
 }
 
 export interface DeliveryStatusLog {
@@ -63,7 +65,6 @@ export interface PartnerAssignment {
   customer_name:   string;
   customer_phone:  string;
   delivery_address: string;
-  otp:             string;
   status:          DeliveryStatus;
   assigned_at:     string;
   picked_up_at:    string | null;
