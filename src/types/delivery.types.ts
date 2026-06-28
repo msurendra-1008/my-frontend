@@ -65,7 +65,6 @@ export interface PartnerAssignment {
   customer_name:   string;
   customer_phone:  string;
   delivery_address: string;
-  otp:             string;
   status:          DeliveryStatus;
   assigned_at:     string;
   picked_up_at:    string | null;

@@ -29,22 +29,33 @@ function StatusBadge({ status }: { status: DeliveryStatus }) {
   );
 }
 
-/* ── Modal: mark delivered ── */
-function DeliveredModal({
+/* ── Modal: proof of delivery ── */
+function ProofOfDeliveryModal({
   assignment, onClose, onDone,
 }: { assignment: PartnerAssignment; onClose: () => void; onDone: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [proof, setProof]   = useState<File | null>(null);
-  const [notes, setNotes]   = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState('');
+  const [proofTab, setProofTab] = useState<'photo' | 'otp'>('photo');
+  const [proof, setProof]       = useState<File | null>(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [notes, setNotes]       = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState('');
 
   async function submit() {
+    if (proofTab === 'otp' && otpInput.trim().length !== 6) {
+      setError('Please enter the 6-digit OTP shown on the customer\'s screen.');
+      return;
+    }
     setSaving(true); setError('');
     const fd = new FormData();
     fd.append('status', 'delivered');
     fd.append('notes', notes);
-    if (proof) fd.append('proof_image', proof);
+    if (proofTab === 'photo') {
+      if (proof) fd.append('proof_image', proof);
+    } else {
+      fd.append('proof_type', 'otp');
+      fd.append('otp_input', otpInput.trim());
+    }
     try {
       await deliveryService.updateMyStatus(assignment.id, fd);
       onDone();
@@ -56,24 +67,61 @@ function DeliveredModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
       <div className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-card border border-border p-5 shadow-2xl">
-        <h2 className="text-sm font-semibold text-foreground mb-1">Mark as Delivered</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-1">Confirm Delivery</h2>
         <p className="text-xs text-muted-foreground mb-4">{assignment.order_number} · {assignment.customer_name}</p>
+
+        {/* Proof type tabs */}
+        <div className="flex rounded-lg border border-border overflow-hidden mb-4">
+          <button
+            onClick={() => { setProofTab('photo'); setError(''); }}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-medium transition-colors',
+              proofTab === 'photo' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50',
+            )}>
+            <Camera size={12} className="inline mr-1" />Photo
+          </button>
+          <button
+            onClick={() => { setProofTab('otp'); setError(''); }}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-medium transition-colors',
+              proofTab === 'otp' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50',
+            )}>
+            OTP
+          </button>
+        </div>
+
         <div className="space-y-3">
-          <div
-            onClick={() => fileRef.current?.click()}
-            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/60 py-6 cursor-pointer hover:border-primary/50 transition-colors"
-          >
-            {proof ? (
-              <p className="text-sm text-green-600 dark:text-green-400 font-medium">{proof.name}</p>
-            ) : (
-              <>
-                <Camera size={20} className="text-muted-foreground mb-1" />
-                <p className="text-xs text-muted-foreground">Upload delivery proof photo</p>
-              </>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
-              onChange={e => setProof(e.target.files?.[0] ?? null)} />
-          </div>
+          {proofTab === 'photo' ? (
+            <div
+              onClick={() => fileRef.current?.click()}
+              className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/60 py-6 cursor-pointer hover:border-primary/50 transition-colors"
+            >
+              {proof ? (
+                <p className="text-sm text-green-600 dark:text-green-400 font-medium">{proof.name}</p>
+              ) : (
+                <>
+                  <Camera size={20} className="text-muted-foreground mb-1" />
+                  <p className="text-xs text-muted-foreground">Upload delivery proof photo</p>
+                </>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={e => setProof(e.target.files?.[0] ?? null)} />
+            </div>
+          ) : (
+            <div>
+              <label className="text-xs text-muted-foreground">Enter OTP shown on customer's screen</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otpInput}
+                onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="6-digit OTP"
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-center font-mono text-2xl font-bold tracking-widest text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground text-center">Ask the customer to show you their order OTP</p>
+            </div>
+          )}
           <div>
             <label className="text-xs text-muted-foreground">Notes (optional)</label>
             <textarea rows={2}
@@ -161,7 +209,7 @@ function AssignmentCard({
   assignment, onRefresh,
 }: { assignment: PartnerAssignment; onRefresh: () => void }) {
   const [expanded, setExpanded]         = useState(false);
-  const [deliveredModal, setDelivered]  = useState(false);
+  const [proofModal, setProofModal]     = useState(false);
   const [failedModal, setFailed]        = useState(false);
   const [pickingUp, setPickingUp]       = useState(false);
 
@@ -204,14 +252,6 @@ function AssignmentCard({
               📍 {assignment.delivery_address}
             </div>
 
-            {/* OTP */}
-            {(assignment.status === 'assigned' || assignment.status === 'picked_up') && (
-              <div className="flex items-center gap-3 rounded-md bg-primary/5 border border-primary/20 px-3 py-2">
-                <span className="text-xs text-muted-foreground">Delivery OTP:</span>
-                <span className="font-mono text-xl font-bold text-primary tracking-widest">{assignment.otp}</span>
-              </div>
-            )}
-
             {/* Actions */}
             {!done && (
               <div className="flex gap-2">
@@ -222,7 +262,7 @@ function AssignmentCard({
                   </button>
                 )}
                 {assignment.status === 'picked_up' && (
-                  <button onClick={() => setDelivered(true)}
+                  <button onClick={() => setProofModal(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-green-500/10 border border-green-400/40 h-10 text-sm font-medium text-green-600 dark:text-green-400">
                     <CheckCircle size={14} /> Delivered
                   </button>
@@ -254,9 +294,9 @@ function AssignmentCard({
         )}
       </div>
 
-      {deliveredModal && (
-        <DeliveredModal assignment={assignment} onClose={() => setDelivered(false)}
-          onDone={() => { setDelivered(false); onRefresh(); }} />
+      {proofModal && (
+        <ProofOfDeliveryModal assignment={assignment} onClose={() => setProofModal(false)}
+          onDone={() => { setProofModal(false); onRefresh(); }} />
       )}
       {failedModal && (
         <FailedModal assignment={assignment} onClose={() => setFailed(false)}
