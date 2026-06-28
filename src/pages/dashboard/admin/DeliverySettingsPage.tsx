@@ -31,7 +31,12 @@ export function DeliverySettingsPage() {
   // Settings state
   const [settings, setSettings]     = useState<DeliverySettings | null>(null);
   const [savingSettings, setSaving] = useState(false);
-  const [settingsForm, setSettingsForm] = useState({ auto_assign: true, assignment_mode: 'zone_match' as 'zone_match' | 'manual' });
+  const [settingsForm, setSettingsForm] = useState<{
+    auto_assign: boolean;
+    assignment_mode: 'manual' | 'suggested' | 'automatic';
+    default_proof_type: 'photo' | 'otp' | 'either';
+    max_orders_per_partner: number;
+  }>({ auto_assign: true, assignment_mode: 'manual', default_proof_type: 'either', max_orders_per_partner: 8 });
 
   // Zones state
   const [zones, setZones]           = useState<DeliveryZone[]>([]);
@@ -64,7 +69,12 @@ export function DeliverySettingsPage() {
   function loadSettings() {
     deliveryService.getSettings().then(r => {
       setSettings(r.data);
-      setSettingsForm({ auto_assign: r.data.auto_assign, assignment_mode: r.data.assignment_mode });
+      setSettingsForm({
+        auto_assign:            r.data.auto_assign,
+        assignment_mode:        r.data.assignment_mode,
+        default_proof_type:     r.data.default_proof_type ?? 'either',
+        max_orders_per_partner: r.data.max_orders_per_partner ?? 8,
+      });
     }).catch(() => {});
   }
 
@@ -237,14 +247,63 @@ export function DeliverySettingsPage() {
                   <label className="text-xs text-muted-foreground mb-1 block">Assignment Mode</label>
                   <select
                     value={settingsForm.assignment_mode}
-                    onChange={e => setSettingsForm(f => ({ ...f, assignment_mode: e.target.value as any }))}
+                    onChange={e => setSettingsForm(f => ({ ...f, assignment_mode: e.target.value as 'manual' | 'suggested' | 'automatic' }))}
                     className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
                   >
-                    <option value="zone_match">Zone Match (match partner's delivery zones)</option>
-                    <option value="manual">Manual (any active partner)</option>
+                    <option value="manual">Manual — I'll assign every order myself</option>
+                    <option value="suggested">Suggested — System suggests, I confirm</option>
+                    <option value="automatic">Automatic — System assigns instantly</option>
                   </select>
                 </div>
+              </div>
 
+              {/* Proof of Delivery */}
+              <div className="rounded-lg border border-border/50 bg-card p-4 space-y-3 mt-4">
+                <div>
+                  <h2 className="text-sm font-medium text-foreground">Proof of Delivery</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">What delivery partners must provide to confirm delivery</p>
+                </div>
+                <div className="flex rounded-md border border-border overflow-hidden">
+                  {([
+                    { value: 'photo',  label: 'Photo only' },
+                    { value: 'otp',    label: 'OTP only' },
+                    { value: 'either', label: 'Either' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSettingsForm(f => ({ ...f, default_proof_type: opt.value }))}
+                      className={cn(
+                        'flex-1 py-2 text-sm font-medium transition-colors border-r border-border last:border-r-0',
+                        settingsForm.default_proof_type === opt.value
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted/30',
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Capacity */}
+              <div className="rounded-lg border border-border/50 bg-card p-4 mt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-medium text-foreground">Max Orders per Partner</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Default capacity limit per delivery partner</p>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    value={settingsForm.max_orders_per_partner}
+                    onChange={e => setSettingsForm(f => ({ ...f, max_orders_per_partner: Number(e.target.value) }))}
+                    className="w-20 rounded-md border border-border bg-background px-2 py-1.5 text-center text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
                 <button
                   onClick={saveSettings}
                   disabled={savingSettings}
