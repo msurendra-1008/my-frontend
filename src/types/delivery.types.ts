@@ -16,8 +16,36 @@ export interface DeliveryPartner {
   vehicle_number:     string;
   zones:              DeliveryZone[];
   is_active:          boolean;
+  is_on_duty:         boolean;
+  duty_started_at:    string | null;
   active_assignments: number;
   created_at:         string;
+}
+
+export type DutyStatus = 'on_duty' | 'off_duty';
+
+export interface DutySession {
+  start:    string;
+  end:      string | null;
+  duration: number;
+  ongoing:  boolean;
+}
+
+export interface DailyLedgerEntry {
+  date:     string;
+  type:     'full' | 'half' | 'absent' | 'future';
+  hours:    number | null;
+  sessions: DutySession[];
+}
+
+export interface MonthlyLedger {
+  year:        number;
+  month:       number;
+  days:        DailyLedgerEntry[];
+  full_days:   number;
+  half_days:   number;
+  absent_days: number;
+  total_hours: number;
 }
 
 export interface DeliverySettings {
