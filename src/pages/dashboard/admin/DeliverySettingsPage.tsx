@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { deliveryService } from '@/services/deliveryService';
-import type { DeliveryZone, DeliveryPartner, DeliverySettings } from '@/types/delivery.types';
+import type { DeliveryZone, DeliveryPartner, DeliverySettings, MonthlyLedger } from '@/types/delivery.types';
 import axiosInstance from '@/utils/axiosInstance';
-import { Settings, MapPin, Users, Plus, Pencil, Trash2, X, Check } from 'lucide-react';
+import {
+  Settings, MapPin, Users, Plus, Pencil, Trash2, X, Check,
+  ChevronDown, ChevronLeft, ChevronRight, Clock, ExternalLink,
+} from 'lucide-react';
 import { cn } from '@/utils/cn';
+
+const MONTHS = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
 
 /* ── Types ── */
 type Tab = 'settings' | 'zones' | 'partners';
@@ -20,6 +28,188 @@ function Badge({ children, green }: { children: React.ReactNode; green?: boolean
     )}>
       {children}
     </span>
+  );
+}
+
+/* ── Partner Detail Sheet ── */
+function PartnerDetailSheet({ partner, onClose }: { partner: DeliveryPartner; onClose: () => void }) {
+  const now = new Date();
+  const [year, setYear]       = useState(now.getFullYear());
+  const [month, setMonth]     = useState(now.getMonth() + 1);
+  const [ledger, setLedger]   = useState<MonthlyLedger | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    deliveryService.getPartnerLedger(partner.id, year, month)
+      .then(r => setLedger(r.data))
+      .catch(() => setLedger(null))
+      .finally(() => setLoading(false));
+  }, [partner.id, year, month]);
+
+  function prevMonth() {
+    if (month === 1) { setYear(y => y - 1); setMonth(12); }
+    else setMonth(m => m - 1);
+  }
+  function nextMonth() {
+    const ny = month === 12 ? year + 1 : year;
+    const nm = month === 12 ? 1 : month + 1;
+    if (ny > now.getFullYear() || (ny === now.getFullYear() && nm > now.getMonth() + 1)) return;
+    setYear(ny); setMonth(nm);
+  }
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+
+  async function openPdf() {
+    setPdfLoading(true);
+    const url = deliveryService.getPartnerMonthlyReportUrl(partner.id, year, month);
+    try {
+      const r = await axiosInstance.get<string>(url, { responseType: 'text' });
+      const blob = new Blob([r.data], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, '_blank');
+      if (win) setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    } catch { /* ignore */ }
+    finally { setPdfLoading(false); }
+  }
+
+  const dayTypeBg: Record<string, string> = {
+    full:   'bg-green-500/10 border-green-400/40 text-green-600 dark:text-green-400',
+    half:   'bg-amber-500/10 border-amber-400/40 text-amber-700 dark:text-amber-400',
+    absent: 'bg-red-500/10 border-red-400/40 text-red-600 dark:text-red-400',
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      {/* Overlay */}
+      <div className="flex-1 bg-black/40" onClick={onClose} />
+
+      {/* Sheet */}
+      <div className="w-full max-w-md flex flex-col h-full bg-card border-l border-border shadow-2xl">
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 py-4 border-b border-border/50 flex-shrink-0">
+          <div>
+            <p className="text-sm font-semibold text-foreground">{partner.full_name}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {partner.vehicle_type}{partner.vehicle_number ? ` · ${partner.vehicle_number}` : ''}
+              {partner.mobile ? ` · ${partner.mobile}` : partner.email ? ` · ${partner.email}` : ''}
+            </p>
+            <div className="flex items-center gap-2 mt-1.5">
+              <Badge green={partner.is_active}>{partner.is_active ? 'Active' : 'Inactive'}</Badge>
+              <span className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                partner.is_on_duty
+                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                  : 'bg-muted text-muted-foreground',
+              )}>
+                <span className={cn('h-1.5 w-1.5 rounded-full', partner.is_on_duty ? 'bg-green-500' : 'bg-muted-foreground/50')} />
+                {partner.is_on_duty ? 'On Duty' : 'Off Duty'}
+              </span>
+              <span className="text-xs text-muted-foreground">{partner.active_assignments} active job{partner.active_assignments !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground rounded">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Month picker + PDF */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border/30 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <button onClick={prevMonth} className="p-1 rounded hover:bg-muted text-muted-foreground">
+              <ChevronLeft size={15} />
+            </button>
+            <span className="text-sm font-medium text-foreground w-32 text-center">
+              {MONTHS[month - 1]} {year}
+            </span>
+            <button onClick={nextMonth} disabled={isCurrentMonth}
+              className="p-1 rounded hover:bg-muted text-muted-foreground disabled:opacity-30">
+              <ChevronRight size={15} />
+            </button>
+          </div>
+          <button
+            onClick={openPdf}
+            disabled={pdfLoading}
+            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 disabled:opacity-50"
+          >
+            <ExternalLink size={12} /> {pdfLoading ? 'Opening…' : 'PDF Report'}
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {loading && <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>}
+
+          {ledger && !loading && (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Full Days',   value: ledger.full_days,   color: 'text-green-600 dark:text-green-400' },
+                  { label: 'Half Days',   value: ledger.half_days,   color: 'text-amber-700 dark:text-amber-400' },
+                  { label: 'Absent Days', value: ledger.absent_days, color: 'text-red-600 dark:text-red-400' },
+                  { label: 'Total Hours', value: `${ledger.total_hours.toFixed(1)}h`, color: 'text-foreground' },
+                ].map(c => (
+                  <div key={c.label} className="rounded-lg border border-border/50 bg-muted/30 p-3 text-center">
+                    <p className={cn('text-xl font-bold', c.color)}>{c.value}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{c.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Day-wise ledger */}
+              <div className="rounded-xl border border-border/50 overflow-hidden">
+                {ledger.days.filter(d => d.type !== 'future').map(day => (
+                  <div key={day.date}>
+                    <button
+                      onClick={() => setExpanded(e => e === day.date ? null : day.date)}
+                      className="w-full flex items-center justify-between px-4 py-2.5 border-b border-border/30 last:border-b-0 hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground w-24 text-left">
+                          {new Date(day.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short' })}
+                        </span>
+                        {day.type !== 'future' && (
+                          <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full border', dayTypeBg[day.type])}>
+                            {day.type === 'full' ? 'Full' : day.type === 'half' ? 'Half' : 'Absent'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {day.hours != null ? `${day.hours.toFixed(1)}h` : '—'}
+                        </span>
+                        {day.sessions.length > 0 && (
+                          <ChevronDown size={13} className={cn('text-muted-foreground transition-transform', expanded === day.date && 'rotate-180')} />
+                        )}
+                      </div>
+                    </button>
+                    {expanded === day.date && day.sessions.length > 0 && (
+                      <div className="px-4 py-2.5 bg-muted/20 border-b border-border/30 space-y-1.5">
+                        {day.sessions.map((s, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <Clock size={11} />
+                              <span>
+                                {s.start} – {s.end ?? (
+                                  <span className="text-green-600 dark:text-green-400">Ongoing</span>
+                                )}
+                              </span>
+                            </div>
+                            <span className="text-foreground font-medium">{s.duration.toFixed(2)}h</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -51,6 +241,7 @@ export function DeliverySettingsPage() {
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [editingPartner, setEditingPartner] = useState<DeliveryPartner | null>(null);
   const [partnerSaving, setPartnerSaving] = useState(false);
+  const [detailPartner, setDetailPartner] = useState<DeliveryPartner | null>(null);
 
   const [error, setError] = useState('');
 
@@ -391,7 +582,7 @@ export function DeliverySettingsPage() {
                       <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Name</th>
                       <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Vehicle</th>
                       <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Zones</th>
-                      <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Active Jobs</th>
+                      <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Duty</th>
                       <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Status</th>
                       <th className="px-4 py-2.5 text-right text-xs text-muted-foreground font-medium">Actions</th>
                     </tr>
@@ -401,16 +592,30 @@ export function DeliverySettingsPage() {
                       <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">No partners yet</td></tr>
                     )}
                     {partners.map(p => (
-                      <tr key={p.id} className="hover:bg-muted/30 transition-colors">
+                      <tr
+                        key={p.id}
+                        onClick={() => setDetailPartner(p)}
+                        className="hover:bg-muted/30 transition-colors cursor-pointer"
+                      >
                         <td className="px-4 py-2.5">
                           <div className="font-medium text-foreground">{p.full_name}</div>
                           <div className="text-xs text-muted-foreground">{p.mobile || p.email}</div>
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground capitalize">{p.vehicle_type} {p.vehicle_number && `· ${p.vehicle_number}`}</td>
                         <td className="px-4 py-2.5 text-muted-foreground text-xs">{p.zones.map(z => z.name).join(', ') || '—'}</td>
-                        <td className="px-4 py-2.5 text-center text-muted-foreground">{p.active_assignments}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={cn(
+                            'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                            p.is_on_duty
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                              : 'bg-muted text-muted-foreground',
+                          )}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', p.is_on_duty ? 'bg-green-500' : 'bg-muted-foreground/40')} />
+                            {p.is_on_duty ? 'On Duty' : 'Off Duty'}
+                          </span>
+                        </td>
                         <td className="px-4 py-2.5"><Badge green={p.is_active}>{p.is_active ? 'Active' : 'Inactive'}</Badge></td>
-                        <td className="px-4 py-2.5 text-right">
+                        <td className="px-4 py-2.5 text-right" onClick={e => e.stopPropagation()}>
                           <button onClick={() => openPartnerModal(p)} className="p-1 text-muted-foreground hover:text-foreground">
                             <Pencil size={13} />
                           </button>
@@ -472,6 +677,11 @@ export function DeliverySettingsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Partner Detail Sheet ── */}
+      {detailPartner && (
+        <PartnerDetailSheet partner={detailPartner} onClose={() => setDetailPartner(null)} />
       )}
 
       {/* ── Partner Modal ── */}

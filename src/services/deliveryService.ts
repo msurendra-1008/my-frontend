@@ -2,6 +2,7 @@ import axiosInstance from '@/utils/axiosInstance';
 import type {
   DeliveryZone, DeliveryPartner, DeliverySettings,
   DeliveryAssignment, PartnerAssignment, Paginated, UnassignedOrder,
+  DutyStatus, MonthlyLedger,
 } from '@/types/delivery.types';
 
 // ── Zones ─────────────────────────────────────────────────────────────────────
@@ -73,4 +74,21 @@ export const deliveryService = {
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } },
     ),
+
+  // Duty — partner
+  toggleDuty: (status: DutyStatus) =>
+    axiosInstance.post<{ is_on_duty: boolean; duty_started_at: string | null }>('/api/v1/delivery/my-duty/toggle/', { status }),
+
+  getDutyStatus: () =>
+    axiosInstance.get<{ is_on_duty: boolean; duty_started_at: string | null }>('/api/v1/delivery/my-duty/status/'),
+
+  getMyDutyLedger: (year: number, month: number) =>
+    axiosInstance.get<MonthlyLedger>('/api/v1/delivery/my-duty/ledger/', { params: { year, month } }),
+
+  // Duty — admin
+  getPartnerLedger: (partnerId: string, year: number, month: number) =>
+    axiosInstance.get<MonthlyLedger>(`/api/v1/delivery/admin/partners/${partnerId}/duty-ledger/`, { params: { year, month } }),
+
+  getPartnerMonthlyReportUrl: (partnerId: string, year: number, month: number) =>
+    `/api/v1/delivery/admin/partners/${partnerId}/duty-report/?year=${year}&month=${month}`,
 };
