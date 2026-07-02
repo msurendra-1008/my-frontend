@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Menu, Sun, Moon, Plus, Pencil, Search, X, ChevronLeft,
-  User, Building2, Banknote, Shield, Check,
+  User, Building2, Banknote, Shield, Check, Eye, EyeOff,
+  CreditCard, ExternalLink,
 } from 'lucide-react'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { cn } from '@utils/cn'
@@ -10,9 +11,12 @@ import { useAuthStore } from '@/store/authStore'
 import { payrollService } from '@/services/payrollService'
 import axiosInstance from '@/utils/axiosInstance'
 import type {
-  EmployeeProfile, Department,
+  EmployeeProfile, Department, PayrollMonth,
   CreateEmployeeProfilePayload, UpdateEmployeeProfilePayload, SalaryStructurePayload,
 } from '@/types/payroll.types'
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const fmtMonth = (m: number, y: number) => `${MONTHS[m - 1]} ${y}`
 
 /* ── helpers ── */
 const fmt = (v: string | number) =>
@@ -89,12 +93,22 @@ export function PayrollEmployeesPage() {
   const [moduleMsg,    setModuleMsg]    = useState<string | null>(null)
 
   /* inline create-account form */
-  const [showCreateUser,  setShowCreateUser]  = useState(false)
-  const [newUserName,     setNewUserName]     = useState('')
-  const [newUserEmail,    setNewUserEmail]    = useState('')
-  const [newUserMobile,   setNewUserMobile]   = useState('')
-  const [creatingUser,    setCreatingUser]    = useState(false)
-  const [createUserError, setCreateUserError] = useState<string | null>(null)
+  const [showCreateUser,        setShowCreateUser]        = useState(false)
+  const [newUserName,           setNewUserName]           = useState('')
+  const [newUserEmail,          setNewUserEmail]          = useState('')
+  const [newUserMobile,         setNewUserMobile]         = useState('')
+  const [newUserRole,           setNewUserRole]           = useState('')
+  const [newUserPassword,       setNewUserPassword]       = useState('')
+  const [newUserConfirmPw,      setNewUserConfirmPw]      = useState('')
+  const [showNewPassword,       setShowNewPassword]       = useState(false)
+  const [creatingUser,          setCreatingUser]          = useState(false)
+  const [createUserError,       setCreateUserError]       = useState<string | null>(null)
+  const [createUserCredentials, setCreateUserCredentials] = useState<{ login: string; password: string; role: string } | null>(null)
+
+  /* employee detail sheet */
+  const [detailEmployee,      setDetailEmployee]      = useState<EmployeeProfile | null>(null)
+  const [detailPayroll,       setDetailPayroll]       = useState<PayrollMonth[]>([])
+  const [detailPayrollLoading, setDetailPayrollLoading] = useState(false)
 
   /* dept modal */
   const [deptModalOpen, setDeptModalOpen] = useState(false)
@@ -149,13 +163,26 @@ export function PayrollEmployeesPage() {
     return () => clearTimeout(t)
   }, [userSearch])
 
+  /* ── load payroll history when detail sheet opens ── */
+  useEffect(() => {
+    if (!detailEmployee) { setDetailPayroll([]); return }
+    setDetailPayrollLoading(true)
+    payrollService.getPayroll({ employee: detailEmployee.id, page_size: '6' })
+      .then(r => setDetailPayroll(r.data.results ?? []))
+      .catch(() => setDetailPayroll([]))
+      .finally(() => setDetailPayrollLoading(false))
+  }, [detailEmployee])
+
   /* ── open drawer ── */
   function openCreate() {
     setEditing(null)
     setProfileForm(blankProfile())
     setSalaryForm(blankSalary())
     setUserSearch(''); setUserResults([]); setSelectedUserLabel(''); setUserSearchDone(false)
-    setShowCreateUser(false); setNewUserName(''); setNewUserEmail(''); setNewUserMobile(''); setCreateUserError(null)
+    setShowCreateUser(false)
+    setNewUserName(''); setNewUserEmail(''); setNewUserMobile('')
+    setNewUserRole(''); setNewUserPassword(''); setNewUserConfirmPw('')
+    setShowNewPassword(false); setCreateUserError(null); setCreateUserCredentials(null)
     setMsg(null); setSalaryMsg(null)
     setDrawerTab('basic')
     setDrawerOpen(true)
@@ -359,6 +386,7 @@ export function PayrollEmployeesPage() {
                     <th className="px-4 py-3">Net Salary</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3"></th>
+                    <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -385,6 +413,12 @@ export function PayrollEmployeesPage() {
                         )}>
                           {emp.is_active ? 'Active' : 'Inactive'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setDetailEmployee(emp)}
+                          className="text-xs font-medium text-primary hover:underline"
+                        >View →</button>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button onClick={() => openEdit(emp)} className="rounded-md p-1.5 hover:bg-muted/50">
@@ -543,64 +577,131 @@ export function PayrollEmployeesPage() {
 
                           {/* Inline create account form */}
                           {showCreateUser && (
-                            <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Create New Account</p>
-                              <input
-                                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                placeholder="Full name *"
-                                value={newUserName}
-                                onChange={e => setNewUserName(e.target.value)}
-                              />
-                              <input
-                                type="email"
-                                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                placeholder="Email"
-                                value={newUserEmail}
-                                onChange={e => setNewUserEmail(e.target.value)}
-                              />
-                              <input
-                                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                placeholder="Mobile"
-                                value={newUserMobile}
-                                onChange={e => setNewUserMobile(e.target.value)}
-                              />
-                              {createUserError && (
-                                <p className="text-xs text-red-600 dark:text-red-400">{createUserError}</p>
-                              )}
-                              <div className="flex gap-2">
+                            createUserCredentials ? (
+                              /* ── credentials display after successful creation ── */
+                              <div className="rounded-md border border-green-400/40 bg-green-500/10 p-3 space-y-2">
+                                <p className="text-sm font-semibold text-green-600 dark:text-green-400">✅ Account created — save these credentials now</p>
+                                <div className="rounded-md bg-muted/50 p-2.5 font-mono text-xs space-y-1">
+                                  <p>Login: <span className="font-bold text-foreground">{createUserCredentials.login}</span></p>
+                                  <p>Password: <span className="font-bold text-foreground">{createUserCredentials.password}</span></p>
+                                  <p>Role: <span className="font-bold text-foreground">{createUserCredentials.role}</span></p>
+                                </div>
+                                <p className="text-[10px] text-amber-700 dark:text-amber-400">These credentials will not be shown again.</p>
                                 <button
                                   type="button"
-                                  onClick={() => setShowCreateUser(false)}
-                                  className="flex-1 rounded-md border py-1.5 text-xs hover:bg-muted/50"
-                                >Cancel</button>
-                                <button
-                                  type="button"
-                                  disabled={creatingUser || !newUserName.trim() || (!newUserEmail.trim() && !newUserMobile.trim())}
-                                  onClick={async () => {
-                                    setCreatingUser(true); setCreateUserError(null)
-                                    try {
-                                      const res = await axiosInstance.post('/api/v1/auth/quick-create/', {
-                                        name: newUserName.trim(),
-                                        email: newUserEmail.trim() || undefined,
-                                        mobile: newUserMobile.trim() || undefined,
-                                      })
-                                      const created = res.data
-                                      setProfileForm(prev => ({ ...prev, user: created.id }))
-                                      setSelectedUserLabel(`${created.full_name} — ${created.email ?? created.mobile}`)
-                                      setShowCreateUser(false)
-                                      setUserSearch('')
-                                      setUserSearchDone(false)
-                                    } catch (err: unknown) {
-                                      const e = err as { response?: { data?: unknown } }
-                                      setCreateUserError('Error: ' + JSON.stringify(e.response?.data ?? 'Failed'))
-                                    } finally { setCreatingUser(false) }
-                                  }}
-                                  className="flex-1 rounded-md bg-primary py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
-                                >
-                                  {creatingUser ? 'Creating…' : 'Create & Select'}
-                                </button>
+                                  onClick={() => { setCreateUserCredentials(null); setShowCreateUser(false) }}
+                                  className="w-full rounded-md bg-green-600 py-1.5 text-xs font-medium text-white"
+                                >Got it, I've saved these credentials</button>
                               </div>
-                            </div>
+                            ) : (
+                              /* ── create account form ── */
+                              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Create New Account</p>
+                                <input
+                                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                  placeholder="Full name *"
+                                  value={newUserName}
+                                  onChange={e => setNewUserName(e.target.value)}
+                                />
+                                <input
+                                  type="email"
+                                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                  placeholder="Email (optional if mobile given)"
+                                  value={newUserEmail}
+                                  onChange={e => setNewUserEmail(e.target.value)}
+                                />
+                                <input
+                                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                  placeholder="Mobile (optional if email given)"
+                                  value={newUserMobile}
+                                  onChange={e => setNewUserMobile(e.target.value)}
+                                />
+                                <select
+                                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                  value={newUserRole}
+                                  onChange={e => setNewUserRole(e.target.value)}
+                                >
+                                  <option value="">Select role *</option>
+                                  <option value="employee">Employee (admin panel access)</option>
+                                  <option value="delivery_partner">Delivery Partner (/delivery dashboard)</option>
+                                  <option value="admin">Admin (full access)</option>
+                                </select>
+                                <div className="relative">
+                                  <input
+                                    type={showNewPassword ? 'text' : 'password'}
+                                    className="w-full rounded-md border bg-background px-3 py-1.5 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                    placeholder="Password * (min 8 characters)"
+                                    value={newUserPassword}
+                                    onChange={e => setNewUserPassword(e.target.value)}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowNewPassword(v => !v)}
+                                    className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
+                                  >
+                                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  </button>
+                                </div>
+                                <input
+                                  type="password"
+                                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                  placeholder="Confirm password *"
+                                  value={newUserConfirmPw}
+                                  onChange={e => setNewUserConfirmPw(e.target.value)}
+                                />
+                                {newUserPassword && newUserConfirmPw && newUserPassword !== newUserConfirmPw && (
+                                  <p className="text-xs text-red-600 dark:text-red-400">Passwords do not match</p>
+                                )}
+                                {createUserError && (
+                                  <p className="text-xs text-red-600 dark:text-red-400">{createUserError}</p>
+                                )}
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setShowCreateUser(false); setCreateUserError(null) }}
+                                    className="flex-1 rounded-md border py-1.5 text-xs hover:bg-muted/50"
+                                  >Cancel</button>
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      creatingUser ||
+                                      !newUserName.trim() ||
+                                      (!newUserEmail.trim() && !newUserMobile.trim()) ||
+                                      !newUserRole ||
+                                      newUserPassword.length < 8 ||
+                                      newUserPassword !== newUserConfirmPw
+                                    }
+                                    onClick={async () => {
+                                      setCreatingUser(true); setCreateUserError(null)
+                                      try {
+                                        const res = await axiosInstance.post('/api/v1/auth/quick-create/', {
+                                          name:     newUserName.trim(),
+                                          email:    newUserEmail.trim() || undefined,
+                                          mobile:   newUserMobile.trim() || undefined,
+                                          role:     newUserRole,
+                                          password: newUserPassword,
+                                        })
+                                        const created = res.data
+                                        setProfileForm(prev => ({ ...prev, user: created.id }))
+                                        setSelectedUserLabel(`${created.full_name} — ${created.email ?? created.mobile}`)
+                                        setUserSearch(''); setUserSearchDone(false)
+                                        setCreateUserCredentials({
+                                          login:    created.email ?? created.mobile ?? newUserEmail ?? newUserMobile,
+                                          password: newUserPassword,
+                                          role:     newUserRole,
+                                        })
+                                      } catch (err: unknown) {
+                                        const e = err as { response?: { data?: unknown } }
+                                        setCreateUserError('Error: ' + JSON.stringify(e.response?.data ?? 'Failed'))
+                                      } finally { setCreatingUser(false) }
+                                    }}
+                                    className="flex-1 rounded-md bg-primary py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                                  >
+                                    {creatingUser ? 'Creating…' : 'Create & Select'}
+                                  </button>
+                                </div>
+                              </div>
+                            )
                           )}
 
                           {!userSearch && !showCreateUser && (
@@ -1022,6 +1123,224 @@ export function PayrollEmployeesPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Employee Detail Sheet ── */}
+      {detailEmployee && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setDetailEmployee(null)} />
+          <div className="relative ml-auto flex h-full w-full max-w-2xl flex-col bg-card shadow-xl overflow-hidden">
+            {/* header */}
+            <div className="flex items-center justify-between border-b px-5 py-4 shrink-0">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setDetailEmployee(null)} className="rounded-md p-1 hover:bg-muted/50">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                  {detailEmployee.full_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="font-semibold">{detailEmployee.full_name}</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {detailEmployee.designation || '—'} · {detailEmployee.department_name || 'No dept'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { openEdit(detailEmployee); setDetailEmployee(null) }}
+                  className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </button>
+                <button onClick={() => setDetailEmployee(null)}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* ── Badges row ── */}
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium">{detailEmployee.employee_code}</span>
+                <span className="rounded-full border px-2.5 py-0.5 text-xs">{EMPLOYMENT_LABELS[detailEmployee.employment_type]}</span>
+                <span className={cn(
+                  'rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  detailEmployee.is_active
+                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                    : 'bg-red-500/10 text-red-600 dark:text-red-400',
+                )}>
+                  {detailEmployee.is_active ? 'Active' : 'Inactive'}
+                </span>
+                <span className="rounded-full bg-muted/50 px-2.5 py-0.5 text-xs capitalize">{detailEmployee.role}</span>
+              </div>
+
+              {/* ── Contact & Bank ── */}
+              <div className="rounded-md border bg-muted/30 p-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" /> Contact
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-muted-foreground text-xs">Email</span><p>{detailEmployee.email || '—'}</p></div>
+                  <div><span className="text-muted-foreground text-xs">Mobile</span><p>{detailEmployee.mobile || '—'}</p></div>
+                  <div><span className="text-muted-foreground text-xs">Date of Joining</span><p>{detailEmployee.date_of_joining ?? '—'}</p></div>
+                </div>
+              </div>
+
+              <div className="rounded-md border bg-muted/30 p-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5" /> Bank Details
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-muted-foreground text-xs">Bank</span><p>{detailEmployee.bank_name || '—'}</p></div>
+                  <div>
+                    <span className="text-muted-foreground text-xs">Account</span>
+                    <p className="font-mono">
+                      {detailEmployee.bank_account
+                        ? `****${detailEmployee.bank_account.slice(-4)}`
+                        : '—'}
+                    </p>
+                  </div>
+                  <div><span className="text-muted-foreground text-xs">IFSC</span><p className="font-mono">{detailEmployee.bank_ifsc || '—'}</p></div>
+                </div>
+              </div>
+
+              {/* ── System Access ── */}
+              <div className="rounded-md border bg-muted/30 p-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5" /> System Access
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    'rounded-full px-2 py-0.5 text-xs font-medium',
+                    detailEmployee.needs_system_access
+                      ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                      : 'bg-muted text-muted-foreground',
+                  )}>
+                    {detailEmployee.needs_system_access ? 'Enabled' : 'Disabled'}
+                  </span>
+                </div>
+                {detailEmployee.needs_system_access && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {([
+                      ['can_manage_orders',      'Orders'],
+                      ['can_manage_products',    'Products'],
+                      ['can_manage_billing',     'Billing'],
+                      ['can_view_reports',       'Reports'],
+                      ['can_manage_returns',     'Returns'],
+                      ['can_manage_warehouse',   'Warehouse'],
+                      ['can_manage_vendors',     'Vendors'],
+                      ['can_manage_tenders',     'Tenders'],
+                      ['can_manage_procurement', 'Procurement'],
+                    ] as [keyof EmployeeProfile, string][]).filter(([k]) => detailEmployee[k]).map(([, label]) => (
+                      <span key={label} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{label}</span>
+                    ))}
+                    {!([
+                      'can_manage_orders','can_manage_products','can_manage_billing',
+                      'can_view_reports','can_manage_returns','can_manage_warehouse',
+                      'can_manage_vendors','can_manage_tenders','can_manage_procurement',
+                    ] as (keyof EmployeeProfile)[]).some(k => detailEmployee[k]) && (
+                      <span className="text-xs text-muted-foreground">No module permissions</span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Salary Structure ── */}
+              <div className="rounded-md border bg-muted/30 p-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <Banknote className="h-3.5 w-3.5" /> Salary Structure
+                </p>
+                {detailEmployee.salary_structure ? (() => {
+                  const s = detailEmployee.salary_structure
+                  return (
+                    <div className="space-y-2 text-sm">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        {([
+                          ['Basic', s.basic], ['HRA', s.hra], ['DA', s.da],
+                          ['Transport', s.transport], ['Other Allowance', s.other_allowance],
+                        ] as [string, string][]).map(([l, v]) => (
+                          <div key={l} className="flex justify-between border-b border-border/20 py-0.5">
+                            <span className="text-muted-foreground">{l}</span>
+                            <span>{fmt(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="rounded-md bg-primary/5 border border-primary/20 p-3 grid grid-cols-3 gap-2">
+                        <div><p className="text-xs text-muted-foreground">Gross</p><p className="font-semibold">{fmt(s.gross_salary)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Deductions</p><p className="font-semibold text-red-600 dark:text-red-400">−{fmt(s.total_deductions)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Net / Month</p><p className="font-bold text-green-600 dark:text-green-400">{fmt(s.net_salary)}</p></div>
+                      </div>
+                    </div>
+                  )
+                })() : (
+                  <div className="text-sm text-muted-foreground">
+                    No salary structure set yet.{' '}
+                    <button
+                      className="text-primary hover:underline"
+                      onClick={() => { openEdit(detailEmployee); setDetailEmployee(null) }}
+                    >Add one in Edit →</button>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Payroll History ── */}
+              <div className="rounded-md border bg-muted/30 p-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Payroll History (last 6 months)</p>
+                {detailPayrollLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : detailPayroll.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No payroll records found.</p>
+                ) : (
+                  <div className="rounded-md border overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium text-muted-foreground">Month</th>
+                          <th className="px-3 py-2 text-right font-medium text-muted-foreground">Gross</th>
+                          <th className="px-3 py-2 text-right font-medium text-muted-foreground">Net</th>
+                          <th className="px-3 py-2 text-center font-medium text-muted-foreground">Status</th>
+                          <th className="px-3 py-2"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {detailPayroll.map(pm => (
+                          <tr key={pm.id} className="hover:bg-muted/20">
+                            <td className="px-3 py-2 font-medium">{fmtMonth(pm.month, pm.year)}</td>
+                            <td className="px-3 py-2 text-right">{fmt(pm.gross_salary)}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-green-600 dark:text-green-400">{fmt(pm.net_salary)}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={cn(
+                                'rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                                pm.status === 'paid'
+                                  ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                                  : 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                              )}>
+                                {pm.status === 'paid' ? 'Paid ✅' : 'Draft'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {pm.status === 'paid' && (
+                                <a
+                                  href={payrollService.getSalarySlipUrl(pm.id)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                                >
+                                  Slip <ExternalLink className="h-3 w-3" />
+                                </a>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
