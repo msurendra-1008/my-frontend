@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
 import { tokenStorage } from '@/utils/axiosInstance';
 import { deliveryService } from '@/services/deliveryService';
-import type { PartnerAssignment, DeliveryStatus, MonthlyLedger, DailyLedgerEntry } from '@/types/delivery.types';
+import type { PartnerAssignment, DeliveryStatus, MonthlyLedger } from '@/types/delivery.types';
 import {
   Package, Truck, CheckCircle, XCircle,
   Camera, LogOut, RefreshCw, ChevronDown, ChevronLeft, ChevronRight,
