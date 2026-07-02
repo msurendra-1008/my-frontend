@@ -69,10 +69,12 @@ export function DeliverySettingsPage() {
   function loadSettings() {
     deliveryService.getSettings().then(r => {
       setSettings(r.data);
+      const VALID_MODES: Array<'manual' | 'suggested' | 'automatic'> = ['manual', 'suggested', 'automatic'];
+      const VALID_PROOFS: Array<'photo' | 'otp' | 'either'> = ['photo', 'otp', 'either'];
       setSettingsForm({
         auto_assign:            r.data.auto_assign,
-        assignment_mode:        r.data.assignment_mode,
-        default_proof_type:     r.data.default_proof_type ?? 'either',
+        assignment_mode:        VALID_MODES.includes(r.data.assignment_mode) ? r.data.assignment_mode : 'manual',
+        default_proof_type:     VALID_PROOFS.includes(r.data.default_proof_type) ? r.data.default_proof_type : 'either',
         max_orders_per_partner: r.data.max_orders_per_partner ?? 8,
       });
     }).catch(() => {});
