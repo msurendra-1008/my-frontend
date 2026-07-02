@@ -212,7 +212,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
         </div>
 
         {/* ── Scrollable nav ── */}
-        <div className="flex-1 overflow-y-auto py-1 scrollbar-thin scrollbar-thumb-border">
+        <div className="flex-1 overflow-y-auto py-1 sidebar-scroll">
           {SECTIONS.map((section, sIdx) => {
             const accessibleItems = section.items.filter(canAccess);
             if (accessibleItems.length === 0) return null;
