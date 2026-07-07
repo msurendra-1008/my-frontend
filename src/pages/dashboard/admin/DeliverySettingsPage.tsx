@@ -197,6 +197,9 @@ function PartnerDetailSheet({ partner, onClose }: { partner: DeliveryPartner; on
                                 {s.ongoing
                                   ? <span className="text-green-600 dark:text-green-400">Ongoing</span>
                                   : s.end_display}
+                                {s.auto_closed && (
+                                  <span className="text-[10px] text-amber-500 ml-1">(auto-closed)</span>
+                                )}
                               </span>
                             </div>
                             <span className="text-foreground font-medium">{s.hours.toFixed(2)}h</span>
