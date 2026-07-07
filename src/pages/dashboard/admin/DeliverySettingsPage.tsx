@@ -75,9 +75,9 @@ function PartnerDetailSheet({ partner, onClose }: { partner: DeliveryPartner; on
   }
 
   const dayTypeBg: Record<string, string> = {
-    full:   'bg-green-500/10 border-green-400/40 text-green-600 dark:text-green-400',
-    half:   'bg-amber-500/10 border-amber-400/40 text-amber-700 dark:text-amber-400',
-    absent: 'bg-red-500/10 border-red-400/40 text-red-600 dark:text-red-400',
+    full_day:  'bg-green-500/10 border-green-400/40 text-green-600 dark:text-green-400',
+    half_day:  'bg-amber-500/10 border-amber-400/40 text-amber-700 dark:text-amber-400',
+    absent:    'bg-red-500/10 border-red-400/40 text-red-600 dark:text-red-400',
   };
 
   return (
@@ -158,9 +158,11 @@ function PartnerDetailSheet({ partner, onClose }: { partner: DeliveryPartner; on
                 ))}
               </div>
 
+              <p className="text-[10px] text-muted-foreground text-center">All times in IST (UTC+5:30)</p>
+
               {/* Day-wise ledger */}
               <div className="rounded-xl border border-border/50 overflow-hidden">
-                {ledger.days.filter(d => d.type !== 'future').map(day => (
+                {ledger.days.filter(d => d.status !== 'future').map(day => (
                   <div key={day.date}>
                     <button
                       onClick={() => setExpanded(e => e === day.date ? null : day.date)}
@@ -170,34 +172,34 @@ function PartnerDetailSheet({ partner, onClose }: { partner: DeliveryPartner; on
                         <span className="text-xs text-muted-foreground w-24 text-left">
                           {new Date(day.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', weekday: 'short' })}
                         </span>
-                        {day.type !== 'future' && (
-                          <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full border', dayTypeBg[day.type])}>
-                            {day.type === 'full' ? 'Full' : day.type === 'half' ? 'Half' : 'Absent'}
-                          </span>
-                        )}
+                        <span className={cn('text-[10px] font-medium px-2 py-0.5 rounded-full border', dayTypeBg[day.status])}>
+                          {day.status === 'full_day' ? 'Full' : day.status === 'half_day' ? 'Half' : 'Absent'}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">
-                          {day.hours != null ? `${day.hours.toFixed(1)}h` : '—'}
+                          {day.total_hours != null ? `${day.total_hours.toFixed(1)}h` : '—'}
                         </span>
-                        {day.sessions.length > 0 && (
+                        {day.session_count > 0 && (
                           <ChevronDown size={13} className={cn('text-muted-foreground transition-transform', expanded === day.date && 'rotate-180')} />
                         )}
                       </div>
                     </button>
-                    {expanded === day.date && day.sessions.length > 0 && (
+                    {expanded === day.date && day.session_count > 0 && (
                       <div className="px-4 py-2.5 bg-muted/20 border-b border-border/30 space-y-1.5">
                         {day.sessions.map((s, i) => (
                           <div key={i} className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-1.5 text-muted-foreground">
                               <Clock size={11} />
                               <span>
-                                {s.start} – {s.end ?? (
-                                  <span className="text-green-600 dark:text-green-400">Ongoing</span>
-                                )}
+                                {s.start_display}
+                                {' – '}
+                                {s.ongoing
+                                  ? <span className="text-green-600 dark:text-green-400">Ongoing</span>
+                                  : s.end_display}
                               </span>
                             </div>
-                            <span className="text-foreground font-medium">{s.duration.toFixed(2)}h</span>
+                            <span className="text-foreground font-medium">{s.hours.toFixed(2)}h</span>
                           </div>
                         ))}
                       </div>
