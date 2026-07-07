@@ -29,6 +29,7 @@ export interface DutySession {
   end_display:   string;       // 'Ongoing' when session is still open
   hours:         number;
   ongoing:       boolean;
+  auto_closed:   boolean;      // true when partner forgot to toggle off (capped at midnight)
 }
 
 export interface DailyLedgerEntry {
