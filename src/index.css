@@ -209,3 +209,33 @@ body {
 .dark .input-base::placeholder {
   color: #636366;
 }
+
+/* ── Sidebar scrollbar — thin, themed ── */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.2s;
+}
+.sidebar-scroll:hover {
+  scrollbar-color: #C4C4C8 transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+.sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: #C4C4C8;
+}
+.dark .sidebar-scroll:hover {
+  scrollbar-color: #48484F transparent;
+}
+.dark .sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: #48484F;
+}
