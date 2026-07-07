@@ -357,16 +357,16 @@ function DutyLogTab() {
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
   const dayTypeColor: Record<string, string> = {
-    full:   'text-green-600 dark:text-green-400',
-    half:   'text-amber-700 dark:text-amber-400',
-    absent: 'text-red-600 dark:text-red-400',
-    future: 'text-muted-foreground',
+    full_day:  'text-green-600 dark:text-green-400',
+    half_day:  'text-amber-700 dark:text-amber-400',
+    absent:    'text-red-600 dark:text-red-400',
+    future:    'text-muted-foreground',
   };
   const dayTypeBg: Record<string, string> = {
-    full:   'bg-green-500/10 border-green-400/40',
-    half:   'bg-amber-500/10 border-amber-400/40',
-    absent: 'bg-red-500/10 border-red-400/40',
-    future: 'bg-muted/20 border-border/30',
+    full_day:  'bg-green-500/10 border-green-400/40',
+    half_day:  'bg-amber-500/10 border-amber-400/40',
+    absent:    'bg-red-500/10 border-red-400/40',
+    future:    'bg-muted/20 border-border/30',
   };
 
   return (
@@ -404,9 +404,11 @@ function DutyLogTab() {
             ))}
           </div>
 
+          <p className="text-[10px] text-muted-foreground text-center">All times in IST (UTC+5:30)</p>
+
           {/* Day-wise table */}
           <div className="rounded-xl border border-border/50 overflow-hidden">
-            {ledger.days.filter(d => d.type !== 'future').map(day => (
+            {ledger.days.filter(d => d.status !== 'future').map(day => (
               <div key={day.date}>
                 <button
                   onClick={() => setExpanded(e => e === day.date ? null : day.date)}
@@ -420,30 +422,36 @@ function DutyLogTab() {
                     </span>
                     <span className={cn(
                       'text-[10px] font-medium px-2 py-0.5 rounded-full border',
-                      dayTypeBg[day.type], dayTypeColor[day.type],
+                      dayTypeBg[day.status], dayTypeColor[day.status],
                     )}>
-                      {day.type === 'full' ? 'Full' : day.type === 'half' ? 'Half' : 'Absent'}
+                      {day.status === 'full_day' ? 'Full' : day.status === 'half_day' ? 'Half' : 'Absent'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground">
-                      {day.hours != null ? `${day.hours.toFixed(1)}h` : '—'}
+                      {day.total_hours != null ? `${day.total_hours.toFixed(1)}h` : '—'}
                     </span>
-                    {day.sessions.length > 0 && (
+                    {day.session_count > 0 && (
                       <ChevronDown size={13} className={cn('text-muted-foreground transition-transform', expanded === day.date && 'rotate-180')} />
                     )}
                   </div>
                 </button>
 
-                {expanded === day.date && day.sessions.length > 0 && (
+                {expanded === day.date && day.session_count > 0 && (
                   <div className="px-4 py-2 bg-muted/20 border-b border-border/30 space-y-1.5">
                     {day.sessions.map((s, i) => (
                       <div key={i} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Clock size={11} />
-                          <span>{s.start} – {s.end ?? <span className="text-green-600 dark:text-green-400">Ongoing</span>}</span>
+                          <span>
+                            {s.start_display}
+                            {' – '}
+                            {s.ongoing
+                              ? <span className="text-green-600 dark:text-green-400">Ongoing</span>
+                              : s.end_display}
+                          </span>
                         </div>
-                        <span className="text-foreground font-medium">{s.duration.toFixed(2)}h</span>
+                        <span className="text-foreground font-medium">{s.hours.toFixed(2)}h</span>
                       </div>
                     ))}
                   </div>
