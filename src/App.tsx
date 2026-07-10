@@ -41,6 +41,7 @@ import { BillHistoryPage }       from '@/pages/dashboard/admin/BillHistoryPage';
 import { DiscountCodesPage }     from '@/pages/dashboard/admin/DiscountCodesPage';
 import { PayrollEmployeesPage }    from '@/pages/dashboard/admin/PayrollEmployeesPage';
 import { PayrollPage }             from '@/pages/dashboard/admin/PayrollPage';
+import { AttendancePage }          from '@/pages/dashboard/admin/AttendancePage';
 import { DeliverySettingsPage }    from '@/pages/dashboard/admin/DeliverySettingsPage';
 import { DeliveryAssignPage }      from '@/pages/dashboard/admin/DeliveryAssignPage';
 import { DeliveryTrackingPage }    from '@/pages/dashboard/admin/DeliveryTrackingPage';
@@ -322,6 +323,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
             <PayrollPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/hr/attendance"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin', 'admin']}>
+            <AttendancePage />
           </ProtectedRoute>
         }
       />
