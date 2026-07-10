@@ -67,6 +67,24 @@ export const attendanceService = {
       data,
     ),
 
+  // ── Leave range ──────────────────────────────────────────
+  markLeaveRange: (data: {
+    employee_id:      string
+    from_date:        string
+    to_date:          string
+    leave_type:       string
+    leave_note?:      string
+    include_weekends?: boolean
+  }) =>
+    axiosInstance.post<{
+      marked_dates:      string[]
+      total_marked:      number
+      skipped_weekends:  number
+      skipped_holidays:  { date: string; name: string }[]
+      leave_type:        string
+      leave_balance_after: { year: number; casual_leave: number; sick_leave: number; earned_leave: number } | null
+    }>('/api/v1/hr/attendance/mark-leave-range/', data),
+
   // ── Export ───────────────────────────────────────────────
   getExportUrl: (employeeId: string, year: number, month: number, format: 'excel' | 'pdf' = 'excel') =>
     `/api/v1/hr/attendance/export/?employee=${employeeId}&year=${year}&month=${month}&format=${format}`,
