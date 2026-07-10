@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Menu, Sun, Moon, ChevronLeft, ChevronRight,
   FileSpreadsheet, FileText, Plus, Trash2, X,
-  CalendarDays, Users2, ToggleLeft,
+  CalendarDays, Users2, ToggleLeft, ChevronDown, Search,
 } from 'lucide-react'
 import { AdminSidebar }    from '@/components/layout/AdminSidebar'
 import { cn }              from '@utils/cn'
@@ -72,6 +72,115 @@ const LEAVE_TYPES: { value: LeaveType; label: string }[] = [
   { value: 'unpaid',  label: 'Unpaid Leave' },
   { value: 'other',   label: 'Other' },
 ]
+
+/* ── Employee Combobox ──────────────────────────────────────────────────────── */
+function EmployeeComboBox({
+  employees,
+  value,
+  onChange,
+}: {
+  employees: EmployeeProfile[]
+  value: string
+  onChange: (id: string) => void
+}) {
+  const [open,   setOpen]   = useState(false)
+  const [search, setSearch] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  const selected = employees.find(e => e.id === value)
+
+  const filtered = search.trim()
+    ? employees.filter(e =>
+        e.full_name.toLowerCase().includes(search.toLowerCase()) ||
+        e.employee_code.toLowerCase().includes(search.toLowerCase()),
+      )
+    : employees
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setSearch('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  function select(id: string) {
+    onChange(id)
+    setOpen(false)
+    setSearch('')
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => { setOpen(o => !o); setSearch('') }}
+        className={cn(
+          'flex items-center justify-between w-full rounded-md border bg-background px-2.5 py-1.5 text-xs transition-colors',
+          open ? 'border-primary ring-1 ring-primary/30' : 'border-border hover:border-border/80',
+        )}
+      >
+        {selected ? (
+          <span className="flex items-center gap-1.5 min-w-0">
+            <span className="font-mono text-[10px] text-muted-foreground shrink-0">{selected.employee_code}</span>
+            <span className="text-foreground truncate">{selected.full_name}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground">Select employee…</span>
+        )}
+        <ChevronDown size={13} className={cn('ml-2 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute z-30 top-full mt-1 w-full min-w-[260px] rounded-md border border-border bg-card shadow-lg">
+          {/* search input */}
+          <div className="flex items-center gap-1.5 border-b border-border px-2.5 py-2">
+            <Search size={12} className="shrink-0 text-muted-foreground" />
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name or code…"
+              className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/60 outline-none"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="text-muted-foreground hover:text-foreground">
+                <X size={11} />
+              </button>
+            )}
+          </div>
+
+          {/* list */}
+          <div className="max-h-52 overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-3 text-center text-xs text-muted-foreground">No employees found</p>
+            ) : (
+              filtered.map(e => (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => select(e.id)}
+                  className={cn(
+                    'flex items-center gap-2 w-full px-3 py-1.5 text-xs text-left transition-colors',
+                    e.id === value
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'hover:bg-muted text-foreground',
+                  )}
+                >
+                  <span className="font-mono text-[10px] text-muted-foreground w-16 shrink-0">{e.employee_code}</span>
+                  <span className="truncate">{e.full_name}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /* ── Mark Dialog ────────────────────────────────────────────────────────────── */
 function MarkDialog({
@@ -565,9 +674,8 @@ export function AttendancePage() {
   const [tab,   setTab]   = useState<Tab>('calendar')
 
   /* employees */
-  const [employees,    setEmployees]    = useState<EmployeeProfile[]>([])
-  const [employeeId,   setEmployeeId]   = useState('')
-  const [empSearch,    setEmpSearch]    = useState('')
+  const [employees,  setEmployees]  = useState<EmployeeProfile[]>([])
+  const [employeeId, setEmployeeId] = useState('')
 
   /* calendar */
   const [calendar,  setCalendar]  = useState<EmployeeCalendar | null>(null)
@@ -619,15 +727,6 @@ export function AttendancePage() {
     window.open(url, '_blank')
   }
 
-  /* filtered employees */
-  const filteredEmps = employees.filter(e =>
-    !empSearch ||
-    e.full_name.toLowerCase().includes(empSearch.toLowerCase()) ||
-    e.employee_code.toLowerCase().includes(empSearch.toLowerCase()),
-  )
-
-  const selectedEmp = employees.find(e => e.id === employeeId)
-
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <AdminSidebar mobileOpen={mobileOpen} onMobileToggle={() => setMobileOpen(o => !o)} />
@@ -675,34 +774,13 @@ export function AttendancePage() {
               {/* controls */}
               <div className="flex flex-wrap gap-3 items-end">
                 {/* Employee picker */}
-                <div className="flex-1 min-w-[220px] max-w-xs">
+                <div className="flex-1 min-w-[240px] max-w-sm">
                   <label className="text-xs text-muted-foreground mb-1 block">Employee</label>
-                  <div className="relative">
-                    <input
-                      value={empSearch}
-                      onChange={e => setEmpSearch(e.target.value)}
-                      placeholder={selectedEmp ? `${selectedEmp.employee_code} — ${selectedEmp.full_name}` : 'Search employee…'}
-                      className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground"
-                    />
-                    {empSearch && (
-                      <div className="absolute z-20 top-full mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
-                        {filteredEmps.length === 0 ? (
-                          <p className="px-3 py-2 text-xs text-muted-foreground">No match</p>
-                        ) : (
-                          filteredEmps.map(e => (
-                            <button
-                              key={e.id}
-                              onClick={() => { setEmployeeId(e.id); setEmpSearch('') }}
-                              className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted text-foreground"
-                            >
-                              <span className="font-mono text-muted-foreground mr-1">{e.employee_code}</span>
-                              {e.full_name}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <EmployeeComboBox
+                    employees={employees}
+                    value={employeeId}
+                    onChange={setEmployeeId}
+                  />
                 </div>
 
                 {/* Month navigator */}
