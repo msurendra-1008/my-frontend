@@ -114,8 +114,9 @@ const SECTIONS: Section[] = [
   {
     key: 'hr', label: 'HR', title: 'Human Resources',
     items: [
-      { label: 'Employees', path: '/admin/hr/employees', icon: Users2,   allowedRoles: ['superadmin', 'admin'] as UserRole[] },
-      { label: 'Payroll',   path: '/admin/hr/payroll',   icon: Banknote, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Employees',  path: '/admin/hr/employees',  icon: Users2,       allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Payroll',    path: '/admin/hr/payroll',    icon: Banknote,     allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Attendance', path: '/admin/hr/attendance', icon: ClipboardList, allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {
