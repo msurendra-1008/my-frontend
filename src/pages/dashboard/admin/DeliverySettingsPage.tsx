@@ -160,6 +160,26 @@ function PartnerDetailSheet({ partner, onClose }: { partner: DeliveryPartner; on
 
               <p className="text-[10px] text-muted-foreground text-center">All times in IST (UTC+5:30)</p>
 
+              {/* Threshold legend */}
+              {ledger.duty_thresholds && (
+                <div className="flex gap-3 flex-wrap text-xs text-muted-foreground px-1 py-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
+                    Full Day ≥ {ledger.duty_thresholds.full_day_hours}h
+                  </span>
+                  {ledger.duty_thresholds.count_half_days && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Half Day ≥ {ledger.duty_thresholds.half_day_hours}h
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-red-500" />
+                    Absent = 0h
+                  </span>
+                </div>
+              )}
+
               {/* Day-wise ledger */}
               <div className="rounded-xl border border-border/50 overflow-hidden">
                 {ledger.days.filter(d => d.status !== 'future').map(day => (
@@ -231,7 +251,10 @@ export function DeliverySettingsPage() {
     assignment_mode: 'manual' | 'suggested' | 'automatic';
     default_proof_type: 'photo' | 'otp' | 'either';
     max_orders_per_partner: number;
-  }>({ auto_assign: true, assignment_mode: 'manual', default_proof_type: 'either', max_orders_per_partner: 8 });
+    full_day_hours: number;
+    half_day_hours: number;
+    count_half_days: boolean;
+  }>({ auto_assign: true, assignment_mode: 'manual', default_proof_type: 'either', max_orders_per_partner: 8, full_day_hours: 6, half_day_hours: 3, count_half_days: true });
 
   // Zones state
   const [zones, setZones]           = useState<DeliveryZone[]>([]);
@@ -272,6 +295,9 @@ export function DeliverySettingsPage() {
         assignment_mode:        VALID_MODES.includes(r.data.assignment_mode) ? r.data.assignment_mode : 'manual',
         default_proof_type:     VALID_PROOFS.includes(r.data.default_proof_type) ? r.data.default_proof_type : 'either',
         max_orders_per_partner: r.data.max_orders_per_partner ?? 8,
+        full_day_hours:         r.data.full_day_hours ?? 6,
+        half_day_hours:         r.data.half_day_hours ?? 3,
+        count_half_days:        r.data.count_half_days ?? true,
       });
     }).catch(() => {});
   }
@@ -296,6 +322,10 @@ export function DeliverySettingsPage() {
   }
 
   async function saveSettings() {
+    if (settingsForm.count_half_days && settingsForm.half_day_hours >= settingsForm.full_day_hours) {
+      setError(`Half day hours must be less than full day hours (${settingsForm.full_day_hours}h).`);
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -499,6 +529,104 @@ export function DeliverySettingsPage() {
                     className="w-20 rounded-md border border-border bg-background px-2 py-1.5 text-center text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
+              </div>
+
+              {/* Duty Hours Configuration */}
+              <div className="rounded-lg border border-border/50 bg-card p-4 mt-4 space-y-4">
+                <div>
+                  <h2 className="text-sm font-medium text-foreground">Duty Hours Configuration</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Set how many hours count as a full or half day for partners</p>
+                </div>
+
+                {/* Full Day */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-foreground">Full Day minimum</p>
+                    <p className="text-xs text-muted-foreground">Partners working this many hours or more = full day</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      step={0.5}
+                      value={settingsForm.full_day_hours}
+                      onChange={e => setSettingsForm(f => ({ ...f, full_day_hours: Number(e.target.value) }))}
+                      className="w-20 rounded-md border border-border bg-background px-2 py-1.5 text-center text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <span className="text-sm text-muted-foreground">h</span>
+                  </div>
+                </div>
+
+                {/* Count Half Days toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-foreground">Count half days</p>
+                    <p className="text-xs text-muted-foreground">OFF = only Full Day or Absent, no half day</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsForm(f => ({ ...f, count_half_days: !f.count_half_days }))}
+                    className={cn(
+                      'relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors',
+                      settingsForm.count_half_days ? 'bg-primary' : 'bg-muted',
+                    )}
+                  >
+                    <span className={cn(
+                      'inline-block h-4 w-4 rounded-full bg-white shadow transition-transform mt-0.5',
+                      settingsForm.count_half_days ? 'translate-x-4' : 'translate-x-0.5',
+                    )} />
+                  </button>
+                </div>
+
+                {/* Half Day — only when count_half_days enabled */}
+                {settingsForm.count_half_days && (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-foreground">Half Day minimum</p>
+                      <p className="text-xs text-muted-foreground">Partners working between this and full day = half day</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0.5}
+                        max={settingsForm.full_day_hours - 0.5}
+                        step={0.5}
+                        value={settingsForm.half_day_hours}
+                        onChange={e => setSettingsForm(f => ({ ...f, half_day_hours: Number(e.target.value) }))}
+                        className="w-20 rounded-md border border-border bg-background px-2 py-1.5 text-center text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                      <span className="text-sm text-muted-foreground">h</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Live preview */}
+                <div className="rounded-md bg-muted/40 px-3 py-2.5 space-y-1.5">
+                  <p className="text-[10px] font-medium text-muted-foreground mb-1">Preview — how hours will be counted:</p>
+                  <div className="flex items-center gap-2 text-xs text-foreground">
+                    <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" />
+                    <span>{settingsForm.full_day_hours}h or more → Full Day</span>
+                  </div>
+                  {settingsForm.count_half_days && (
+                    <div className="flex items-center gap-2 text-xs text-foreground">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 flex-shrink-0" />
+                      <span>{settingsForm.half_day_hours}h – {(settingsForm.full_day_hours - 0.5).toFixed(1)}h → Half Day</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-foreground">
+                    <span className="h-2 w-2 rounded-full bg-red-500 flex-shrink-0" />
+                    <span>
+                      Less than {settingsForm.count_half_days ? settingsForm.half_day_hours : settingsForm.full_day_hours}h → Absent
+                    </span>
+                  </div>
+                </div>
+
+                {settingsForm.count_half_days && settingsForm.half_day_hours >= settingsForm.full_day_hours && (
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    Half day hours must be less than full day hours ({settingsForm.full_day_hours}h)
+                  </p>
+                )}
               </div>
 
               <div className="mt-4">

@@ -45,6 +45,12 @@ export interface DailyLedgerEntry {
   orders_failed?:    number;
 }
 
+export interface DutyThresholds {
+  full_day_hours:  number;
+  half_day_hours:  number;
+  count_half_days: boolean;
+}
+
 export interface MonthlyLedger {
   partner_name:      string;
   employee_code:     string;
@@ -62,6 +68,7 @@ export interface MonthlyLedger {
   total_failed:      number;
   days:              DailyLedgerEntry[];
   timezone:          string;
+  duty_thresholds:   DutyThresholds;
 }
 
 export interface DeliverySettings {
@@ -69,6 +76,9 @@ export interface DeliverySettings {
   assignment_mode:        'manual' | 'suggested' | 'automatic';
   default_proof_type:     'photo' | 'otp' | 'either';
   max_orders_per_partner: number;
+  full_day_hours:         number;
+  half_day_hours:         number;
+  count_half_days:        boolean;
   updated_at:             string;
 }
 

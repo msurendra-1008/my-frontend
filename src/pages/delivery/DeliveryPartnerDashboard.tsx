@@ -406,6 +406,26 @@ function DutyLogTab() {
 
           <p className="text-[10px] text-muted-foreground text-center">All times in IST (UTC+5:30)</p>
 
+          {/* Threshold legend */}
+          {ledger.duty_thresholds && (
+            <div className="flex gap-3 flex-wrap text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                Full Day ≥ {ledger.duty_thresholds.full_day_hours}h
+              </span>
+              {ledger.duty_thresholds.count_half_days && (
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Half Day ≥ {ledger.duty_thresholds.half_day_hours}h
+                </span>
+              )}
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-red-500" />
+                Absent = 0h
+              </span>
+            </div>
+          )}
+
           {/* Day-wise table */}
           <div className="rounded-xl border border-border/50 overflow-hidden">
             {ledger.days.filter(d => d.status !== 'future').map(day => (
