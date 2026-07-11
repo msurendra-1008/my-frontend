@@ -422,13 +422,13 @@ function LeaveRangeModal({
               type="button"
               onClick={() => { setForm(f => ({ ...f, include_weekends: !f.include_weekends })); setPreview(null) }}
               className={cn(
-                'relative w-9 h-5 rounded-full transition-colors',
-                form.include_weekends ? 'bg-primary' : 'bg-border',
+                'relative inline-flex w-11 h-6 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
+                form.include_weekends ? 'bg-primary' : 'bg-muted-foreground/25',
               )}
             >
               <span className={cn(
-                'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
-                form.include_weekends ? 'translate-x-4' : 'translate-x-0.5',
+                'pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200',
+                form.include_weekends ? 'translate-x-5' : 'translate-x-0',
               )} />
             </button>
           </div>
