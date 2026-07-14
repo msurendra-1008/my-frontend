@@ -40,6 +40,14 @@ export const orderService = {
   markSatisfied: (id: string) =>
     axiosInstance.post(`/api/v1/orders/${id}/mark-satisfied/`),
 
+  retryPayment: (id: string) =>
+    axiosInstance.post<{
+      internal_order_id: string;
+      razorpay_amount:   string;
+      razorpay_order_id: string;
+      razorpay_key_id:   string;
+    }>(`/api/v1/orders/${id}/retry-payment/`),
+
   // ── Admin Orders ───────────────────────────────────────────────────────────
   getAdminOrders: (params: Record<string, string> = {}) => {
     const qs = new URLSearchParams(params).toString();
