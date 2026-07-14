@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Package, ChevronRight, X, RotateCcw } from 'lucide-react';
+import { Search, Package, ChevronRight, X, RotateCcw, CreditCard } from 'lucide-react';
+
+const MOCK_MODE = import.meta.env.VITE_MOCK_PAYMENT_MODE === 'true';
 import { orderService } from '@/services/orderService';
 import { returnsService } from '@/services/returnsService';
 import { productService } from '@/services/productService';
@@ -599,8 +601,21 @@ function OrderDetailSheet({
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onView }: { order: OrderListItem; onView: () => void }) {
-  const date = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(order.created_at));
+function OrderCard({
+  order,
+  onView,
+  onPayNow,
+  payingId,
+}: {
+  order:    OrderListItem;
+  onView:   () => void;
+  onPayNow: (order: OrderListItem) => void;
+  payingId: string | null;
+}) {
+  const date      = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(order.created_at));
+  const isPending = order.order_status === 'pending' && order.payment_status === 'pending';
+  const isPaying  = payingId === order.id;
+
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3">
@@ -619,7 +634,19 @@ function OrderCard({ order, onView }: { order: OrderListItem; onView: () => void
           <PaymentDot status={order.payment_status} />
         </div>
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex items-center justify-between gap-2">
+        {isPending ? (
+          <button
+            onClick={() => onPayNow(order)}
+            disabled={isPaying}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-60 transition-colors"
+          >
+            <CreditCard size={12} />
+            {isPaying ? 'Processing…' : `Pay ₹${order.razorpay_amount}`}
+          </button>
+        ) : (
+          <span />
+        )}
         <button
           onClick={onView}
           className="flex items-center gap-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline"
@@ -655,6 +682,9 @@ export function OrdersTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [viewId,       setViewId]       = useState<string | null>(null);
 
+  const [payingId,   setPayingId]   = useState<string | null>(null);
+  const [payError,   setPayError]   = useState<string | null>(null);
+
   useEffect(() => {
     returnsService.getSettings()
       .then((res) => {
@@ -679,6 +709,71 @@ export function OrdersTab() {
 
   useEffect(() => { fetchOrders(1, true); }, [fetchOrders]);
 
+  const handlePayNow = async (order: OrderListItem) => {
+    setPayError(null);
+    setPayingId(order.id);
+    try {
+      const r = await orderService.retryPayment(order.id);
+      const { internal_order_id, razorpay_order_id, razorpay_key_id, razorpay_amount } = r.data;
+      const amount = parseFloat(razorpay_amount);
+
+      const confirmPayment = async (paymentId: string, signature: string) => {
+        await orderService.confirmCheckout({
+          internal_order_id,
+          address_id:          '',
+          wallet_amount:       '0.00',
+          razorpay_order_id,
+          razorpay_payment_id: paymentId,
+          razorpay_signature:  signature,
+        });
+        await fetchOrders(1, true);
+      };
+
+      if (amount <= 0) {
+        await confirmPayment('wallet_only', 'wallet_only');
+        return;
+      }
+
+      if (MOCK_MODE) {
+        await confirmPayment(`mock_pay_${Date.now()}`, 'mock_sig');
+        return;
+      }
+
+      const options = {
+        key:        razorpay_key_id,
+        amount:     Math.round(amount * 100),
+        currency:   'INR',
+        order_id:   razorpay_order_id,
+        name:       'Order Payment',
+        description: `Order ${order.order_number}`,
+        handler: async (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            await confirmPayment(response.razorpay_payment_id, response.razorpay_signature);
+          } catch {
+            setPayError('Payment confirmed by Razorpay but order confirmation failed. Please contact support.');
+          } finally {
+            setPayingId(null);
+          }
+        },
+        modal: { ondismiss: () => setPayingId(null) },
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+      return;
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string; detail?: string } }; message?: string };
+      setPayError(
+        err?.response?.data?.error ??
+        err?.response?.data?.detail ??
+        err?.message ??
+        'Failed to initiate payment.'
+      );
+    } finally {
+      setPayingId(null);
+    }
+  };
+
   const filteredOrders = orders.filter((o) => {
     const matchSearch = !search ||
       o.order_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -689,6 +784,12 @@ export function OrdersTab() {
 
   return (
     <div className="space-y-4">
+      {payError && (
+        <div className="rounded-md border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center justify-between gap-2">
+          <span>{payError}</span>
+          <button onClick={() => setPayError(null)}><X size={14} /></button>
+        </div>
+      )}
       {/* Filter toolbar */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
@@ -726,7 +827,13 @@ export function OrdersTab() {
       ) : (
         <div className="space-y-3">
           {filteredOrders.map((order) => (
-            <OrderCard key={order.id} order={order} onView={() => setViewId(order.id)} />
+            <OrderCard
+              key={order.id}
+              order={order}
+              onView={() => setViewId(order.id)}
+              onPayNow={handlePayNow}
+              payingId={payingId}
+            />
           ))}
         </div>
       )}
