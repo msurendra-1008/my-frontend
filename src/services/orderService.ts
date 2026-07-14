@@ -40,13 +40,54 @@ export const orderService = {
   markSatisfied: (id: string) =>
     axiosInstance.post(`/api/v1/orders/${id}/mark-satisfied/`),
 
-  retryPayment: (id: string) =>
+  getPaymentInfo: (id: string) =>
+    axiosInstance.get<{
+      order_id:            string;
+      order_number:        string;
+      price_locked:        boolean;
+      hours_since_created: number;
+      amount_payable:      string;
+      wallet_used:         string;
+      razorpay_amount:     string;
+      items: Array<{
+        id:               string;
+        product_name:     string;
+        variant_name:     string;
+        variant_id:       string;
+        sku:              string;
+        quantity:         number;
+        mrp:              string;
+        upa_price:        string;
+        upa_price_locked: string;
+        line_total:       string;
+        price_changed:    boolean;
+        stock_quantity:   number;
+        stock_ok:         boolean;
+        stock_shortfall:  number;
+      }>;
+      wallet_balance:     string;
+      addresses:          import('@/types/order.types').Address[];
+      default_address_id: string | null;
+    }>(`/api/v1/orders/${id}/payment-info/`),
+
+  removeOrderItem: (orderId: string, itemId: string) =>
+    axiosInstance.post<{ order_cancelled: boolean; amount_payable?: string }>(
+      `/api/v1/orders/${orderId}/remove-item/`,
+      { item_id: itemId },
+    ),
+
+  cancelOrder: (id: string) =>
+    axiosInstance.post(`/api/v1/orders/${id}/cancel/`),
+
+  retryPayment: (id: string, walletAmount = '0.00') =>
     axiosInstance.post<{
       internal_order_id: string;
+      amount_payable:    string;
+      wallet_used:       string;
       razorpay_amount:   string;
       razorpay_order_id: string;
       razorpay_key_id:   string;
-    }>(`/api/v1/orders/${id}/retry-payment/`),
+    }>(`/api/v1/orders/${id}/retry-payment/`, { wallet_amount: walletAmount }),
 
   // ── Admin Orders ───────────────────────────────────────────────────────────
   getAdminOrders: (params: Record<string, string> = {}) => {
