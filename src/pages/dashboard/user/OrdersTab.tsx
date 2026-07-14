@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Package, ChevronRight, X, RotateCcw, CreditCard } from 'lucide-react';
-
-const MOCK_MODE = import.meta.env.VITE_MOCK_PAYMENT_MODE === 'true';
+import { CompletePaymentSheet } from '@/components/orders/CompletePaymentSheet';
 import { orderService } from '@/services/orderService';
 import { returnsService } from '@/services/returnsService';
 import { productService } from '@/services/productService';
@@ -605,16 +604,13 @@ function OrderCard({
   order,
   onView,
   onPayNow,
-  payingId,
 }: {
   order:    OrderListItem;
   onView:   () => void;
   onPayNow: (order: OrderListItem) => void;
-  payingId: string | null;
 }) {
   const date      = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(order.created_at));
   const isPending = order.order_status === 'pending' && order.payment_status === 'pending';
-  const isPaying  = payingId === order.id;
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -638,11 +634,10 @@ function OrderCard({
         {isPending ? (
           <button
             onClick={() => onPayNow(order)}
-            disabled={isPaying}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition-colors"
           >
             <CreditCard size={12} />
-            {isPaying ? 'Processing…' : `Pay ₹${order.razorpay_amount}`}
+            Pay Now
           </button>
         ) : (
           <span />
@@ -682,12 +677,7 @@ export function OrdersTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [viewId,       setViewId]       = useState<string | null>(null);
 
-  const [payingId,        setPayingId]        = useState<string | null>(null);
-  const [payError,        setPayError]        = useState<string | null>(null);
-  const [pendingPayOrder, setPendingPayOrder] = useState<OrderListItem | null>(null);
-  const [addresses,       setAddresses]       = useState<import('@/types/order.types').Address[]>([]);
-  const [showAddrPicker,  setShowAddrPicker]  = useState(false);
-  const [pickedAddrId,    setPickedAddrId]    = useState<string>('');
+  const [payOrder, setPayOrder] = useState<OrderListItem | null>(null);
 
   useEffect(() => {
     returnsService.getSettings()
@@ -713,89 +703,7 @@ export function OrdersTab() {
 
   useEffect(() => { fetchOrders(1, true); }, [fetchOrders]);
 
-  // Step 1: Pay Now clicked — resolve address first
-  const handlePayNow = async (order: OrderListItem) => {
-    setPayError(null);
-    setPendingPayOrder(order);
-    setPayingId(order.id);
-    try {
-      const r = await orderService.getAddresses();
-      const raw = r.data as unknown as { results?: import('@/types/order.types').Address[] } | import('@/types/order.types').Address[];
-      const addrs: import('@/types/order.types').Address[] = Array.isArray(raw) ? raw : (raw as { results?: import('@/types/order.types').Address[] }).results ?? [];
-      const defaultAddr = addrs.find((a) => a.is_default) ?? addrs[0] ?? null;
-      if (!defaultAddr) {
-        setAddresses(addrs);
-        setShowAddrPicker(true);
-        setPayingId(null);
-        return;
-      }
-      await proceedWithPayment(order, defaultAddr.id);
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string; detail?: string } }; message?: string };
-      setPayError(err?.response?.data?.error ?? err?.response?.data?.detail ?? err?.message ?? 'Failed to load addresses.');
-      setPayingId(null);
-    }
-  };
-
-  // Step 2: Actually open Razorpay with a confirmed address id
-  const proceedWithPayment = async (order: OrderListItem, addressId: string) => {
-    setPayingId(order.id);
-    setShowAddrPicker(false);
-    setPayError(null);
-    try {
-      const r = await orderService.retryPayment(order.id);
-      const { internal_order_id, razorpay_order_id, razorpay_key_id, razorpay_amount } = r.data;
-      const amount = parseFloat(razorpay_amount);
-
-      const confirmPayment = async (paymentId: string, signature: string) => {
-        await orderService.confirmCheckout({
-          internal_order_id,
-          address_id:          addressId,
-          wallet_amount:       '0.00',
-          razorpay_order_id,
-          razorpay_payment_id: paymentId,
-          razorpay_signature:  signature,
-        });
-        await fetchOrders(1, true);
-      };
-
-      if (amount <= 0) {
-        await confirmPayment('wallet_only', 'wallet_only');
-        return;
-      }
-
-      if (MOCK_MODE) {
-        await confirmPayment(`mock_pay_${Date.now()}`, 'mock_sig');
-        return;
-      }
-
-      const options = {
-        key:         razorpay_key_id,
-        amount:      Math.round(amount * 100),
-        currency:    'INR',
-        order_id:    razorpay_order_id,
-        name:        'Order Payment',
-        description: `Order ${order.order_number}`,
-        handler: async (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
-          try {
-            await confirmPayment(response.razorpay_payment_id, response.razorpay_signature);
-          } catch {
-            setPayError('Payment confirmed by Razorpay but order confirmation failed. Please contact support.');
-          } finally {
-            setPayingId(null);
-          }
-        },
-        modal: { ondismiss: () => setPayingId(null) },
-      };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rzp = new (window as any).Razorpay(options);
-      rzp.open();
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string; detail?: string } }; message?: string };
-      setPayError(err?.response?.data?.error ?? err?.response?.data?.detail ?? err?.message ?? 'Failed to initiate payment.');
-      setPayingId(null);
-    }
-  };
+  const handlePayNow = (order: OrderListItem) => setPayOrder(order);
 
   const filteredOrders = orders.filter((o) => {
     const matchSearch = !search ||
@@ -807,12 +715,6 @@ export function OrdersTab() {
 
   return (
     <div className="space-y-4">
-      {payError && (
-        <div className="rounded-md border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400 flex items-center justify-between gap-2">
-          <span>{payError}</span>
-          <button onClick={() => setPayError(null)}><X size={14} /></button>
-        </div>
-      )}
       {/* Filter toolbar */}
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
@@ -855,7 +757,6 @@ export function OrdersTab() {
               order={order}
               onView={() => setViewId(order.id)}
               onPayNow={handlePayNow}
-              payingId={payingId}
             />
           ))}
         </div>
@@ -883,61 +784,12 @@ export function OrdersTab() {
         />
       )}
 
-      {/* Address picker — shown when user has no default address */}
-      {showAddrPicker && pendingPayOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Select Delivery Address</h3>
-              <button onClick={() => { setShowAddrPicker(false); setPendingPayOrder(null); setPickedAddrId(''); }}>
-                <X size={16} className="text-muted-foreground" />
-              </button>
-            </div>
-            {addresses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No saved addresses found. Please add an address from your profile before paying.</p>
-            ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {addresses.map((addr) => (
-                  <label
-                    key={addr.id}
-                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-                      pickedAddrId === addr.id
-                        ? 'border-purple-500 bg-purple-500/10'
-                        : 'border-border hover:bg-muted/50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="retry-address"
-                      value={addr.id}
-                      checked={pickedAddrId === addr.id}
-                      onChange={() => setPickedAddrId(addr.id)}
-                      className="mt-0.5 accent-purple-500"
-                    />
-                    <div className="text-sm">
-                      <p className="font-medium text-foreground">{addr.name} · {addr.phone}</p>
-                      <p className="text-muted-foreground">{addr.address_line}, {addr.city}, {addr.state} – {addr.pincode}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-            {addresses.length > 0 && (
-              <button
-                disabled={!pickedAddrId}
-                onClick={() => {
-                  if (pickedAddrId && pendingPayOrder) {
-                    proceedWithPayment(pendingPayOrder, pickedAddrId);
-                    setPickedAddrId('');
-                  }
-                }}
-                className="mt-4 w-full rounded-lg bg-purple-600 py-2.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
-              >
-                Continue to Payment
-              </button>
-            )}
-          </div>
-        </div>
+      {payOrder && (
+        <CompletePaymentSheet
+          order={payOrder}
+          onClose={() => setPayOrder(null)}
+          onSuccess={() => { setPayOrder(null); fetchOrders(1, true); }}
+        />
       )}
     </div>
   );
