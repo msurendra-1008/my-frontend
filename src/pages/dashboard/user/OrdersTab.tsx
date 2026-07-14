@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Package, ChevronRight, X, RotateCcw } from 'lucide-react';
+import { Search, Package, ChevronRight, X, RotateCcw, CreditCard } from 'lucide-react';
+import { CompletePaymentSheet } from '@/components/orders/CompletePaymentSheet';
 import { orderService } from '@/services/orderService';
 import { returnsService } from '@/services/returnsService';
 import { productService } from '@/services/productService';
@@ -599,8 +600,18 @@ function OrderDetailSheet({
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onView }: { order: OrderListItem; onView: () => void }) {
-  const date = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(order.created_at));
+function OrderCard({
+  order,
+  onView,
+  onPayNow,
+}: {
+  order:    OrderListItem;
+  onView:   () => void;
+  onPayNow: (order: OrderListItem) => void;
+}) {
+  const date      = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(order.created_at));
+  const isPending = order.order_status === 'pending' && order.payment_status === 'pending';
+
   return (
     <div className="rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3">
@@ -619,7 +630,18 @@ function OrderCard({ order, onView }: { order: OrderListItem; onView: () => void
           <PaymentDot status={order.payment_status} />
         </div>
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex items-center justify-between gap-2">
+        {isPending ? (
+          <button
+            onClick={() => onPayNow(order)}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 transition-colors"
+          >
+            <CreditCard size={12} />
+            Pay Now
+          </button>
+        ) : (
+          <span />
+        )}
         <button
           onClick={onView}
           className="flex items-center gap-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline"
@@ -655,6 +677,8 @@ export function OrdersTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [viewId,       setViewId]       = useState<string | null>(null);
 
+  const [payOrder, setPayOrder] = useState<OrderListItem | null>(null);
+
   useEffect(() => {
     returnsService.getSettings()
       .then((res) => {
@@ -678,6 +702,8 @@ export function OrdersTab() {
   }, []);
 
   useEffect(() => { fetchOrders(1, true); }, [fetchOrders]);
+
+  const handlePayNow = (order: OrderListItem) => setPayOrder(order);
 
   const filteredOrders = orders.filter((o) => {
     const matchSearch = !search ||
@@ -726,7 +752,12 @@ export function OrdersTab() {
       ) : (
         <div className="space-y-3">
           {filteredOrders.map((order) => (
-            <OrderCard key={order.id} order={order} onView={() => setViewId(order.id)} />
+            <OrderCard
+              key={order.id}
+              order={order}
+              onView={() => setViewId(order.id)}
+              onPayNow={handlePayNow}
+            />
           ))}
         </div>
       )}
@@ -750,6 +781,14 @@ export function OrdersTab() {
           orderId={viewId}
           returnWindowDays={returnWindowDays}
           onClose={() => setViewId(null)}
+        />
+      )}
+
+      {payOrder && (
+        <CompletePaymentSheet
+          order={payOrder}
+          onClose={() => setPayOrder(null)}
+          onSuccess={() => { setPayOrder(null); fetchOrders(1, true); }}
         />
       )}
     </div>
