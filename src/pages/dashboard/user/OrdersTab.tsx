@@ -720,7 +720,8 @@ export function OrdersTab() {
     setPayingId(order.id);
     try {
       const r = await orderService.getAddresses();
-      const addrs = r.data as import('@/types/order.types').Address[];
+      const raw = r.data as unknown as { results?: import('@/types/order.types').Address[] } | import('@/types/order.types').Address[];
+      const addrs: import('@/types/order.types').Address[] = Array.isArray(raw) ? raw : (raw as { results?: import('@/types/order.types').Address[] }).results ?? [];
       const defaultAddr = addrs.find((a) => a.is_default) ?? addrs[0] ?? null;
       if (!defaultAddr) {
         setAddresses(addrs);
