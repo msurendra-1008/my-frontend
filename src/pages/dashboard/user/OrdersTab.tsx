@@ -682,8 +682,12 @@ export function OrdersTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [viewId,       setViewId]       = useState<string | null>(null);
 
-  const [payingId,   setPayingId]   = useState<string | null>(null);
-  const [payError,   setPayError]   = useState<string | null>(null);
+  const [payingId,        setPayingId]        = useState<string | null>(null);
+  const [payError,        setPayError]        = useState<string | null>(null);
+  const [pendingPayOrder, setPendingPayOrder] = useState<OrderListItem | null>(null);
+  const [addresses,       setAddresses]       = useState<import('@/types/order.types').Address[]>([]);
+  const [showAddrPicker,  setShowAddrPicker]  = useState(false);
+  const [pickedAddrId,    setPickedAddrId]    = useState<string>('');
 
   useEffect(() => {
     returnsService.getSettings()
@@ -709,9 +713,34 @@ export function OrdersTab() {
 
   useEffect(() => { fetchOrders(1, true); }, [fetchOrders]);
 
+  // Step 1: Pay Now clicked — resolve address first
   const handlePayNow = async (order: OrderListItem) => {
     setPayError(null);
+    setPendingPayOrder(order);
     setPayingId(order.id);
+    try {
+      const r = await orderService.getAddresses();
+      const addrs = r.data as import('@/types/order.types').Address[];
+      const defaultAddr = addrs.find((a) => a.is_default) ?? addrs[0] ?? null;
+      if (!defaultAddr) {
+        setAddresses(addrs);
+        setShowAddrPicker(true);
+        setPayingId(null);
+        return;
+      }
+      await proceedWithPayment(order, defaultAddr.id);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string; detail?: string } }; message?: string };
+      setPayError(err?.response?.data?.error ?? err?.response?.data?.detail ?? err?.message ?? 'Failed to load addresses.');
+      setPayingId(null);
+    }
+  };
+
+  // Step 2: Actually open Razorpay with a confirmed address id
+  const proceedWithPayment = async (order: OrderListItem, addressId: string) => {
+    setPayingId(order.id);
+    setShowAddrPicker(false);
+    setPayError(null);
     try {
       const r = await orderService.retryPayment(order.id);
       const { internal_order_id, razorpay_order_id, razorpay_key_id, razorpay_amount } = r.data;
@@ -720,7 +749,7 @@ export function OrdersTab() {
       const confirmPayment = async (paymentId: string, signature: string) => {
         await orderService.confirmCheckout({
           internal_order_id,
-          address_id:          '',
+          address_id:          addressId,
           wallet_amount:       '0.00',
           razorpay_order_id,
           razorpay_payment_id: paymentId,
@@ -740,11 +769,11 @@ export function OrdersTab() {
       }
 
       const options = {
-        key:        razorpay_key_id,
-        amount:     Math.round(amount * 100),
-        currency:   'INR',
-        order_id:   razorpay_order_id,
-        name:       'Order Payment',
+        key:         razorpay_key_id,
+        amount:      Math.round(amount * 100),
+        currency:    'INR',
+        order_id:    razorpay_order_id,
+        name:        'Order Payment',
         description: `Order ${order.order_number}`,
         handler: async (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
           try {
@@ -760,16 +789,9 @@ export function OrdersTab() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
-      return;
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: string; detail?: string } }; message?: string };
-      setPayError(
-        err?.response?.data?.error ??
-        err?.response?.data?.detail ??
-        err?.message ??
-        'Failed to initiate payment.'
-      );
-    } finally {
+      setPayError(err?.response?.data?.error ?? err?.response?.data?.detail ?? err?.message ?? 'Failed to initiate payment.');
       setPayingId(null);
     }
   };
@@ -858,6 +880,63 @@ export function OrdersTab() {
           returnWindowDays={returnWindowDays}
           onClose={() => setViewId(null)}
         />
+      )}
+
+      {/* Address picker — shown when user has no default address */}
+      {showAddrPicker && pendingPayOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-foreground">Select Delivery Address</h3>
+              <button onClick={() => { setShowAddrPicker(false); setPendingPayOrder(null); setPickedAddrId(''); }}>
+                <X size={16} className="text-muted-foreground" />
+              </button>
+            </div>
+            {addresses.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No saved addresses found. Please add an address from your profile before paying.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {addresses.map((addr) => (
+                  <label
+                    key={addr.id}
+                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                      pickedAddrId === addr.id
+                        ? 'border-purple-500 bg-purple-500/10'
+                        : 'border-border hover:bg-muted/50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="retry-address"
+                      value={addr.id}
+                      checked={pickedAddrId === addr.id}
+                      onChange={() => setPickedAddrId(addr.id)}
+                      className="mt-0.5 accent-purple-500"
+                    />
+                    <div className="text-sm">
+                      <p className="font-medium text-foreground">{addr.name} · {addr.phone}</p>
+                      <p className="text-muted-foreground">{addr.address_line}, {addr.city}, {addr.state} – {addr.pincode}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+            {addresses.length > 0 && (
+              <button
+                disabled={!pickedAddrId}
+                onClick={() => {
+                  if (pickedAddrId && pendingPayOrder) {
+                    proceedWithPayment(pendingPayOrder, pickedAddrId);
+                    setPickedAddrId('');
+                  }
+                }}
+                className="mt-4 w-full rounded-lg bg-purple-600 py-2.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                Continue to Payment
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
