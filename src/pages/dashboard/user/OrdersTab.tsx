@@ -720,7 +720,6 @@ export function OrdersTab() {
       const confirmPayment = async (paymentId: string, signature: string) => {
         await orderService.confirmCheckout({
           internal_order_id,
-          address_id:          '',
           wallet_amount:       '0.00',
           razorpay_order_id,
           razorpay_payment_id: paymentId,

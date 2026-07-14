@@ -80,7 +80,7 @@ export interface CheckoutInitiateResponse {
 
 export interface CheckoutConfirmRequest {
   internal_order_id:   string;
-  address_id:          string;
+  address_id?:         string;
   wallet_amount:       string | number;
   razorpay_order_id:   string;
   razorpay_payment_id: string;
