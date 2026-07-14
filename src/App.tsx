@@ -1,10 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '@context/AuthContext';
 import { ThemeProvider } from '@context/ThemeContext';
 import { DashboardLayout } from '@components/layout/DashboardLayout';
 import { ProtectedRoute } from '@components/ui/ProtectedRoute';
-import { useAuthStore } from '@/store/authStore';
 import { SignupPage, NotFoundPage, DashboardPage, AccountPage } from '@pages/index';
 import { AdminLogin }      from '@/pages/auth/AdminLogin';
 import { UserLogin }       from '@/pages/auth/UserLogin';
@@ -57,9 +55,6 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const loadFromStorage = useAuthStore((s) => s.loadFromStorage);
-  useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
-
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
