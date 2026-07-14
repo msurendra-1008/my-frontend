@@ -1,64 +1,67 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { authApi, tokenStorage } from '@services/index';
-import type { User, AuthContextValue, LoginPayload, RegisterPayload, LegacyAuthResponse } from '@/types/auth';
+import { authService } from '@/services/authService';
+import { useAuthStore } from '@/store/authStore';
+import { tokenStorage } from '@/utils/axiosInstance';
+import type { User, AuthContextValue, LoginPayload, RegisterPayload } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isAuthenticated, clearAuth, loadFromStorage, updateUser } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const restore = async () => {
+      // Hydrate store from localStorage first (synchronous)
+      loadFromStorage();
+
       if (!tokenStorage.getAccess()) {
         setIsLoading(false);
         return;
       }
+
       try {
-        const me = await authApi.me();
-        setUser(me);
+        // Validate token against server and refresh user data
+        const res = await authService.getMe();
+        updateUser(res.data);
       } catch {
-        tokenStorage.clearTokens();
+        // Refresh also failed — wipe everything and force re-login
+        clearAuth();
       } finally {
         setIsLoading(false);
       }
     };
     restore();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Not used by the main login pages (they call authService + authStore.setAuth directly)
+  // but kept so legacy consumers of useAuth().login/register don't hard-crash.
+  const login = useCallback(async (_payload: LoginPayload) => {
+    throw new Error('Use authService.userLogin() + authStore.setAuth() for login.');
   }, []);
 
-  const login = useCallback(async (payload: LoginPayload) => {
-    // authApi uses legacy endpoint returning {message, user, tokens}
-    const res = (await authApi.login(payload)) as unknown as LegacyAuthResponse;
-    tokenStorage.setTokens(res.tokens.access, res.tokens.refresh);
-    setUser(res.user);
-  }, []);
-
-  const register = useCallback(async (payload: RegisterPayload) => {
-    // authApi uses legacy endpoint returning {message, user, tokens}
-    const res = (await authApi.register(payload)) as unknown as LegacyAuthResponse;
-    tokenStorage.setTokens(res.tokens.access, res.tokens.refresh);
-    setUser(res.user);
+  const register = useCallback(async (_payload: RegisterPayload) => {
+    throw new Error('Use authService.userRegister() + authStore.setAuth() for register.');
   }, []);
 
   const logout = useCallback(async () => {
     const refresh = tokenStorage.getRefresh();
     try {
-      if (refresh) await authApi.logout(refresh);
+      if (refresh) await authService.logout(refresh);
     } catch {
-      // proceed regardless
+      // proceed regardless of server error
     } finally {
-      tokenStorage.clearTokens();
-      setUser(null);
+      clearAuth();
     }
-  }, []);
+  }, [clearAuth]);
 
-  const updateUser = useCallback((updated: User) => {
-    setUser(updated);
-  }, []);
+  const contextUpdateUser = useCallback((u: User) => {
+    updateUser(u);
+  }, [updateUser]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, register, logout, updateUser: contextUpdateUser }}>
       {children}
     </AuthContext.Provider>
   );
