@@ -6,7 +6,7 @@ import type { OrderListItem, Address } from '@/types/order.types';
 const MOCK_MODE = import.meta.env.VITE_MOCK_PAYMENT_MODE === 'true';
 
 type PaymentInfoItem = {
-  id:               string;
+  id:               string | null;
   product_name:     string;
   variant_name:     string;
   quantity:         number;
@@ -18,6 +18,7 @@ type PaymentInfoItem = {
   stock_quantity:   number;
   stock_ok:         boolean;
   stock_shortfall:  number;
+  legacy?:          boolean;
 };
 
 type PaymentInfo = {
@@ -238,9 +239,9 @@ export function CompletePaymentSheet({ order, onClose, onSuccess }: Props) {
                         )}
                       </div>
                     </div>
-                    {!item.stock_ok && info.items.length > 1 && (
+                    {!item.stock_ok && info.items.length > 1 && item.id && (
                       <button
-                        onClick={() => handleRemoveItem(item.id)}
+                        onClick={() => handleRemoveItem(item.id!)}
                         disabled={removingId === item.id}
                         className="shrink-0 rounded-md p-1.5 text-red-500 hover:bg-red-500/10 disabled:opacity-50"
                         title="Remove item"
@@ -301,7 +302,16 @@ export function CompletePaymentSheet({ order, onClose, onSuccess }: Props) {
                           <span className="text-xs text-muted-foreground">(Balance: ₹{parseFloat(info.wallet_balance).toFixed(2)})</span>
                         </div>
                         <button
-                          onClick={() => { setUseWallet(v => !v); setWalletInput(''); }}
+                          onClick={() => {
+                            const next = !useWallet;
+                            setUseWallet(next);
+                            if (next && info) {
+                              const max = Math.min(parseFloat(info.wallet_balance), parseFloat(info.amount_payable));
+                              setWalletInput(max.toFixed(2));
+                            } else {
+                              setWalletInput('');
+                            }
+                          }}
                           className={`relative w-11 h-6 rounded-full transition-colors ${useWallet ? 'bg-purple-500' : 'bg-muted-foreground/25'}`}
                         >
                           <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${useWallet ? 'translate-x-5' : 'translate-x-0'}`} />
