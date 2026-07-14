@@ -162,8 +162,7 @@ export function CompletePaymentSheet({ order, onClose, onSuccess }: Props) {
     }
   };
 
-  const hasStockIssues = info ? info.items.some(i => !i.stock_ok) : false;
-  const allStockOk     = info ? info.items.every(i => i.stock_ok) : false;
+  const allStockOk = info ? info.items.every(i => i.stock_ok) : false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-0 sm:px-4">
