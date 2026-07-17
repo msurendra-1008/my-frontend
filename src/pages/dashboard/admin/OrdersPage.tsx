@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Menu, X, ChevronRight, Search, Sun, Moon } from 'lucide-react';
+import { Menu, X, ChevronRight, Search, Sun, Moon, RefreshCw } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Badge } from '@/components/ui/Badge';
 import { useTheme } from '@context/ThemeContext';
@@ -296,9 +296,13 @@ function OrderDetailSheet({
         setOrder(r.data);
         setNewStatus(r.data.order_status);
         setTracking(r.data.tracking_number ?? '');
+        // Sync the list row with fresh data from DB — covers delivery partner
+        // status updates that happened after the list was last loaded.
+        onUpdated(r.data);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
   const handleUpdate = async () => {
@@ -562,6 +566,13 @@ export function AdminOrdersPage() {
             <span className="text-base font-semibold text-foreground">Orders</span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchOrders(1, true)}
+              title="Refresh orders"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <RefreshCw size={16} />
+            </button>
             <button
               onClick={toggleTheme}
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
