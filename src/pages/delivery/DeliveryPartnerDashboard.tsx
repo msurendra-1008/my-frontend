@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
@@ -7,7 +7,7 @@ import { deliveryService } from '@/services/deliveryService';
 import type { PartnerAssignment, DeliveryStatus, MonthlyLedger } from '@/types/delivery.types';
 import {
   Package, Truck, CheckCircle, XCircle,
-  Camera, LogOut, RefreshCw, ChevronDown, ChevronLeft, ChevronRight,
+  LogOut, RefreshCw, ChevronDown, ChevronLeft, ChevronRight,
   Clock, CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -55,29 +55,22 @@ function useDutyDuration(startedAt: string | null) {
 function ProofOfDeliveryModal({
   assignment, onClose, onDone,
 }: { assignment: PartnerAssignment; onClose: () => void; onDone: () => void }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [proofTab, setProofTab] = useState<'photo' | 'otp'>('photo');
-  const [proof, setProof]       = useState<File | null>(null);
   const [otpInput, setOtpInput] = useState('');
   const [notes, setNotes]       = useState('');
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
 
   async function submit() {
-    if (proofTab === 'otp' && otpInput.trim().length !== 6) {
+    if (otpInput.trim().length !== 6) {
       setError('Please enter the 6-digit OTP shown on the customer\'s screen.');
       return;
     }
     setSaving(true); setError('');
     const fd = new FormData();
     fd.append('status', 'delivered');
+    fd.append('proof_type', 'otp');
+    fd.append('otp_input', otpInput.trim());
     fd.append('notes', notes);
-    if (proofTab === 'photo') {
-      if (proof) fd.append('proof_image', proof);
-    } else {
-      fd.append('proof_type', 'otp');
-      fd.append('otp_input', otpInput.trim());
-    }
     try {
       await deliveryService.updateMyStatus(assignment.id, fd);
       onDone();
@@ -92,57 +85,22 @@ function ProofOfDeliveryModal({
         <h2 className="text-sm font-semibold text-foreground mb-1">Confirm Delivery</h2>
         <p className="text-xs text-muted-foreground mb-4">{assignment.order_number} · {assignment.customer_name}</p>
 
-        <div className="flex rounded-lg border border-border overflow-hidden mb-4">
-          <button
-            onClick={() => { setProofTab('photo'); setError(''); }}
-            className={cn(
-              'flex-1 py-1.5 text-xs font-medium transition-colors',
-              proofTab === 'photo' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50',
-            )}>
-            <Camera size={12} className="inline mr-1" />Photo
-          </button>
-          <button
-            onClick={() => { setProofTab('otp'); setError(''); }}
-            className={cn(
-              'flex-1 py-1.5 text-xs font-medium transition-colors',
-              proofTab === 'otp' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/50',
-            )}>
-            OTP
-          </button>
-        </div>
-
         <div className="space-y-3">
-          {proofTab === 'photo' ? (
-            <div
-              onClick={() => fileRef.current?.click()}
-              className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/60 py-6 cursor-pointer hover:border-primary/50 transition-colors"
-            >
-              {proof ? (
-                <p className="text-sm text-green-600 dark:text-green-400 font-medium">{proof.name}</p>
-              ) : (
-                <>
-                  <Camera size={20} className="text-muted-foreground mb-1" />
-                  <p className="text-xs text-muted-foreground">Upload delivery proof photo</p>
-                </>
-              )}
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" className="hidden"
-                onChange={e => setProof(e.target.files?.[0] ?? null)} />
-            </div>
-          ) : (
-            <div>
-              <label className="text-xs text-muted-foreground">Enter OTP shown on customer's screen</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={otpInput}
-                onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                placeholder="6-digit OTP"
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-center font-mono text-2xl font-bold tracking-widest text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              <p className="mt-1 text-[10px] text-muted-foreground text-center">Ask the customer to show you their order OTP</p>
-            </div>
-          )}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">
+              Enter OTP shown on customer's screen <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otpInput}
+              onChange={e => { setOtpInput(e.target.value.replace(/\D/g, '')); setError(''); }}
+              placeholder="6-digit OTP"
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-center font-mono text-2xl font-bold tracking-widest text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground text-center">Ask the customer to show you their order OTP</p>
+          </div>
           <div>
             <label className="text-xs text-muted-foreground">Notes (optional)</label>
             <textarea rows={2}
@@ -150,7 +108,13 @@ function ProofOfDeliveryModal({
               value={notes} onChange={e => setNotes(e.target.value)} placeholder="Left at door, etc." />
           </div>
         </div>
-        {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+
+        {error && (
+          <p className="mt-3 rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
+
         <div className="mt-4 flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-md border border-border py-2 text-sm text-muted-foreground">Cancel</button>
           <button onClick={submit} disabled={saving}
