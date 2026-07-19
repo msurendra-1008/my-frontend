@@ -392,7 +392,20 @@ function OrderDetailSheet({
                 const blockedItems = order.items.filter(
                   (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
                 );
-                const isBlocked = blockedItems.length > 0;
+                const now = new Date();
+                const exchangeBufferItems = order.items.filter(
+                  (i) =>
+                    i.commission_breakup?.status === 'exchange_hold' &&
+                    i.commission_breakup?.return_window_expires &&
+                    new Date(i.commission_breakup.return_window_expires) > now
+                );
+                const isBlocked = blockedItems.length > 0 || exchangeBufferItems.length > 0;
+                // Latest expiry among active exchange buffers
+                const latestBufferExpiry = exchangeBufferItems.length > 0
+                  ? new Date(Math.max(...exchangeBufferItems.map(
+                      (i) => new Date(i.commission_breakup!.return_window_expires!).getTime()
+                    )))
+                  : null;
                 return (
                   <div className="space-y-1.5">
                     <button
@@ -411,9 +424,15 @@ function OrderDetailSheet({
                       </svg>
                       Mark as Satisfied
                     </button>
-                    {isBlocked && (
+                    {blockedItems.length > 0 && (
                       <p className="text-[11px] text-amber-700 dark:text-amber-400 text-center">
                         {blockedItems.length} item{blockedItems.length > 1 ? 's have' : ' has'} a pending return/exchange request. Resolve {blockedItems.length > 1 ? 'them' : 'it'} first.
+                      </p>
+                    )}
+                    {latestBufferExpiry && (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 text-center">
+                        Exchange buffer active — available after{' '}
+                        {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(latestBufferExpiry)}.
                       </p>
                     )}
                   </div>
