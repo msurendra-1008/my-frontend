@@ -108,7 +108,7 @@ function EntryTable({
   );
 }
 
-function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: CommissionBreakupEmbed }) {
+function BreakupItemCard({ item, breakup, orderBlocked }: { item: OrderItem; breakup: CommissionBreakupEmbed; orderBlocked: boolean }) {
   const pd           = breakup.profit_data;
   const netEntries   = breakup.network_entries ?? breakup.entries.filter((e) => e.entry_type === 'network_upline');
   const teamEntries  = breakup.team_entries    ?? breakup.entries.filter((e) => e.entry_type === 'team_downline');
@@ -194,13 +194,22 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
           const hasActiveRequest   = item.return_status && activeReturnStates.includes(item.return_status);
           if (hasActiveRequest) {
             const label =
-              item.return_status === 'approved'    ? 'Return approved — awaiting processing' :
+              item.return_status === 'approved'     ? 'Return approved — awaiting processing' :
               item.return_status === 'under_review' ? 'Return/exchange under review' :
               'Return/exchange requested';
             return (
               <div className="rounded-lg bg-amber-500/10 border border-amber-400/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
                 <p className="font-semibold">⚠ {label}</p>
-                <p>Commission is on hold. It will only be credited once this request is resolved and no issues remain.</p>
+                <p>Commission on hold — will only credit once this request is resolved and the entire order is clear.</p>
+              </div>
+            );
+          }
+          // This item is clear, but another item in the order is blocking the whole payout
+          if (orderBlocked) {
+            return (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-400/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
+                <p className="font-semibold">⚠ Commission on hold</p>
+                <p>Another item in this order has a pending return/exchange or active exchange buffer. All commissions are held until the entire order is clear.</p>
               </div>
             );
           }
@@ -231,14 +240,30 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
 
 export function CommissionBreakupSection({ order }: { order: Order }) {
   const itemsWithBreakup = order.items.filter((item) => item.commission_breakup !== null);
-  // Only include active breakups in the total — cancelled (returned) and exchange_hold items are excluded
+  // Only include active breakups in the total — cancelled (returned) items are excluded
   const creditableItems  = itemsWithBreakup.filter(
-    (item) => !['cancelled', 'exchange_hold'].includes(item.commission_breakup!.status)
+    (item) => item.commission_breakup!.status !== 'cancelled'
   );
 
   if (itemsWithBreakup.length === 0) return null;
 
-  // Aggregate entries across creditable items only (excludes returned/exchange-hold)
+  // ── Order-level block check ───────────────────────────────────────────────
+  // If ANY item has an active return/exchange request or unexpired exchange buffer,
+  // the ENTIRE order's commission is on hold — not just that item.
+  const activeReturnStates = ['raised', 'under_review', 'approved'];
+  const anyActiveRequest   = order.items.some(
+    (i) => i.return_status && activeReturnStates.includes(i.return_status)
+  );
+  const now = new Date();
+  const anyActiveBuffer = order.items.some(
+    (i) =>
+      i.commission_breakup?.status === 'exchange_hold' &&
+      i.commission_breakup?.return_window_expires &&
+      new Date(i.commission_breakup.return_window_expires) > now
+  );
+  const orderCommissionBlocked = anyActiveRequest || anyActiveBuffer;
+
+  // Aggregate entries across creditable items (excludes returned/cancelled)
   const allEntries: CommissionEntryEmbed[] = [];
   creditableItems.forEach((item) => {
     const b = item.commission_breakup!;
@@ -267,15 +292,36 @@ export function CommissionBreakupSection({ order }: { order: Order }) {
       </div>
 
       {itemsWithBreakup.map((item) => (
-        <BreakupItemCard key={item.id} item={item} breakup={item.commission_breakup!} />
+        <BreakupItemCard
+          key={item.id}
+          item={item}
+          breakup={item.commission_breakup!}
+          orderBlocked={orderCommissionBlocked}
+        />
       ))}
 
-      {/* Total summary — only if multi-item or helpful */}
+      {/* Total summary */}
       {summaryRows.length > 0 && (
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-sm font-semibold mb-1">Total Commission Summary</p>
-          <p className="text-xs text-muted-foreground mb-3">Combined across all items in this order</p>
-          <table className="w-full text-xs mb-3">
+        <div className="rounded-xl border bg-card p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold">Total Commission Summary</p>
+            <p className="text-xs text-muted-foreground">Combined across all items in this order</p>
+          </div>
+
+          {/* Order-level hold warning — appears when any item blocks the whole payout */}
+          {orderCommissionBlocked && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-400/40 px-3 py-2.5 text-xs text-amber-700 dark:text-amber-400 space-y-1">
+              <p className="font-semibold">⚠ Entire order commission is on hold</p>
+              {anyActiveRequest && (
+                <p>One or more items have an active return/exchange request. No commission will be credited until all requests are resolved.</p>
+              )}
+              {anyActiveBuffer && (
+                <p>One or more items are within the exchange buffer period. Commission will be released once the buffer expires and the customer marks satisfied.</p>
+              )}
+            </div>
+          )}
+
+          <table className="w-full text-xs">
             <thead>
               <tr className="text-muted-foreground border-b border-border/50">
                 <th className="text-left pb-2 font-medium">Recipient</th>
@@ -301,7 +347,9 @@ export function CommissionBreakupSection({ order }: { order: Order }) {
           </table>
           <div className="border-t border-border/50 pt-2 flex justify-between text-sm font-bold">
             <span>Grand total commission</span>
-            <span className="text-primary">₹{grandTotal.toFixed(2)}</span>
+            <span className={orderCommissionBlocked ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}>
+              ₹{grandTotal.toFixed(2)}{orderCommissionBlocked ? ' (on hold)' : ''}
+            </span>
           </div>
         </div>
       )}
