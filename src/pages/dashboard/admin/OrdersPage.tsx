@@ -189,12 +189,31 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
         )}
 
         {/* Window / status notes */}
-        {breakup.return_window_expires && breakup.status === 'pending_window' && (
-          <div className="rounded-lg bg-blue-500/10 border border-blue-400/40 px-3 py-2 text-xs text-blue-700 dark:text-blue-400">
-            ⏳ Credits on:{' '}
-            {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(breakup.return_window_expires))}
-          </div>
-        )}
+        {breakup.status === 'pending_window' && (() => {
+          const activeReturnStates = ['raised', 'under_review', 'approved'];
+          const hasActiveRequest   = item.return_status && activeReturnStates.includes(item.return_status);
+          if (hasActiveRequest) {
+            const label =
+              item.return_status === 'approved'    ? 'Return approved — awaiting processing' :
+              item.return_status === 'under_review' ? 'Return/exchange under review' :
+              'Return/exchange requested';
+            return (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-400/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
+                <p className="font-semibold">⚠ {label}</p>
+                <p>Commission is on hold. It will only be credited once this request is resolved and no issues remain.</p>
+              </div>
+            );
+          }
+          if (breakup.return_window_expires) {
+            return (
+              <div className="rounded-lg bg-blue-500/10 border border-blue-400/40 px-3 py-2 text-xs text-blue-700 dark:text-blue-400">
+                ⏳ All clear — credits on:{' '}
+                {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(breakup.return_window_expires))}
+              </div>
+            );
+          }
+          return null;
+        })()}
         {breakup.status === 'exchange_hold' && (
           <div className="rounded-lg bg-purple-500/10 border border-purple-400/40 px-3 py-2 text-xs text-purple-700 dark:text-purple-400">
             🔄 Exchange buffer in progress.{breakup.return_window_expires ? ` Commission credits on ${new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(breakup.return_window_expires))} if no return.` : ''}
