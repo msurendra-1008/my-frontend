@@ -553,7 +553,9 @@ function OrderDetailSheet({
             <ul className="space-y-2 text-sm text-muted-foreground list-none">
               <li className="flex items-start gap-2">
                 <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                Commissions will be credited to your upline's wallets immediately.
+                {order?.order_status === 'delivered'
+                  ? "Commissions will be credited to your upline's wallets immediately."
+                  : "Commissions will be credited to your upline's wallets once the order is delivered."}
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500 mt-0.5 shrink-0">✗</span>
