@@ -1,9 +1,10 @@
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export interface ReturnSettings {
-  return_window_days: number;
-  max_attempts:       number;
-  predefined_reasons: string[];
+  return_window_days:   number;
+  exchange_buffer_days: number;
+  max_attempts:         number;
+  predefined_reasons:   string[];
 }
 
 // ── Photo ─────────────────────────────────────────────────────────────────────

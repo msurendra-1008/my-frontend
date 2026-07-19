@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/utils/cn';
 import { Search, Package, ChevronRight, X, RotateCcw, CreditCard } from 'lucide-react';
 import { CompletePaymentSheet } from '@/components/orders/CompletePaymentSheet';
 import { orderService } from '@/services/orderService';
@@ -386,18 +387,57 @@ function OrderDetailSheet({
                     </span>
                   )}
                 </div>
-              ) : ['confirmed', 'packed', 'shipped', 'delivered'].includes(order.order_status) && (
-                <button
-                  onClick={() => { setSatisfiedError(''); setShowSatisfiedConfirm(true); }}
-                  className="w-full h-10 rounded-xl border-2 border-green-500/50 text-green-600 dark:text-green-400 text-sm font-medium hover:bg-green-500/10 transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M5 8l2.5 2.5L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                  Mark as Satisfied
-                </button>
-              )}
+              ) : ['confirmed', 'packed', 'shipped', 'delivered'].includes(order.order_status) && (() => {
+                const activeReturnStatuses = ['raised', 'under_review', 'approved'];
+                const blockedItems = order.items.filter(
+                  (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
+                );
+                const now = new Date();
+                const exchangeBufferItems = order.items.filter(
+                  (i) =>
+                    i.commission_breakup?.status === 'exchange_hold' &&
+                    i.commission_breakup?.return_window_expires &&
+                    new Date(i.commission_breakup.return_window_expires) > now
+                );
+                const isBlocked = blockedItems.length > 0 || exchangeBufferItems.length > 0;
+                // Latest expiry among active exchange buffers
+                const latestBufferExpiry = exchangeBufferItems.length > 0
+                  ? new Date(Math.max(...exchangeBufferItems.map(
+                      (i) => new Date(i.commission_breakup!.return_window_expires!).getTime()
+                    )))
+                  : null;
+                return (
+                  <div className="space-y-1.5">
+                    <button
+                      disabled={isBlocked}
+                      onClick={() => { if (!isBlocked) { setSatisfiedError(''); setShowSatisfiedConfirm(true); } }}
+                      className={cn(
+                        'w-full h-10 rounded-xl border-2 text-sm font-medium transition-colors flex items-center justify-center gap-2',
+                        isBlocked
+                          ? 'border-muted text-muted-foreground cursor-not-allowed opacity-60'
+                          : 'border-green-500/50 text-green-600 dark:text-green-400 hover:bg-green-500/10'
+                      )}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M5 8l2.5 2.5L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                      Mark as Satisfied
+                    </button>
+                    {blockedItems.length > 0 && (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 text-center">
+                        {blockedItems.length} item{blockedItems.length > 1 ? 's have' : ' has'} a pending return/exchange request. Resolve {blockedItems.length > 1 ? 'them' : 'it'} first.
+                      </p>
+                    )}
+                    {latestBufferExpiry && (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 text-center">
+                        Exchange buffer active — available after{' '}
+                        {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(latestBufferExpiry)}.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Items */}
               <div className="rounded-xl border">
@@ -407,18 +447,25 @@ function OrderDetailSheet({
                 {order.items.map((item) => {
                   const rejCount    = item.return_rejection_count ?? 0;
                   const maxAttempts = retSettings?.max_attempts ?? 2;
+                  const windowDays = retSettings?.return_window_days ?? returnWindowDays;
                   const eligible = (() => {
                     try {
+                      if (item.return_window_blocked) return false;
                       if (rejCount >= maxAttempts) return false;
                       if (item.status !== 'delivered') return false;
                       if (!item.delivered_at) return false;
-                      const deliveredDate = new Date(item.delivered_at);
-                      const windowEnd = new Date(deliveredDate);
-                      windowEnd.setDate(windowEnd.getDate() + returnWindowDays);
+                      const windowEnd = new Date(item.delivered_at);
+                      windowEnd.setDate(windowEnd.getDate() + windowDays);
                       return new Date() <= windowEnd;
                     } catch {
                       return false;
                     }
+                  })();
+                  const windowExpired = (() => {
+                    if (!item.delivered_at || item.status !== 'delivered') return false;
+                    const windowEnd = new Date(item.delivered_at);
+                    windowEnd.setDate(windowEnd.getDate() + windowDays);
+                    return new Date() > windowEnd;
                   })();
                   return (
                     <div key={item.id} className="px-4 py-3 border-b last:border-0 text-sm">
@@ -444,6 +491,11 @@ function OrderDetailSheet({
                             {order.is_satisfied && item.status === 'delivered' && (
                               <span className="text-[10px] text-muted-foreground">
                                 Returns not available — order satisfied
+                              </span>
+                            )}
+                            {!order.is_satisfied && windowExpired && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Return window expired ({windowDays}d)
                               </span>
                             )}
                             {!eligible && rejCount >= maxAttempts && item.status === 'delivered' && (
@@ -553,7 +605,9 @@ function OrderDetailSheet({
             <ul className="space-y-2 text-sm text-muted-foreground list-none">
               <li className="flex items-start gap-2">
                 <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                Commissions will be credited to your upline's wallets immediately.
+                {order?.order_status === 'delivered'
+                  ? "Commissions will be credited to your upline's wallets immediately."
+                  : "Commissions will be credited to your upline's wallets once the order is delivered."}
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500 mt-0.5 shrink-0">✗</span>

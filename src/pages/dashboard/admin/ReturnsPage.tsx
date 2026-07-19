@@ -483,10 +483,12 @@ function SettingsSheet({
   onSaved:  (s: ReturnSettings) => void;
 }) {
   const toast = useToast();
-  const [loading,     setLoading]     = useState(true);
-  const [saving,      setSaving]      = useState(false);
-  const [days,        setDays]        = useState(7);
-  const [maxAttempts, setMaxAttempts] = useState(2);
+  const [loading,       setLoading]       = useState(true);
+  const [saving,        setSaving]        = useState(false);
+  const [saved,         setSaved]         = useState(false);
+  const [days,          setDays]          = useState(7);
+  const [bufferDays,    setBufferDays]    = useState(1);
+  const [maxAttempts,   setMaxAttempts]   = useState(2);
   const [reasons,     setReasons]     = useState<string[]>([]);
   const [newReason,   setNewReason]   = useState('');
 
@@ -494,6 +496,7 @@ function SettingsSheet({
     returnsService.getSettings()
       .then((r) => {
         setDays(r.data.return_window_days);
+        setBufferDays(r.data.exchange_buffer_days ?? 1);
         setMaxAttempts(r.data.max_attempts);
         setReasons(r.data.predefined_reasons);
       })
@@ -505,13 +508,16 @@ function SettingsSheet({
     setSaving(true);
     try {
       const r = await returnsService.updateSettings({
-        return_window_days: days,
-        max_attempts:       maxAttempts,
-        predefined_reasons: reasons,
+        return_window_days:   days,
+        exchange_buffer_days: bufferDays,
+        max_attempts:         maxAttempts,
+        predefined_reasons:   reasons,
       });
-      toast.show('Settings saved');
       onSaved(r.data);
-      onClose();
+      setSaved(true);
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch {
       toast.show('Failed to save', true);
     } finally {
@@ -561,7 +567,7 @@ function SettingsSheet({
               {/* Return window */}
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1.5">
-                  Return window (days)
+                  Return / exchange window (days)
                 </label>
                 <input
                   type="number"
@@ -571,7 +577,23 @@ function SettingsSheet({
                   onChange={(e) => setDays(Number(e.target.value))}
                   className="w-32 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">1–90 days</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">1–90 days. Applies to both returns and exchanges.</p>
+              </div>
+
+              {/* Exchange buffer */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground block mb-1.5">
+                  Exchange buffer window (days)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={bufferDays}
+                  onChange={(e) => setBufferDays(Number(e.target.value))}
+                  className="w-32 rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">1–30 days. After exchange is approved, commission is held for this many days before being credited.</p>
               </div>
 
               {/* Max attempts */}
@@ -639,10 +661,13 @@ function SettingsSheet({
         <div className="sticky bottom-0 bg-background border-t px-5 py-4 flex gap-3">
           <button
             onClick={handleSave}
-            disabled={saving || loading}
-            className="flex-1 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
+            disabled={saving || loading || saved}
+            className={cn(
+              'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-80',
+              saved ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-700 disabled:opacity-60',
+            )}
           >
-            {saving ? 'Saving…' : 'Save Settings'}
+            {saving ? 'Saving…' : saved ? '✓ Settings Saved' : 'Save Settings'}
           </button>
           <button
             onClick={onClose}

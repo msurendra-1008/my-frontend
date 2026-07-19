@@ -58,7 +58,7 @@ export interface ProductCommissionRule {
   right_leg_pct:           string;
 }
 
-export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant' | 'ignored';
+export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant' | 'ignored' | 'cancelled';
 export type EntryType   = 'network_upline' | 'team_downline' | 'social_work' | 'company' | 'self_commission';
 
 export interface PendingCommissionEntry {
@@ -163,7 +163,7 @@ export interface CommissionBreakupEmbed {
   total_base_amount:     string;
   network_pool:          string;
   team_pool:             string;
-  status:                'pending_window' | 'processing' | 'completed' | 'partial';
+  status:                'pending_window' | 'exchange_hold' | 'processing' | 'completed' | 'partial' | 'cancelled';
   return_window_expires: string | null;
   processed_at:          string | null;
   rule_snapshot:         Record<string, unknown> | null;
