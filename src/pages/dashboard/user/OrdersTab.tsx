@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/utils/cn';
 import { Search, Package, ChevronRight, X, RotateCcw, CreditCard } from 'lucide-react';
 import { CompletePaymentSheet } from '@/components/orders/CompletePaymentSheet';
 import { orderService } from '@/services/orderService';
@@ -386,18 +387,38 @@ function OrderDetailSheet({
                     </span>
                   )}
                 </div>
-              ) : ['confirmed', 'packed', 'shipped', 'delivered'].includes(order.order_status) && (
-                <button
-                  onClick={() => { setSatisfiedError(''); setShowSatisfiedConfirm(true); }}
-                  className="w-full h-10 rounded-xl border-2 border-green-500/50 text-green-600 dark:text-green-400 text-sm font-medium hover:bg-green-500/10 transition-colors flex items-center justify-center gap-2"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M5 8l2.5 2.5L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                  Mark as Satisfied
-                </button>
-              )}
+              ) : ['confirmed', 'packed', 'shipped', 'delivered'].includes(order.order_status) && (() => {
+                const activeReturnStatuses = ['raised', 'under_review', 'approved'];
+                const blockedItems = order.items.filter(
+                  (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
+                );
+                const isBlocked = blockedItems.length > 0;
+                return (
+                  <div className="space-y-1.5">
+                    <button
+                      disabled={isBlocked}
+                      onClick={() => { if (!isBlocked) { setSatisfiedError(''); setShowSatisfiedConfirm(true); } }}
+                      className={cn(
+                        'w-full h-10 rounded-xl border-2 text-sm font-medium transition-colors flex items-center justify-center gap-2',
+                        isBlocked
+                          ? 'border-muted text-muted-foreground cursor-not-allowed opacity-60'
+                          : 'border-green-500/50 text-green-600 dark:text-green-400 hover:bg-green-500/10'
+                      )}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M5 8l2.5 2.5L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                      Mark as Satisfied
+                    </button>
+                    {isBlocked && (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 text-center">
+                        {blockedItems.length} item{blockedItems.length > 1 ? 's have' : ' has'} a pending return/exchange request. Resolve {blockedItems.length > 1 ? 'them' : 'it'} first.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Items */}
               <div className="rounded-xl border">
