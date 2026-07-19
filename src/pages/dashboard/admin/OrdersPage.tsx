@@ -119,13 +119,17 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
 
   const statusLabel =
     breakup.status === 'completed'      ? '✅ Credited' :
-    breakup.status === 'partial'        ? 'Partial' :
+    breakup.status === 'partial'        ? '⚠ Partial' :
     breakup.status === 'pending_window' ? '⏳ Pending window' :
+    breakup.status === 'exchange_hold'  ? '🔄 Exchange hold' :
+    breakup.status === 'cancelled'      ? '✗ Cancelled — item returned' :
     breakup.status;
 
   const statusClass =
-    breakup.status === 'completed' ? 'bg-green-500/10 text-green-700 dark:text-green-400' :
-    breakup.status === 'partial'   ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+    breakup.status === 'completed'     ? 'bg-green-500/10 text-green-700 dark:text-green-400' :
+    breakup.status === 'partial'       ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+    breakup.status === 'cancelled'     ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+    breakup.status === 'exchange_hold' ? 'bg-purple-500/10 text-purple-700 dark:text-purple-400' :
     'bg-blue-500/10 text-blue-700 dark:text-blue-400';
 
   return (
@@ -184,13 +188,21 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
           <p className="text-xs text-muted-foreground">No commission entries</p>
         )}
 
-        {/* Return window note */}
+        {/* Window / status notes */}
         {breakup.return_window_expires && breakup.status === 'pending_window' && (
           <div className="rounded-lg bg-blue-500/10 border border-blue-400/40 px-3 py-2 text-xs text-blue-700 dark:text-blue-400">
             ⏳ Credits on:{' '}
-            {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(
-              new Date(breakup.return_window_expires),
-            )}
+            {new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(breakup.return_window_expires))}
+          </div>
+        )}
+        {breakup.status === 'exchange_hold' && (
+          <div className="rounded-lg bg-purple-500/10 border border-purple-400/40 px-3 py-2 text-xs text-purple-700 dark:text-purple-400">
+            🔄 Exchange buffer in progress.{breakup.return_window_expires ? ` Commission credits on ${new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(breakup.return_window_expires))} if no return.` : ''}
+          </div>
+        )}
+        {breakup.status === 'cancelled' && (
+          <div className="rounded-lg bg-red-500/10 border border-red-400/40 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+            ✗ Commission void — this item was returned and refunded.
           </div>
         )}
       </div>
@@ -200,12 +212,16 @@ function BreakupItemCard({ item, breakup }: { item: OrderItem; breakup: Commissi
 
 export function CommissionBreakupSection({ order }: { order: Order }) {
   const itemsWithBreakup = order.items.filter((item) => item.commission_breakup !== null);
+  // Only include active breakups in the total — cancelled (returned) and exchange_hold items are excluded
+  const creditableItems  = itemsWithBreakup.filter(
+    (item) => !['cancelled', 'exchange_hold'].includes(item.commission_breakup!.status)
+  );
 
   if (itemsWithBreakup.length === 0) return null;
 
-  // Aggregate entries across all items for the summary table
+  // Aggregate entries across creditable items only (excludes returned/exchange-hold)
   const allEntries: CommissionEntryEmbed[] = [];
-  itemsWithBreakup.forEach((item) => {
+  creditableItems.forEach((item) => {
     const b = item.commission_breakup!;
     const nets  = b.network_entries ?? b.entries.filter((e) => e.entry_type === 'network_upline');
     const teams = b.team_entries    ?? b.entries.filter((e) => e.entry_type === 'team_downline');
