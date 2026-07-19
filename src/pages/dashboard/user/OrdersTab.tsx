@@ -407,18 +407,25 @@ function OrderDetailSheet({
                 {order.items.map((item) => {
                   const rejCount    = item.return_rejection_count ?? 0;
                   const maxAttempts = retSettings?.max_attempts ?? 2;
+                  const windowDays = retSettings?.return_window_days ?? returnWindowDays;
                   const eligible = (() => {
                     try {
+                      if (item.return_window_blocked) return false;
                       if (rejCount >= maxAttempts) return false;
                       if (item.status !== 'delivered') return false;
                       if (!item.delivered_at) return false;
-                      const deliveredDate = new Date(item.delivered_at);
-                      const windowEnd = new Date(deliveredDate);
-                      windowEnd.setDate(windowEnd.getDate() + returnWindowDays);
+                      const windowEnd = new Date(item.delivered_at);
+                      windowEnd.setDate(windowEnd.getDate() + windowDays);
                       return new Date() <= windowEnd;
                     } catch {
                       return false;
                     }
+                  })();
+                  const windowExpired = (() => {
+                    if (!item.delivered_at || item.status !== 'delivered') return false;
+                    const windowEnd = new Date(item.delivered_at);
+                    windowEnd.setDate(windowEnd.getDate() + windowDays);
+                    return new Date() > windowEnd;
                   })();
                   return (
                     <div key={item.id} className="px-4 py-3 border-b last:border-0 text-sm">
@@ -444,6 +451,11 @@ function OrderDetailSheet({
                             {order.is_satisfied && item.status === 'delivered' && (
                               <span className="text-[10px] text-muted-foreground">
                                 Returns not available — order satisfied
+                              </span>
+                            )}
+                            {!order.is_satisfied && windowExpired && (
+                              <span className="text-[10px] text-muted-foreground">
+                                Return window expired ({windowDays}d)
                               </span>
                             )}
                             {!eligible && rejCount >= maxAttempts && item.status === 'delivered' && (

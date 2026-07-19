@@ -485,6 +485,7 @@ function SettingsSheet({
   const toast = useToast();
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
+  const [saved,       setSaved]       = useState(false);
   const [days,        setDays]        = useState(7);
   const [maxAttempts, setMaxAttempts] = useState(2);
   const [reasons,     setReasons]     = useState<string[]>([]);
@@ -509,9 +510,11 @@ function SettingsSheet({
         max_attempts:       maxAttempts,
         predefined_reasons: reasons,
       });
-      toast.show('Settings saved');
       onSaved(r.data);
-      onClose();
+      setSaved(true);
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch {
       toast.show('Failed to save', true);
     } finally {
@@ -639,10 +642,13 @@ function SettingsSheet({
         <div className="sticky bottom-0 bg-background border-t px-5 py-4 flex gap-3">
           <button
             onClick={handleSave}
-            disabled={saving || loading}
-            className="flex-1 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700 transition-colors disabled:opacity-60"
+            disabled={saving || loading || saved}
+            className={cn(
+              'flex-1 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:opacity-80',
+              saved ? 'bg-green-600' : 'bg-purple-600 hover:bg-purple-700 disabled:opacity-60',
+            )}
           >
-            {saving ? 'Saving…' : 'Save Settings'}
+            {saving ? 'Saving…' : saved ? '✓ Settings Saved' : 'Save Settings'}
           </button>
           <button
             onClick={onClose}
