@@ -387,7 +387,7 @@ function OrderDetailSheet({
                     </span>
                   )}
                 </div>
-              ) : ['confirmed', 'packed', 'shipped', 'delivered'].includes(order.order_status) && (() => {
+              ) : order.order_status === 'delivered' && (() => {
                 const activeReturnStatuses = ['raised', 'under_review', 'approved'];
                 const blockedItems = order.items.filter(
                   (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
@@ -605,9 +605,7 @@ function OrderDetailSheet({
             <ul className="space-y-2 text-sm text-muted-foreground list-none">
               <li className="flex items-start gap-2">
                 <span className="text-green-500 mt-0.5 shrink-0">✓</span>
-                {order?.order_status === 'delivered'
-                  ? "Commissions will be credited to your upline's wallets immediately."
-                  : "Commissions will be credited to your upline's wallets once the order is delivered."}
+                Commissions will be credited to your upline's wallets immediately.
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500 mt-0.5 shrink-0">✗</span>
