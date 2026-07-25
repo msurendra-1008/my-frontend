@@ -11,6 +11,7 @@ import {
   Clock, CalendarDays, ArrowLeftRight,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { ISTClock } from '@/components/ui/ISTClock';
 
 /* ── Status config ── */
 const STATUS: Record<DeliveryStatus, { label: string; color: string }> = {
@@ -612,6 +613,7 @@ export function DeliveryPartnerDashboard() {
             <p className="text-[10px] text-muted-foreground">Delivery Partner</p>
           </div>
         </div>
+        <ISTClock />
         <div className="flex items-center gap-2">
           <button onClick={load} className="p-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
             <RefreshCw size={15} />

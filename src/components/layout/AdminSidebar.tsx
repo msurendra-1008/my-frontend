@@ -6,6 +6,7 @@ import { authService } from '@/services/authService';
 import { tokenStorage } from '@/utils/axiosInstance';
 import type { UserRole } from '@/types/auth';
 import type { LucideIcon } from 'lucide-react';
+import { ISTClock } from '@/components/ui/ISTClock';
 import {
   LayoutDashboard, Users, UserCheck, Network, Package,
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
@@ -217,14 +218,14 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       )}>
 
         {/* ── Header ── */}
-        <div className="px-4 py-3.5 border-b border-border/50 flex-shrink-0 flex items-start justify-between">
-          <div>
+        <div className="px-4 py-3 border-b border-border/50 flex-shrink-0">
+          <div className="flex items-start justify-between">
             <h2 className="text-sm font-medium text-foreground">Admin Panel</h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Manage your platform</p>
+            <button className="flex lg:hidden text-muted-foreground" onClick={onMobileToggle}>
+              <X size={16} />
+            </button>
           </div>
-          <button className="flex lg:hidden text-muted-foreground mt-0.5" onClick={onMobileToggle}>
-            <X size={16} />
-          </button>
+          <ISTClock className="text-[10px] font-mono text-muted-foreground/70 tabular-nums mt-0.5 block" />
         </div>
 
         {/* ── Scrollable nav ── */}
