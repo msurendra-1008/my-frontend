@@ -107,6 +107,15 @@ export type OrderItemStatus =
   | 'refunded'
   | 'exchanged';
 
+export interface ReturnRequestSummaryItem {
+  id:           string;
+  request_type: 'return' | 'exchange';
+  status:       string;
+  raised_at:    string;
+  reviewed_at:  string | null;
+  completed_at: string | null;
+}
+
 export interface OrderItem {
   id:                     string;
   product_name:           string;
@@ -123,6 +132,7 @@ export interface OrderItem {
   return_rejection_count: number;
   return_status:          string | null;
   return_admin_notes:     string;
+  return_request_summary: ReturnRequestSummaryItem[];
   return_window_blocked:  boolean;
   commission_breakup:     CommissionBreakupEmbed | null;
 }

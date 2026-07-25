@@ -47,6 +47,77 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
   );
 }
 
+// ── Per-item status timeline ──────────────────────────────────────────────────
+
+function ItemStatusTimeline({ item }: { item: OrderItem }) {
+  const summary = item.return_request_summary ?? [];
+  if (summary.length === 0) return null;
+
+  const fmt = (d: string | null) => !d ? '' :
+    new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(d));
+
+  const events: { label: string; time: string | null; color: string }[] = [];
+
+  for (const rr of summary) {
+    const tl = rr.request_type === 'exchange' ? 'Exchange' : 'Return';
+    events.push({ label: `${tl} request raised`, time: rr.raised_at, color: 'amber' });
+
+    if (rr.reviewed_at) {
+      if (['rejected', 'rejected_final'].includes(rr.status)) {
+        events.push({ label: 'Request rejected', time: rr.reviewed_at, color: 'red' });
+      } else if (rr.status === 'under_review') {
+        events.push({ label: 'Admin requested more info', time: rr.reviewed_at, color: 'amber' });
+      } else {
+        events.push({ label: 'Request approved', time: rr.reviewed_at, color: 'blue' });
+      }
+    }
+
+    if (rr.status === 'pickup_dispatched') {
+      events.push({ label: 'Delivery partner assigned — coming to collect your item', time: null, color: 'amber' });
+    } else if (rr.status === 'exchange_dispatched') {
+      events.push({ label: 'New item on the way', time: null, color: 'purple' });
+    }
+
+    if (rr.completed_at) {
+      const completedLabel = rr.request_type === 'exchange'
+        ? 'Exchange complete — new item delivered'
+        : 'Return complete — refund credited to your wallet';
+      events.push({ label: completedLabel, time: rr.completed_at, color: 'green' });
+    }
+  }
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mt-2.5 pt-2 border-t border-border/40">
+      <p className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide mb-1.5">Item history</p>
+      <div className="space-y-1.5">
+        {events.map((ev, i) => (
+          <div key={i} className="flex items-start gap-2 text-[11px]">
+            <span className={`mt-0.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+              ev.color === 'green'  ? 'bg-green-500' :
+              ev.color === 'red'    ? 'bg-red-500' :
+              ev.color === 'amber'  ? 'bg-amber-500' :
+              ev.color === 'purple' ? 'bg-purple-500' :
+              'bg-blue-500'
+            }`} />
+            <div>
+              <span className={`font-medium ${
+                ev.color === 'green'  ? 'text-green-600 dark:text-green-400' :
+                ev.color === 'red'    ? 'text-red-600 dark:text-red-400' :
+                ev.color === 'amber'  ? 'text-amber-700 dark:text-amber-400' :
+                ev.color === 'purple' ? 'text-purple-600 dark:text-purple-400' :
+                'text-blue-600 dark:text-blue-400'
+              }`}>{ev.label}</span>
+              {ev.time && <span className="ml-1 text-muted-foreground">{fmt(ev.time)}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Raise Return Sheet (nested, z-60) ─────────────────────────────────────────
 
 function RaiseReturnSheet({
@@ -397,11 +468,13 @@ function OrderDetailSheet({
                   (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
                 );
                 const now = new Date();
+                const returnInProgressStates = ['raised', 'under_review', 'approved', 'pickup_dispatched'];
                 const exchangeBufferItems = order.items.filter(
                   (i) =>
                     i.commission_breakup?.status === 'exchange_hold' &&
                     i.commission_breakup?.return_window_expires &&
-                    new Date(i.commission_breakup.return_window_expires) > now
+                    new Date(i.commission_breakup.return_window_expires) > now &&
+                    !returnInProgressStates.includes(i.return_status ?? '')
                 );
                 const isBlocked = blockedItems.length > 0 || exchangeBufferItems.length > 0;
                 // Latest expiry among active exchange buffers
@@ -515,10 +588,11 @@ function OrderDetailSheet({
 
                       {/* Under review — amber info box */}
                       {item.return_status === 'under_review' && item.return_admin_notes && (
-                        <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                        <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-400/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                           <span className="font-semibold">Admin needs more info:</span> {item.return_admin_notes}
                         </div>
                       )}
+                      <ItemStatusTimeline item={item} />
                     </div>
                   );
                 })}
