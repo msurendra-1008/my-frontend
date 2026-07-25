@@ -151,6 +151,17 @@ export interface UnassignedOrder {
   suggested_partner: DeliveryPartner | null;
 }
 
+export interface UnassignedExchange {
+  assignment_id:   string;
+  order_number:    string | null;
+  customer_name:   string | null;
+  address_city:    string | null;
+  address_pincode: string | null;
+  product_name:    string | null;
+  variant_name:    string | null;
+  quantity:        number | null;
+}
+
 export interface Paginated<T> {
   count:    number;
   next:     string | null;
