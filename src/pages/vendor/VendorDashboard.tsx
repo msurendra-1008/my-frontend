@@ -15,6 +15,7 @@ import { tenderService } from '@/services/tenderService';
 import { VendorBidSheet } from '@/components/tender/VendorBidSheet';
 import { NegotiationThread } from '@/components/tender/NegotiationThread';
 import { cn } from '@/utils/cn';
+import { ISTClock } from '@/components/ui/ISTClock';
 import type { VendorProfile, VendorDocument, VendorProductListItem, VendorProduct, VendorProductStatus } from '@/types/vendor.types';
 import type { VendorTender } from '@/types/tender.types';
 import type { ProcurementRequirement, PurchaseOrder, POStatus, RequirementStatus, MonthlyBreakdown, VendorResponseWriteData } from '@/types/procurement.types';
@@ -1286,6 +1287,7 @@ export function VendorDashboard() {
               {badge.label}
             </span>
           </div>
+          <ISTClock />
           <Button variant="outline" size="sm" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" /> Logout
           </Button>
