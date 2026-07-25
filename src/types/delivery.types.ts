@@ -91,12 +91,19 @@ export interface DeliveryStatusLog {
 }
 
 export type DeliveryStatus = 'assigned' | 'picked_up' | 'delivered' | 'failed' | 'cancelled';
-export type AssignmentType = 'order' | 'exchange';
+export type AssignmentType = 'order' | 'exchange' | 'return';
 
 export interface ExchangeItem {
   product_name: string;
   variant_name: string;
   quantity:     number;
+}
+
+export interface ReturnItem {
+  product_name:  string;
+  variant_name:  string;
+  quantity:      number;
+  refund_amount: string | null;
 }
 
 export interface DeliveryAssignment {
@@ -105,6 +112,7 @@ export interface DeliveryAssignment {
   order:           string | null;
   order_number:    string | null;
   exchange_item:   ExchangeItem | null;
+  return_item:     ReturnItem | null;
   customer_name:   string;
   delivery_address: string;
   partner:         string | null;
@@ -127,6 +135,7 @@ export interface PartnerAssignment {
   assignment_type: AssignmentType;
   order_number:    string | null;
   exchange_item:   ExchangeItem | null;
+  return_item:     ReturnItem | null;
   customer_name:   string;
   customer_phone:  string;
   delivery_address: string;
@@ -160,6 +169,18 @@ export interface UnassignedExchange {
   product_name:    string | null;
   variant_name:    string | null;
   quantity:        number | null;
+}
+
+export interface UnassignedReturnPickup {
+  assignment_id:   string;
+  order_number:    string | null;
+  customer_name:   string | null;
+  address_city:    string | null;
+  address_pincode: string | null;
+  product_name:    string | null;
+  variant_name:    string | null;
+  quantity:        number | null;
+  refund_amount:   string | null;
 }
 
 export interface Paginated<T> {

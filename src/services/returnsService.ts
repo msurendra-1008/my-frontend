@@ -60,4 +60,7 @@ export const returnsService = {
 
   requestInfo: (id: string, adminNotes: string) =>
     axiosInstance.patch<ReturnRequest>(`/api/v1/returns/${id}/request-info/`, { admin_notes: adminNotes }),
+
+  confirmPickupReceived: (id: string) =>
+    axiosInstance.post<ReturnRequest>(`/api/v1/returns/${id}/confirm-pickup-received/`),
 };

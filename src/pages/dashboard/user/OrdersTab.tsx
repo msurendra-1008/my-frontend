@@ -287,7 +287,7 @@ function OrderDetailSheet({
   const [satisfying,          setSatisfying]          = useState(false);
   const [satisfiedError,      setSatisfiedError]      = useState('');
   const [deliveryOtp,         setDeliveryOtp]         = useState<string | null>(null);
-  const [otpIsExchange,       setOtpIsExchange]       = useState(false);
+  const [otpAssignmentType,   setOtpAssignmentType]   = useState<string | null>(null);
 
   useEffect(() => {
     orderService.getMyOrder(orderId)
@@ -296,12 +296,15 @@ function OrderDetailSheet({
         const hasExchangeInFlight = o.data.items?.some(
           (i: any) => i.return_status === 'exchange_dispatched'
         );
-        if (['packed', 'shipped'].includes(o.data.order_status) || hasExchangeInFlight) {
+        const hasPickupInFlight = o.data.items?.some(
+          (i: any) => i.return_status === 'pickup_dispatched'
+        );
+        if (['packed', 'shipped'].includes(o.data.order_status) || hasExchangeInFlight || hasPickupInFlight) {
           axiosInstance.get<{ otp: string | null; status: string | null; assignment_type?: string }>(
             `/api/v1/orders/${orderId}/delivery-otp/`
           ).then(r => {
             setDeliveryOtp(r.data.otp);
-            setOtpIsExchange(r.data.assignment_type === 'exchange');
+            setOtpAssignmentType(r.data.assignment_type ?? null);
           }).catch(() => {});
         }
       })
@@ -569,19 +572,31 @@ function OrderDetailSheet({
                 </div>
               )}
 
-              {/* Delivery / Exchange OTP */}
+              {/* Delivery / Exchange / Return OTP */}
               {deliveryOtp && (
-                <div className={`rounded-xl border p-4 text-sm ${otpIsExchange ? 'border-violet-400/40 bg-violet-500/10' : 'border-primary/30 bg-primary/5'}`}>
+                <div className={`rounded-xl border p-4 text-sm ${
+                  otpAssignmentType === 'exchange' ? 'border-violet-400/40 bg-violet-500/10' :
+                  otpAssignmentType === 'return'   ? 'border-amber-400/40 bg-amber-500/10' :
+                  'border-primary/30 bg-primary/5'
+                }`}>
                   <p className="font-semibold mb-1 text-foreground">
-                    {otpIsExchange ? 'Exchange OTP' : 'Delivery OTP'}
+                    {otpAssignmentType === 'exchange' ? 'Exchange OTP' :
+                     otpAssignmentType === 'return'   ? 'Return OTP' :
+                     'Delivery OTP'}
                   </p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    {otpIsExchange
+                    {otpAssignmentType === 'exchange'
                       ? 'Share this OTP with the delivery partner to confirm the exchange.'
+                      : otpAssignmentType === 'return'
+                      ? 'Share this OTP with the delivery partner when they come to collect your item.'
                       : 'Share this OTP with the delivery partner to confirm receipt.'}
                   </p>
                   <div className="flex items-center justify-center rounded-lg bg-background border border-border py-3">
-                    <span className={`font-mono text-2xl font-bold tracking-widest ${otpIsExchange ? 'text-violet-600 dark:text-violet-400' : 'text-primary'}`}>
+                    <span className={`font-mono text-2xl font-bold tracking-widest ${
+                      otpAssignmentType === 'exchange' ? 'text-violet-600 dark:text-violet-400' :
+                      otpAssignmentType === 'return'   ? 'text-amber-600 dark:text-amber-400' :
+                      'text-primary'
+                    }`}>
                       {deliveryOtp}
                     </span>
                   </div>
