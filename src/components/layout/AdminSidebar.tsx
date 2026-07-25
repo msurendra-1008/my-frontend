@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@utils/cn';
 import { useAuthStore } from '@/store/authStore';
@@ -146,6 +146,21 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
   const navigate  = useNavigate();
   const location  = useLocation();
 
+  const navRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar_scroll');
+    if (saved && navRef.current) {
+      navRef.current.scrollTop = parseInt(saved, 10);
+    }
+  }, []);
+
+  const saveScroll = useCallback(() => {
+    if (navRef.current) {
+      localStorage.setItem('sidebar_scroll', String(navRef.current.scrollTop));
+    }
+  }, []);
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('sidebar_sections');
@@ -213,7 +228,7 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
         </div>
 
         {/* ── Scrollable nav ── */}
-        <div className="flex-1 overflow-y-auto py-1 sidebar-scroll">
+        <div ref={navRef} onScroll={saveScroll} className="flex-1 overflow-y-auto py-1 sidebar-scroll">
           {SECTIONS.map((section, sIdx) => {
             const accessibleItems = section.items.filter(canAccess);
             if (accessibleItems.length === 0) return null;
