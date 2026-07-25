@@ -190,7 +190,7 @@ function BreakupItemCard({ item, breakup, orderBlocked }: { item: OrderItem; bre
 
         {/* Window / status notes */}
         {breakup.status === 'pending_window' && (() => {
-          const activeReturnStates = ['raised', 'under_review', 'approved'];
+          const activeReturnStates = ['raised', 'under_review', 'approved', 'exchange_dispatched'];
           const hasActiveRequest   = item.return_status && activeReturnStates.includes(item.return_status);
           if (hasActiveRequest) {
             const label =
@@ -250,7 +250,7 @@ export function CommissionBreakupSection({ order }: { order: Order }) {
   // ── Order-level block check ───────────────────────────────────────────────
   // If ANY item has an active return/exchange request or unexpired exchange buffer,
   // the ENTIRE order's commission is on hold — not just that item.
-  const activeReturnStates = ['raised', 'under_review', 'approved'];
+  const activeReturnStates = ['raised', 'under_review', 'approved', 'exchange_dispatched'];
   const anyActiveRequest   = order.items.some(
     (i) => i.return_status && activeReturnStates.includes(i.return_status)
   );

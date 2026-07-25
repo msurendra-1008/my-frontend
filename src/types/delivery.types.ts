@@ -91,11 +91,20 @@ export interface DeliveryStatusLog {
 }
 
 export type DeliveryStatus = 'assigned' | 'picked_up' | 'delivered' | 'failed' | 'cancelled';
+export type AssignmentType = 'order' | 'exchange';
+
+export interface ExchangeItem {
+  product_name: string;
+  variant_name: string;
+  quantity:     number;
+}
 
 export interface DeliveryAssignment {
   id:              string;
-  order:           string;
-  order_number:    string;
+  assignment_type: AssignmentType;
+  order:           string | null;
+  order_number:    string | null;
+  exchange_item:   ExchangeItem | null;
   customer_name:   string;
   delivery_address: string;
   partner:         string | null;
@@ -115,7 +124,9 @@ export interface DeliveryAssignment {
 
 export interface PartnerAssignment {
   id:              string;
-  order_number:    string;
+  assignment_type: AssignmentType;
+  order_number:    string | null;
+  exchange_item:   ExchangeItem | null;
   customer_name:   string;
   customer_phone:  string;
   delivery_address: string;
