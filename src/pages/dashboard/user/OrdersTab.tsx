@@ -60,27 +60,26 @@ function RaiseReturnSheet({
   onClose:   () => void;
   onSuccess: () => void;
 }) {
-  const [type,       setType]       = useState<ReturnRequestType>('return');
-  const [qty,        setQty]        = useState(1);
-  const [reason,     setReason]     = useState('');
-  const [notes,      setNotes]      = useState('');
-  const [exVariant,  setExVariant]  = useState('');
-  const [variants,   setVariants]   = useState<ProductVariant[]>([]);
-  const [photos,     setPhotos]     = useState<File[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error,      setError]      = useState('');
+  const [type,        setType]        = useState<ReturnRequestType>('return');
+  const [qty,         setQty]         = useState(1);
+  const [reason,      setReason]      = useState('');
+  const [notes,       setNotes]       = useState('');
+  const [stockStatus, setStockStatus] = useState<'loading' | 'in_stock' | 'out_of_stock' | null>(null);
+  const [photos,      setPhotos]      = useState<File[]>([]);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState('');
 
-  // Load exchange variants when type = exchange
+  // Check same-variant stock availability when exchange tab is active
   useEffect(() => {
-    if (type === 'exchange' && item.product_slug && item.variant_id) {
-      productService.getProduct(item.product_slug)
-        .then((r) => setVariants(
-          r.data.variants.filter(
-            (v) => v.id !== item.variant_id && v.is_active && v.stock_quantity > 0,
-          ),
-        ))
-        .catch(() => {});
-    }
+    if (type !== 'exchange') { setStockStatus(null); return; }
+    if (!item.product_slug || !item.variant_id) { setStockStatus(null); return; }
+    setStockStatus('loading');
+    productService.getProduct(item.product_slug)
+      .then((r) => {
+        const v = r.data.variants.find((v: ProductVariant) => v.id === item.variant_id);
+        setStockStatus(v && v.stock_quantity > 0 ? 'in_stock' : 'out_of_stock');
+      })
+      .catch(() => setStockStatus(null));
   }, [type, item.product_slug, item.variant_id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,15 +89,13 @@ function RaiseReturnSheet({
 
   const handleSubmit = async () => {
     if (!reason) { setError('Please select a reason.'); return; }
-    if (type === 'exchange' && !exVariant) { setError('Please select an exchange variant.'); return; }
     setError('');
     setSubmitting(true);
     try {
       const resp = await returnsService.createRequest({
-        order_item_id:       item.id,
-        request_type:        type,
-        return_qty:          qty,
-        exchange_variant_id: type === 'exchange' ? exVariant : undefined,
+        order_item_id: item.id,
+        request_type:  type,
+        return_qty:    qty,
         reason,
         notes,
       });
@@ -156,6 +153,26 @@ function RaiseReturnSheet({
             </div>
           </div>
 
+          {/* Exchange: same-variant stock status */}
+          {type === 'exchange' && (
+            <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm space-y-1">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Replacement item</p>
+              <p className="font-medium">{item.product_name}</p>
+              <p className="text-xs text-muted-foreground">{item.variant_name}</p>
+              {stockStatus === 'loading' && (
+                <p className="text-xs text-muted-foreground">Checking stock…</p>
+              )}
+              {stockStatus === 'in_stock' && (
+                <p className="text-xs text-green-600 dark:text-green-400 font-medium">✓ In stock — exchange can be processed</p>
+              )}
+              {stockStatus === 'out_of_stock' && (
+                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  Currently out of stock. You can still raise the request — admin will review and may convert to a refund if stock remains unavailable.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Quantity (only if qty > 1) */}
           {item.quantity > 1 && (
             <div className="space-y-1.5">
@@ -170,29 +187,6 @@ function RaiseReturnSheet({
                 onChange={(e) => setQty(Math.min(item.quantity, Math.max(1, Number(e.target.value))))}
                 className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
               />
-            </div>
-          )}
-
-          {/* Exchange variant */}
-          {type === 'exchange' && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Exchange For</label>
-              {variants.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No other variants available for exchange.</p>
-              ) : (
-                <select
-                  value={exVariant}
-                  onChange={(e) => setExVariant(e.target.value)}
-                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                >
-                  <option value="">Select variant…</option>
-                  {variants.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} — ₹{v.upa_price ?? v.upa_price_computed.upa_price} (stock: {v.stock_quantity})
-                    </option>
-                  ))}
-                </select>
-              )}
             </div>
           )}
 
@@ -388,7 +382,7 @@ function OrderDetailSheet({
                   )}
                 </div>
               ) : order.order_status === 'delivered' && (() => {
-                const activeReturnStatuses = ['raised', 'under_review', 'approved'];
+                const activeReturnStatuses = ['raised', 'under_review', 'approved', 'exchange_dispatched'];
                 const blockedItems = order.items.filter(
                   (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
                 );
