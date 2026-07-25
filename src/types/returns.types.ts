@@ -47,11 +47,22 @@ export type ReturnRequestStatus =
   | 'raised'
   | 'under_review'
   | 'approved'
+  | 'exchange_dispatched'
+  | 'pickup_dispatched'
   | 'rejected'
   | 'rejected_final'
   | 'completed';
 export type ReturnWaitingFor = 'admin' | 'user' | '';
 export type RefundMode       = 'wallet' | 'original_source';
+
+export interface PickupAssignment {
+  id:             string;
+  status:         string;
+  partner_name:   string | null;
+  partner_mobile: string | null;
+  picked_up_at:   string | null;
+  delivered_at:   string | null;
+}
 
 export interface ReturnRequest {
   id:                    string;
@@ -89,6 +100,7 @@ export interface ReturnRequest {
   photos:                ReturnPhoto[];
   logs:                  ReturnRequestLog[];
   updated_at:            string;
+  pickup_assignment?:    PickupAssignment | null;
 }
 
 export interface ReturnRequestCreate {

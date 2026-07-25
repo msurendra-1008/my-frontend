@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@utils/cn';
 import { useAuthStore } from '@/store/authStore';
@@ -6,6 +6,7 @@ import { authService } from '@/services/authService';
 import { tokenStorage } from '@/utils/axiosInstance';
 import type { UserRole } from '@/types/auth';
 import type { LucideIcon } from 'lucide-react';
+import { ISTClock } from '@/components/ui/ISTClock';
 import {
   LayoutDashboard, Users, UserCheck, Network, Package,
   ShoppingCart, RotateCcw, Warehouse, BarChart3, Boxes,
@@ -146,6 +147,21 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
   const navigate  = useNavigate();
   const location  = useLocation();
 
+  const navRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('sidebar_scroll');
+    if (saved && navRef.current) {
+      navRef.current.scrollTop = parseInt(saved, 10);
+    }
+  }, []);
+
+  const saveScroll = useCallback(() => {
+    if (navRef.current) {
+      localStorage.setItem('sidebar_scroll', String(navRef.current.scrollTop));
+    }
+  }, []);
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     try {
       const saved = localStorage.getItem('sidebar_sections');
@@ -202,18 +218,18 @@ export function AdminSidebar({ mobileOpen, onMobileToggle }: AdminSidebarProps) 
       )}>
 
         {/* ── Header ── */}
-        <div className="px-4 py-3.5 border-b border-border/50 flex-shrink-0 flex items-start justify-between">
-          <div>
+        <div className="px-4 py-3 border-b border-border/50 flex-shrink-0">
+          <div className="flex items-start justify-between">
             <h2 className="text-sm font-medium text-foreground">Admin Panel</h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Manage your platform</p>
+            <button className="flex lg:hidden text-muted-foreground" onClick={onMobileToggle}>
+              <X size={16} />
+            </button>
           </div>
-          <button className="flex lg:hidden text-muted-foreground mt-0.5" onClick={onMobileToggle}>
-            <X size={16} />
-          </button>
+          <ISTClock className="text-[10px] font-mono text-muted-foreground/70 tabular-nums mt-0.5 block" />
         </div>
 
         {/* ── Scrollable nav ── */}
-        <div className="flex-1 overflow-y-auto py-1 sidebar-scroll">
+        <div ref={navRef} onScroll={saveScroll} className="flex-1 overflow-y-auto py-1 sidebar-scroll">
           {SECTIONS.map((section, sIdx) => {
             const accessibleItems = section.items.filter(canAccess);
             if (accessibleItems.length === 0) return null;

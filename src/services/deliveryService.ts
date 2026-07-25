@@ -1,8 +1,8 @@
 import axiosInstance from '@/utils/axiosInstance';
 import type {
   DeliveryZone, DeliveryPartner, DeliverySettings,
-  DeliveryAssignment, PartnerAssignment, Paginated, UnassignedOrder,
-  DutyStatus, MonthlyLedger,
+  DeliveryAssignment, PartnerAssignment, Paginated, UnassignedOrder, UnassignedExchange,
+  UnassignedReturnPickup, DutyStatus, MonthlyLedger,
 } from '@/types/delivery.types';
 
 // ── Zones ─────────────────────────────────────────────────────────────────────
@@ -41,6 +41,24 @@ export const deliveryService = {
   // Unassigned packed orders (admin)
   getUnassignedOrders: () =>
     axiosInstance.get<UnassignedOrder[]>('/api/v1/delivery/admin/unassigned/'),
+
+  // Unassigned exchange deliveries (admin)
+  getUnassignedExchanges: () =>
+    axiosInstance.get<UnassignedExchange[]>('/api/v1/delivery/admin/unassigned-exchanges/'),
+
+  assignExchangePartner: (assignmentId: string, partnerId: string) =>
+    axiosInstance.post<DeliveryAssignment>('/api/v1/delivery/assignments/assign-exchange/', {
+      assignment_id: assignmentId, partner_id: partnerId,
+    }),
+
+  // Unassigned return pickups (admin)
+  getUnassignedReturnPickups: () =>
+    axiosInstance.get<UnassignedReturnPickup[]>('/api/v1/delivery/admin/unassigned-return-pickups/'),
+
+  assignReturnPickupPartner: (assignmentId: string, partnerId: string) =>
+    axiosInstance.post<DeliveryAssignment>('/api/v1/delivery/assignments/assign-return-pickup/', {
+      assignment_id: assignmentId, partner_id: partnerId,
+    }),
 
   // Assignments (admin)
   getAssignments: (params?: { status?: string; partner?: string }) =>

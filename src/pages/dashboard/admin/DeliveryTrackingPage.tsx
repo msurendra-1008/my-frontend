@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { deliveryService } from '@/services/deliveryService';
 import type { DeliveryAssignment, DeliveryStatus } from '@/types/delivery.types';
-import { Package, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Package, CheckCircle, XCircle, Clock, ArrowLeftRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
 const STATUS_CONFIG: Record<DeliveryStatus, { label: string; icon: React.ReactNode; color: string }> = {
@@ -87,8 +87,17 @@ export function DeliveryTrackingPage() {
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="font-medium text-sm text-foreground">{a.order_number}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {a.assignment_type === 'exchange' && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-400/40 shrink-0">
+                                <ArrowLeftRight size={8} /> Exchange
+                              </span>
+                            )}
+                            <span className="font-mono font-medium text-sm text-foreground truncate">
+                              {a.order_number ?? '—'}
+                            </span>
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5">{a.customer_name}</p>
                           <p className="text-xs text-muted-foreground">{a.partner_name ?? 'Unassigned'}</p>
                         </div>
@@ -104,12 +113,25 @@ export function DeliveryTrackingPage() {
             {selected && (
               <div className="w-80 rounded-lg border border-border/50 bg-card p-4 space-y-4 flex-shrink-0 self-start">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-foreground">{selected.order_number}</h2>
+                  <div className="flex items-center gap-1.5">
+                    {selected.assignment_type === 'exchange' && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-400/40">
+                        <ArrowLeftRight size={9} /> Exchange
+                      </span>
+                    )}
+                    <h2 className="text-sm font-semibold text-foreground font-mono">{selected.order_number ?? '—'}</h2>
+                  </div>
                   <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground text-xs">Close</button>
                 </div>
                 <StatusBadge status={selected.status} />
 
                 <div className="space-y-2 text-xs">
+                  {selected.assignment_type === 'exchange' && selected.exchange_item && (
+                    <div className="rounded-md border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-violet-700 dark:text-violet-400">
+                      <p className="font-semibold mb-0.5">Exchange item</p>
+                      <p>{selected.exchange_item.product_name} · {selected.exchange_item.variant_name} × {selected.exchange_item.quantity}</p>
+                    </div>
+                  )}
                   <div>
                     <span className="text-muted-foreground">Customer: </span>
                     <span className="text-foreground">{selected.customer_name}</span>

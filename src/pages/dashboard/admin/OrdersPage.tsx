@@ -108,6 +108,71 @@ function EntryTable({
   );
 }
 
+function ItemTimeline({ item }: { item: OrderItem }) {
+  const summary = item.return_request_summary ?? [];
+  if (summary.length === 0) return null;
+
+  const fmt = (d: string | null) => !d ? '—' :
+    new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(d));
+
+  type Ev = { dot: 'green' | 'amber' | 'red' | 'purple' | 'blue'; label: string; time: string | null };
+  const events: Ev[] = [];
+
+  for (const rr of summary) {
+    const tl = rr.request_type === 'exchange' ? 'Exchange' : 'Return';
+    events.push({ dot: 'amber', label: `${tl} requested`, time: rr.raised_at });
+
+    if (rr.reviewed_at) {
+      if (['rejected', 'rejected_final'].includes(rr.status)) {
+        events.push({ dot: 'red', label: `${tl} rejected`, time: rr.reviewed_at });
+      } else if (rr.status === 'under_review') {
+        events.push({ dot: 'amber', label: 'More info requested from customer', time: rr.reviewed_at });
+      } else {
+        events.push({ dot: 'blue', label: `${tl} approved`, time: rr.reviewed_at });
+      }
+    }
+
+    if (rr.status === 'pickup_dispatched') {
+      events.push({ dot: 'amber', label: 'Return pickup dispatched', time: null });
+    } else if (rr.status === 'exchange_dispatched') {
+      events.push({ dot: 'purple', label: 'Exchange delivery dispatched', time: null });
+    }
+
+    if (rr.completed_at) {
+      const completedLabel = rr.request_type === 'exchange'
+        ? 'Exchange completed — new item delivered'
+        : 'Return completed — item received, refunded';
+      events.push({ dot: 'green', label: completedLabel, time: rr.completed_at });
+    }
+  }
+
+  const dotCls = (c: Ev['dot']) =>
+    c === 'green'  ? 'bg-green-500' :
+    c === 'red'    ? 'bg-red-500' :
+    c === 'amber'  ? 'bg-amber-500' :
+    c === 'purple' ? 'bg-purple-500' :
+    'bg-blue-500';
+
+  const textCls = (c: Ev['dot']) =>
+    c === 'green'  ? 'text-green-600 dark:text-green-400' :
+    c === 'red'    ? 'text-red-600 dark:text-red-400' :
+    c === 'amber'  ? 'text-amber-700 dark:text-amber-400' :
+    c === 'purple' ? 'text-purple-600 dark:text-purple-400' :
+    'text-blue-600 dark:text-blue-400';
+
+  return (
+    <div className="mt-2 ml-1 pl-2.5 border-l-2 border-border/50 space-y-1.5">
+      {events.map((ev, i) => (
+        <div key={i} className="flex items-start gap-1.5 text-[11px] -ml-[7px]">
+          <span className={cn('mt-0.5 h-2 w-2 rounded-full flex-shrink-0 ring-2 ring-background', dotCls(ev.dot))} />
+          <span className={cn('font-medium', textCls(ev.dot))}>{ev.label}</span>
+          {ev.time && <span className="text-muted-foreground ml-0.5">{fmt(ev.time)}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BreakupItemCard({ item, breakup, orderBlocked }: { item: OrderItem; breakup: CommissionBreakupEmbed; orderBlocked: boolean }) {
   const pd           = breakup.profit_data;
   const netEntries   = breakup.network_entries ?? breakup.entries.filter((e) => e.entry_type === 'network_upline');
@@ -190,7 +255,7 @@ function BreakupItemCard({ item, breakup, orderBlocked }: { item: OrderItem; bre
 
         {/* Window / status notes */}
         {breakup.status === 'pending_window' && (() => {
-          const activeReturnStates = ['raised', 'under_review', 'approved'];
+          const activeReturnStates = ['raised', 'under_review', 'approved', 'exchange_dispatched', 'pickup_dispatched'];
           const hasActiveRequest   = item.return_status && activeReturnStates.includes(item.return_status);
           if (hasActiveRequest) {
             const label =
@@ -223,11 +288,27 @@ function BreakupItemCard({ item, breakup, orderBlocked }: { item: OrderItem; bre
           }
           return null;
         })()}
-        {breakup.status === 'exchange_hold' && (
-          <div className="rounded-lg bg-purple-500/10 border border-purple-400/40 px-3 py-2 text-xs text-purple-700 dark:text-purple-400">
-            🔄 Exchange buffer in progress.{breakup.return_window_expires ? ` Commission credits on ${new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(breakup.return_window_expires))} if no return.` : ''}
-          </div>
-        )}
+        {breakup.status === 'exchange_hold' && (() => {
+          const returnActiveStates = ['raised', 'under_review', 'approved', 'pickup_dispatched'];
+          if (item.return_status && returnActiveStates.includes(item.return_status)) {
+            const msg =
+              item.return_status === 'pickup_dispatched' ? 'Return pickup in progress — item being collected from customer' :
+              item.return_status === 'approved'           ? 'Return approved — pickup being arranged' :
+              item.return_status === 'under_review'       ? 'Return request under review' :
+              'Return request raised on this exchanged item';
+            return (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-400/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 space-y-0.5">
+                <p className="font-semibold">⚠ {msg}</p>
+                <p>Commission will be cancelled once the returned item is confirmed received.</p>
+              </div>
+            );
+          }
+          return (
+            <div className="rounded-lg bg-purple-500/10 border border-purple-400/40 px-3 py-2 text-xs text-purple-700 dark:text-purple-400">
+              🔄 Exchange buffer in progress.{breakup.return_window_expires ? ` Commission credits on ${new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(breakup.return_window_expires))} if no return.` : ''}
+            </div>
+          );
+        })()}
         {breakup.status === 'cancelled' && (
           <div className="rounded-lg bg-red-500/10 border border-red-400/40 px-3 py-2 text-xs text-red-600 dark:text-red-400">
             ✗ Commission void — this item was returned and refunded.
@@ -250,16 +331,19 @@ export function CommissionBreakupSection({ order }: { order: Order }) {
   // ── Order-level block check ───────────────────────────────────────────────
   // If ANY item has an active return/exchange request or unexpired exchange buffer,
   // the ENTIRE order's commission is on hold — not just that item.
-  const activeReturnStates = ['raised', 'under_review', 'approved'];
+  const activeReturnStates = ['raised', 'under_review', 'approved', 'exchange_dispatched', 'pickup_dispatched'];
   const anyActiveRequest   = order.items.some(
     (i) => i.return_status && activeReturnStates.includes(i.return_status)
   );
   const now = new Date();
+  // Exclude items where a return is already in-progress (commission will be cancelled, not released)
+  const returnInProgressStates = ['raised', 'under_review', 'approved', 'pickup_dispatched'];
   const anyActiveBuffer = order.items.some(
     (i) =>
       i.commission_breakup?.status === 'exchange_hold' &&
       i.commission_breakup?.return_window_expires &&
-      new Date(i.commission_breakup.return_window_expires) > now
+      new Date(i.commission_breakup.return_window_expires) > now &&
+      !returnInProgressStates.includes(i.return_status ?? '')
   );
   const orderCommissionBlocked = anyActiveRequest || anyActiveBuffer;
 
@@ -456,15 +540,18 @@ function OrderDetailSheet({
                 <p className="text-xs font-semibold uppercase text-muted-foreground">Items</p>
               </div>
               {order.items.map((item) => (
-                <div key={item.id} className="flex justify-between px-4 py-3 border-b last:border-0 text-sm">
-                  <div>
-                    <p className="font-medium">{item.product_name}</p>
-                    <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
-                    <div className="mt-1">
-                      <OrderItemStatusBadge status={item.status} />
+                <div key={item.id} className="px-4 py-3 border-b last:border-0 text-sm">
+                  <div className="flex justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{item.product_name}</p>
+                      <p className="text-xs text-muted-foreground">{item.variant_name} × {item.quantity}</p>
+                      <div className="mt-1">
+                        <OrderItemStatusBadge status={item.status} />
+                      </div>
+                      <ItemTimeline item={item} />
                     </div>
+                    <span className="font-semibold ml-3 flex-shrink-0">₹{item.line_total}</span>
                   </div>
-                  <span className="font-semibold">₹{item.line_total}</span>
                 </div>
               ))}
             </div>

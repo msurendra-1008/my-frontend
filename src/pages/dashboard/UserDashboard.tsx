@@ -9,6 +9,7 @@ import { tokenStorage } from '@/utils/axiosInstance';
 import { treeService } from '@/services/treeService';
 import { walletService } from '@/services/walletService';
 import { Badge } from '@/components/ui/Badge';
+import { ISTClock } from '@/components/ui/ISTClock';
 import { ShopTab } from '@/pages/dashboard/user/ShopTab';
 import { OrdersTab } from '@/pages/dashboard/user/OrdersTab';
 import { ReturnsTab } from '@/pages/dashboard/user/ReturnsTab';
@@ -167,6 +168,7 @@ export function UserDashboard() {
       <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-[52px] max-w-5xl items-center justify-between px-4">
           <span className="font-bold text-foreground">MyApp</span>
+          <ISTClock className="hidden sm:block text-[11px] font-mono text-muted-foreground tabular-nums" />
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button onClick={toggleTheme} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
               {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}

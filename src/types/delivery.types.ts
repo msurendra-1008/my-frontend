@@ -91,11 +91,28 @@ export interface DeliveryStatusLog {
 }
 
 export type DeliveryStatus = 'assigned' | 'picked_up' | 'delivered' | 'failed' | 'cancelled';
+export type AssignmentType = 'order' | 'exchange' | 'return';
+
+export interface ExchangeItem {
+  product_name: string;
+  variant_name: string;
+  quantity:     number;
+}
+
+export interface ReturnItem {
+  product_name:  string;
+  variant_name:  string;
+  quantity:      number;
+  refund_amount: string | null;
+}
 
 export interface DeliveryAssignment {
   id:              string;
-  order:           string;
-  order_number:    string;
+  assignment_type: AssignmentType;
+  order:           string | null;
+  order_number:    string | null;
+  exchange_item:   ExchangeItem | null;
+  return_item:     ReturnItem | null;
   customer_name:   string;
   delivery_address: string;
   partner:         string | null;
@@ -115,7 +132,10 @@ export interface DeliveryAssignment {
 
 export interface PartnerAssignment {
   id:              string;
-  order_number:    string;
+  assignment_type: AssignmentType;
+  order_number:    string | null;
+  exchange_item:   ExchangeItem | null;
+  return_item:     ReturnItem | null;
   customer_name:   string;
   customer_phone:  string;
   delivery_address: string;
@@ -138,6 +158,29 @@ export interface UnassignedOrder {
   total_amount:      string;
   item_count:        number;
   suggested_partner: DeliveryPartner | null;
+}
+
+export interface UnassignedExchange {
+  assignment_id:   string;
+  order_number:    string | null;
+  customer_name:   string | null;
+  address_city:    string | null;
+  address_pincode: string | null;
+  product_name:    string | null;
+  variant_name:    string | null;
+  quantity:        number | null;
+}
+
+export interface UnassignedReturnPickup {
+  assignment_id:   string;
+  order_number:    string | null;
+  customer_name:   string | null;
+  address_city:    string | null;
+  address_pincode: string | null;
+  product_name:    string | null;
+  variant_name:    string | null;
+  quantity:        number | null;
+  refund_amount:   string | null;
 }
 
 export interface Paginated<T> {

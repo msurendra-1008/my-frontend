@@ -47,6 +47,77 @@ function PaymentDot({ status }: { status: PaymentStatus }) {
   );
 }
 
+// ── Per-item status timeline ──────────────────────────────────────────────────
+
+function ItemStatusTimeline({ item }: { item: OrderItem }) {
+  const summary = item.return_request_summary ?? [];
+  if (summary.length === 0) return null;
+
+  const fmt = (d: string | null) => !d ? '' :
+    new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(d));
+
+  const events: { label: string; time: string | null; color: string }[] = [];
+
+  for (const rr of summary) {
+    const tl = rr.request_type === 'exchange' ? 'Exchange' : 'Return';
+    events.push({ label: `${tl} request raised`, time: rr.raised_at, color: 'amber' });
+
+    if (rr.reviewed_at) {
+      if (['rejected', 'rejected_final'].includes(rr.status)) {
+        events.push({ label: 'Request rejected', time: rr.reviewed_at, color: 'red' });
+      } else if (rr.status === 'under_review') {
+        events.push({ label: 'Admin requested more info', time: rr.reviewed_at, color: 'amber' });
+      } else {
+        events.push({ label: 'Request approved', time: rr.reviewed_at, color: 'blue' });
+      }
+    }
+
+    if (rr.status === 'pickup_dispatched') {
+      events.push({ label: 'Delivery partner assigned — coming to collect your item', time: null, color: 'amber' });
+    } else if (rr.status === 'exchange_dispatched') {
+      events.push({ label: 'New item on the way', time: null, color: 'purple' });
+    }
+
+    if (rr.completed_at) {
+      const completedLabel = rr.request_type === 'exchange'
+        ? 'Exchange complete — new item delivered'
+        : 'Return complete — refund credited to your wallet';
+      events.push({ label: completedLabel, time: rr.completed_at, color: 'green' });
+    }
+  }
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mt-2.5 pt-2 border-t border-border/40">
+      <p className="text-[10px] font-semibold uppercase text-muted-foreground tracking-wide mb-1.5">Item history</p>
+      <div className="space-y-1.5">
+        {events.map((ev, i) => (
+          <div key={i} className="flex items-start gap-2 text-[11px]">
+            <span className={`mt-0.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+              ev.color === 'green'  ? 'bg-green-500' :
+              ev.color === 'red'    ? 'bg-red-500' :
+              ev.color === 'amber'  ? 'bg-amber-500' :
+              ev.color === 'purple' ? 'bg-purple-500' :
+              'bg-blue-500'
+            }`} />
+            <div>
+              <span className={`font-medium ${
+                ev.color === 'green'  ? 'text-green-600 dark:text-green-400' :
+                ev.color === 'red'    ? 'text-red-600 dark:text-red-400' :
+                ev.color === 'amber'  ? 'text-amber-700 dark:text-amber-400' :
+                ev.color === 'purple' ? 'text-purple-600 dark:text-purple-400' :
+                'text-blue-600 dark:text-blue-400'
+              }`}>{ev.label}</span>
+              {ev.time && <span className="ml-1 text-muted-foreground">{fmt(ev.time)}</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Raise Return Sheet (nested, z-60) ─────────────────────────────────────────
 
 function RaiseReturnSheet({
@@ -60,27 +131,26 @@ function RaiseReturnSheet({
   onClose:   () => void;
   onSuccess: () => void;
 }) {
-  const [type,       setType]       = useState<ReturnRequestType>('return');
-  const [qty,        setQty]        = useState(1);
-  const [reason,     setReason]     = useState('');
-  const [notes,      setNotes]      = useState('');
-  const [exVariant,  setExVariant]  = useState('');
-  const [variants,   setVariants]   = useState<ProductVariant[]>([]);
-  const [photos,     setPhotos]     = useState<File[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [error,      setError]      = useState('');
+  const [type,        setType]        = useState<ReturnRequestType>('return');
+  const [qty,         setQty]         = useState(1);
+  const [reason,      setReason]      = useState('');
+  const [notes,       setNotes]       = useState('');
+  const [stockStatus, setStockStatus] = useState<'loading' | 'in_stock' | 'out_of_stock' | null>(null);
+  const [photos,      setPhotos]      = useState<File[]>([]);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState('');
 
-  // Load exchange variants when type = exchange
+  // Check same-variant stock availability when exchange tab is active
   useEffect(() => {
-    if (type === 'exchange' && item.product_slug && item.variant_id) {
-      productService.getProduct(item.product_slug)
-        .then((r) => setVariants(
-          r.data.variants.filter(
-            (v) => v.id !== item.variant_id && v.is_active && v.stock_quantity > 0,
-          ),
-        ))
-        .catch(() => {});
-    }
+    if (type !== 'exchange') { setStockStatus(null); return; }
+    if (!item.product_slug || !item.variant_id) { setStockStatus(null); return; }
+    setStockStatus('loading');
+    productService.getProduct(item.product_slug)
+      .then((r) => {
+        const v = r.data.variants.find((v: ProductVariant) => v.id === item.variant_id);
+        setStockStatus(v && v.stock_quantity > 0 ? 'in_stock' : 'out_of_stock');
+      })
+      .catch(() => setStockStatus(null));
   }, [type, item.product_slug, item.variant_id]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,15 +160,13 @@ function RaiseReturnSheet({
 
   const handleSubmit = async () => {
     if (!reason) { setError('Please select a reason.'); return; }
-    if (type === 'exchange' && !exVariant) { setError('Please select an exchange variant.'); return; }
     setError('');
     setSubmitting(true);
     try {
       const resp = await returnsService.createRequest({
-        order_item_id:       item.id,
-        request_type:        type,
-        return_qty:          qty,
-        exchange_variant_id: type === 'exchange' ? exVariant : undefined,
+        order_item_id: item.id,
+        request_type:  type,
+        return_qty:    qty,
         reason,
         notes,
       });
@@ -156,6 +224,26 @@ function RaiseReturnSheet({
             </div>
           </div>
 
+          {/* Exchange: same-variant stock status */}
+          {type === 'exchange' && (
+            <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm space-y-1">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Replacement item</p>
+              <p className="font-medium">{item.product_name}</p>
+              <p className="text-xs text-muted-foreground">{item.variant_name}</p>
+              {stockStatus === 'loading' && (
+                <p className="text-xs text-muted-foreground">Checking stock…</p>
+              )}
+              {stockStatus === 'in_stock' && (
+                <p className="text-xs text-green-600 dark:text-green-400 font-medium">✓ In stock — exchange can be processed</p>
+              )}
+              {stockStatus === 'out_of_stock' && (
+                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  Currently out of stock. You can still raise the request — admin will review and may convert to a refund if stock remains unavailable.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Quantity (only if qty > 1) */}
           {item.quantity > 1 && (
             <div className="space-y-1.5">
@@ -170,29 +258,6 @@ function RaiseReturnSheet({
                 onChange={(e) => setQty(Math.min(item.quantity, Math.max(1, Number(e.target.value))))}
                 className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
               />
-            </div>
-          )}
-
-          {/* Exchange variant */}
-          {type === 'exchange' && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase text-muted-foreground">Exchange For</label>
-              {variants.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No other variants available for exchange.</p>
-              ) : (
-                <select
-                  value={exVariant}
-                  onChange={(e) => setExVariant(e.target.value)}
-                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                >
-                  <option value="">Select variant…</option>
-                  {variants.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} — ₹{v.upa_price ?? v.upa_price_computed.upa_price} (stock: {v.stock_quantity})
-                    </option>
-                  ))}
-                </select>
-              )}
             </div>
           )}
 
@@ -293,15 +358,25 @@ function OrderDetailSheet({
   const [satisfying,          setSatisfying]          = useState(false);
   const [satisfiedError,      setSatisfiedError]      = useState('');
   const [deliveryOtp,         setDeliveryOtp]         = useState<string | null>(null);
+  const [otpAssignmentType,   setOtpAssignmentType]   = useState<string | null>(null);
 
   useEffect(() => {
     orderService.getMyOrder(orderId)
       .then((o) => {
         setOrder(o.data);
-        if (['packed', 'shipped'].includes(o.data.order_status)) {
-          axiosInstance.get<{ otp: string | null; status: string | null }>(
+        const hasExchangeInFlight = o.data.items?.some(
+          (i: any) => i.return_status === 'exchange_dispatched'
+        );
+        const hasPickupInFlight = o.data.items?.some(
+          (i: any) => i.return_status === 'pickup_dispatched'
+        );
+        if (['packed', 'shipped'].includes(o.data.order_status) || hasExchangeInFlight || hasPickupInFlight) {
+          axiosInstance.get<{ otp: string | null; status: string | null; assignment_type?: string }>(
             `/api/v1/orders/${orderId}/delivery-otp/`
-          ).then(r => setDeliveryOtp(r.data.otp)).catch(() => {});
+          ).then(r => {
+            setDeliveryOtp(r.data.otp);
+            setOtpAssignmentType(r.data.assignment_type ?? null);
+          }).catch(() => {});
         }
       })
       .catch(() => {})
@@ -388,16 +463,18 @@ function OrderDetailSheet({
                   )}
                 </div>
               ) : order.order_status === 'delivered' && (() => {
-                const activeReturnStatuses = ['raised', 'under_review', 'approved'];
+                const activeReturnStatuses = ['raised', 'under_review', 'approved', 'exchange_dispatched', 'pickup_dispatched'];
                 const blockedItems = order.items.filter(
                   (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
                 );
                 const now = new Date();
+                const returnInProgressStates = ['raised', 'under_review', 'approved', 'pickup_dispatched'];
                 const exchangeBufferItems = order.items.filter(
                   (i) =>
                     i.commission_breakup?.status === 'exchange_hold' &&
                     i.commission_breakup?.return_window_expires &&
-                    new Date(i.commission_breakup.return_window_expires) > now
+                    new Date(i.commission_breakup.return_window_expires) > now &&
+                    !returnInProgressStates.includes(i.return_status ?? '')
                 );
                 const isBlocked = blockedItems.length > 0 || exchangeBufferItems.length > 0;
                 // Latest expiry among active exchange buffers
@@ -448,11 +525,12 @@ function OrderDetailSheet({
                   const rejCount    = item.return_rejection_count ?? 0;
                   const maxAttempts = retSettings?.max_attempts ?? 2;
                   const windowDays = retSettings?.return_window_days ?? returnWindowDays;
+                  const isReturnableStatus = item.status === 'delivered' || item.status === 'exchanged';
                   const eligible = (() => {
                     try {
                       if (item.return_window_blocked) return false;
                       if (rejCount >= maxAttempts) return false;
-                      if (item.status !== 'delivered') return false;
+                      if (!isReturnableStatus) return false;
                       if (!item.delivered_at) return false;
                       const windowEnd = new Date(item.delivered_at);
                       windowEnd.setDate(windowEnd.getDate() + windowDays);
@@ -462,7 +540,7 @@ function OrderDetailSheet({
                     }
                   })();
                   const windowExpired = (() => {
-                    if (!item.delivered_at || item.status !== 'delivered') return false;
+                    if (!item.delivered_at || !isReturnableStatus) return false;
                     const windowEnd = new Date(item.delivered_at);
                     windowEnd.setDate(windowEnd.getDate() + windowDays);
                     return new Date() > windowEnd;
@@ -488,7 +566,7 @@ function OrderDetailSheet({
                                 <RotateCcw size={9} /> Return/Exchange
                               </button>
                             )}
-                            {order.is_satisfied && item.status === 'delivered' && (
+                            {order.is_satisfied && isReturnableStatus && (
                               <span className="text-[10px] text-muted-foreground">
                                 Returns not available — order satisfied
                               </span>
@@ -498,7 +576,7 @@ function OrderDetailSheet({
                                 Return window expired ({windowDays}d)
                               </span>
                             )}
-                            {!eligible && rejCount >= maxAttempts && item.status === 'delivered' && (
+                            {!eligible && rejCount >= maxAttempts && isReturnableStatus && (
                               <span className="text-[10px] text-muted-foreground">
                                 Maximum return attempts reached
                               </span>
@@ -510,10 +588,11 @@ function OrderDetailSheet({
 
                       {/* Under review — amber info box */}
                       {item.return_status === 'under_review' && item.return_admin_notes && (
-                        <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                        <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-400/40 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                           <span className="font-semibold">Admin needs more info:</span> {item.return_admin_notes}
                         </div>
                       )}
+                      <ItemStatusTimeline item={item} />
                     </div>
                   );
                 })}
@@ -568,13 +647,33 @@ function OrderDetailSheet({
                 </div>
               )}
 
-              {/* Delivery OTP */}
+              {/* Delivery / Exchange / Return OTP */}
               {deliveryOtp && (
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
-                  <p className="font-semibold mb-1 text-foreground">Delivery OTP</p>
-                  <p className="text-xs text-muted-foreground mb-2">Share this OTP with the delivery partner to confirm receipt.</p>
+                <div className={`rounded-xl border p-4 text-sm ${
+                  otpAssignmentType === 'exchange' ? 'border-violet-400/40 bg-violet-500/10' :
+                  otpAssignmentType === 'return'   ? 'border-amber-400/40 bg-amber-500/10' :
+                  'border-primary/30 bg-primary/5'
+                }`}>
+                  <p className="font-semibold mb-1 text-foreground">
+                    {otpAssignmentType === 'exchange' ? 'Exchange OTP' :
+                     otpAssignmentType === 'return'   ? 'Return OTP' :
+                     'Delivery OTP'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {otpAssignmentType === 'exchange'
+                      ? 'Share this OTP with the delivery partner to confirm the exchange.'
+                      : otpAssignmentType === 'return'
+                      ? 'Share this OTP with the delivery partner when they come to collect your item.'
+                      : 'Share this OTP with the delivery partner to confirm receipt.'}
+                  </p>
                   <div className="flex items-center justify-center rounded-lg bg-background border border-border py-3">
-                    <span className="font-mono text-2xl font-bold tracking-widest text-primary">{deliveryOtp}</span>
+                    <span className={`font-mono text-2xl font-bold tracking-widest ${
+                      otpAssignmentType === 'exchange' ? 'text-violet-600 dark:text-violet-400' :
+                      otpAssignmentType === 'return'   ? 'text-amber-600 dark:text-amber-400' :
+                      'text-primary'
+                    }`}>
+                      {deliveryOtp}
+                    </span>
                   </div>
                 </div>
               )}
