@@ -287,15 +287,22 @@ function OrderDetailSheet({
   const [satisfying,          setSatisfying]          = useState(false);
   const [satisfiedError,      setSatisfiedError]      = useState('');
   const [deliveryOtp,         setDeliveryOtp]         = useState<string | null>(null);
+  const [otpIsExchange,       setOtpIsExchange]       = useState(false);
 
   useEffect(() => {
     orderService.getMyOrder(orderId)
       .then((o) => {
         setOrder(o.data);
-        if (['packed', 'shipped'].includes(o.data.order_status)) {
-          axiosInstance.get<{ otp: string | null; status: string | null }>(
+        const hasExchangeInFlight = o.data.items?.some(
+          (i: any) => i.return_status === 'exchange_dispatched'
+        );
+        if (['packed', 'shipped'].includes(o.data.order_status) || hasExchangeInFlight) {
+          axiosInstance.get<{ otp: string | null; status: string | null; assignment_type?: string }>(
             `/api/v1/orders/${orderId}/delivery-otp/`
-          ).then(r => setDeliveryOtp(r.data.otp)).catch(() => {});
+          ).then(r => {
+            setDeliveryOtp(r.data.otp);
+            setOtpIsExchange(r.data.assignment_type === 'exchange');
+          }).catch(() => {});
         }
       })
       .catch(() => {})
@@ -562,13 +569,21 @@ function OrderDetailSheet({
                 </div>
               )}
 
-              {/* Delivery OTP */}
+              {/* Delivery / Exchange OTP */}
               {deliveryOtp && (
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
-                  <p className="font-semibold mb-1 text-foreground">Delivery OTP</p>
-                  <p className="text-xs text-muted-foreground mb-2">Share this OTP with the delivery partner to confirm receipt.</p>
+                <div className={`rounded-xl border p-4 text-sm ${otpIsExchange ? 'border-violet-400/40 bg-violet-500/10' : 'border-primary/30 bg-primary/5'}`}>
+                  <p className="font-semibold mb-1 text-foreground">
+                    {otpIsExchange ? 'Exchange OTP' : 'Delivery OTP'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {otpIsExchange
+                      ? 'Share this OTP with the delivery partner to confirm the exchange.'
+                      : 'Share this OTP with the delivery partner to confirm receipt.'}
+                  </p>
                   <div className="flex items-center justify-center rounded-lg bg-background border border-border py-3">
-                    <span className="font-mono text-2xl font-bold tracking-widest text-primary">{deliveryOtp}</span>
+                    <span className={`font-mono text-2xl font-bold tracking-widest ${otpIsExchange ? 'text-violet-600 dark:text-violet-400' : 'text-primary'}`}>
+                      {deliveryOtp}
+                    </span>
                   </div>
                 </div>
               )}
