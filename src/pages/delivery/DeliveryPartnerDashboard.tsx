@@ -8,7 +8,7 @@ import type { PartnerAssignment, DeliveryStatus, MonthlyLedger } from '@/types/d
 import {
   Package, Truck, CheckCircle, XCircle,
   LogOut, RefreshCw, ChevronDown, ChevronLeft, ChevronRight,
-  Clock, CalendarDays, ArrowLeftRight,
+  Clock, CalendarDays, ArrowLeftRight, PackageX, Building2,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { ISTClock } from '@/components/ui/ISTClock';
@@ -147,6 +147,95 @@ function ProofOfDeliveryModal({
   );
 }
 
+/* ── Modal: return pickup — collect from customer (OTP at picked_up) ── */
+function ReturnCollectModal({
+  assignment, onClose, onDone,
+}: { assignment: PartnerAssignment; onClose: () => void; onDone: () => void }) {
+  const [otpInput, setOtpInput] = useState('');
+  const [notes, setNotes]       = useState('');
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState('');
+
+  async function submit() {
+    if (otpInput.trim().length !== 6) {
+      setError('Please enter the 6-digit OTP shown on the customer\'s screen.');
+      return;
+    }
+    setSaving(true); setError('');
+    const fd = new FormData();
+    fd.append('status', 'picked_up');
+    fd.append('otp_input', otpInput.trim());
+    fd.append('notes', notes);
+    try {
+      await deliveryService.updateMyStatus(assignment.id, fd);
+      onDone();
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Failed to confirm.');
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center">
+      <div className="w-full max-w-sm rounded-t-2xl sm:rounded-2xl bg-card border border-border p-5 shadow-2xl">
+        <h2 className="text-sm font-semibold text-foreground mb-1">Confirm Pickup from Customer</h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          {assignment.order_number} · {assignment.customer_name}
+        </p>
+        {assignment.return_item && (
+          <div className="mb-3 rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            <p className="font-medium">Item to collect:</p>
+            <p>{assignment.return_item.product_name} · {assignment.return_item.variant_name} × {assignment.return_item.quantity}</p>
+            {assignment.return_item.refund_amount && (
+              <p className="mt-0.5 text-[10px]">Refund: ₹{assignment.return_item.refund_amount}</p>
+            )}
+            <p className="mt-1.5 text-[10px] opacity-80 border-t border-amber-400/30 pt-1.5">
+              Collect the item from the customer, then enter their OTP to confirm.
+            </p>
+          </div>
+        )}
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">
+              Customer OTP <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otpInput}
+              onChange={e => { setOtpInput(e.target.value.replace(/\D/g, '')); setError(''); }}
+              placeholder="6-digit OTP"
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-center font-mono text-2xl font-bold tracking-widest text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground text-center">
+              Ask the customer to show the OTP from their app
+            </p>
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Notes (optional)</label>
+            <textarea rows={2}
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+              value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Condition of item, any remarks…" />
+          </div>
+        </div>
+        {error && (
+          <p className="mt-3 rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-md border border-border py-2 text-sm text-muted-foreground">Cancel</button>
+          <button onClick={submit} disabled={saving}
+            className="flex-1 rounded-md bg-amber-600 py-2 text-sm font-medium text-white disabled:opacity-50">
+            {saving ? 'Confirming…' : 'Confirm Collected'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Modal: mark failed ── */
 function FailedModal({
   assignment, onClose, onDone,
@@ -217,12 +306,15 @@ function FailedModal({
 function AssignmentCard({
   assignment, onRefresh,
 }: { assignment: PartnerAssignment; onRefresh: () => void }) {
-  const [expanded, setExpanded]     = useState(false);
-  const [proofModal, setProofModal] = useState(false);
-  const [failedModal, setFailed]    = useState(false);
-  const [pickingUp, setPickingUp]   = useState(false);
+  const [expanded, setExpanded]         = useState(false);
+  const [proofModal, setProofModal]     = useState(false);
+  const [collectModal, setCollectModal] = useState(false);
+  const [failedModal, setFailed]        = useState(false);
+  const [handingOver, setHandingOver]   = useState(false);
+  const [pickingUp, setPickingUp]       = useState(false);
 
   const isExchange = assignment.assignment_type === 'exchange';
+  const isReturn   = assignment.assignment_type === 'return';
 
   async function markPickedUp() {
     setPickingUp(true);
@@ -231,6 +323,17 @@ function AssignmentCard({
     try { await deliveryService.updateMyStatus(assignment.id, fd); onRefresh(); }
     catch { /**/ }
     finally { setPickingUp(false); }
+  }
+
+  async function handoverToCompany() {
+    if (!window.confirm('Confirm handover to company? This cannot be undone.')) return;
+    setHandingOver(true);
+    const fd = new FormData();
+    fd.append('status', 'delivered');
+    fd.append('notes', 'Item handed over to company by delivery partner');
+    try { await deliveryService.updateMyStatus(assignment.id, fd); onRefresh(); }
+    catch { /**/ }
+    finally { setHandingOver(false); }
   }
 
   const done = assignment.status === 'delivered' || assignment.status === 'failed' || assignment.status === 'cancelled';
@@ -242,6 +345,7 @@ function AssignmentCard({
     <>
       <div className={cn(
         'rounded-xl border overflow-hidden bg-card',
+        isReturn   ? 'border-amber-400/40' :
         isExchange ? 'border-violet-400/40' : 'border-border/50',
       )}>
         <button
@@ -250,6 +354,11 @@ function AssignmentCard({
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
+              {isReturn && (
+                <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-400/40 shrink-0">
+                  <PackageX size={9} /> Return
+                </span>
+              )}
               {isExchange && (
                 <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-violet-500/10 text-violet-700 dark:text-violet-400 border border-violet-400/40 shrink-0">
                   <ArrowLeftRight size={9} /> Exchange
@@ -271,6 +380,23 @@ function AssignmentCard({
 
         {expanded && (
           <div className="border-t border-border/30 px-4 py-4 space-y-3">
+            {/* Return item info */}
+            {isReturn && assignment.return_item && (
+              <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                <p className="font-semibold mb-0.5 flex items-center gap-1.5">
+                  <PackageX size={11} /> Item to collect
+                </p>
+                <p>{assignment.return_item.product_name}</p>
+                <p className="text-[11px] opacity-80">{assignment.return_item.variant_name} × {assignment.return_item.quantity}</p>
+                {assignment.return_item.refund_amount && (
+                  <p className="text-[11px] mt-0.5">Refund: ₹{assignment.return_item.refund_amount}</p>
+                )}
+                <p className="mt-1.5 text-[10px] opacity-70 border-t border-amber-400/30 pt-1.5">
+                  Collect the item from the customer using OTP, then hand it over to the company.
+                </p>
+              </div>
+            )}
+
             {/* Exchange item info */}
             {isExchange && assignment.exchange_item && (
               <div className="rounded-md border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-xs text-violet-700 dark:text-violet-400">
@@ -291,13 +417,28 @@ function AssignmentCard({
 
             {!done && (
               <div className="flex gap-2">
-                {assignment.status === 'assigned' && (
+                {/* Return pickup: collect with OTP */}
+                {isReturn && assignment.status === 'assigned' && (
+                  <button onClick={() => setCollectModal(true)}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-400/40 h-10 text-sm font-medium text-amber-700 dark:text-amber-400">
+                    <PackageX size={14} /> Collect from Customer
+                  </button>
+                )}
+                {/* Return pickup: handover to company (no OTP) */}
+                {isReturn && assignment.status === 'picked_up' && (
+                  <button onClick={handoverToCompany} disabled={handingOver}
+                    className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-green-500/10 border border-green-400/40 h-10 text-sm font-medium text-green-600 dark:text-green-400 disabled:opacity-50">
+                    <Building2 size={14} /> {handingOver ? 'Updating…' : 'Handover to Company'}
+                  </button>
+                )}
+                {/* Regular / exchange */}
+                {!isReturn && assignment.status === 'assigned' && (
                   <button onClick={markPickedUp} disabled={pickingUp}
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-400/40 h-10 text-sm font-medium text-amber-700 dark:text-amber-400 disabled:opacity-50">
                     <Truck size={14} /> {pickingUp ? 'Updating…' : pickedUpBtnLabel}
                   </button>
                 )}
-                {assignment.status === 'picked_up' && (
+                {!isReturn && assignment.status === 'picked_up' && (
                   <button onClick={() => setProofModal(true)}
                     className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-green-500/10 border border-green-400/40 h-10 text-sm font-medium text-green-600 dark:text-green-400">
                     <CheckCircle size={14} /> {deliveredBtnLabel}
@@ -332,6 +473,10 @@ function AssignmentCard({
       {proofModal && (
         <ProofOfDeliveryModal assignment={assignment} onClose={() => setProofModal(false)}
           onDone={() => { setProofModal(false); onRefresh(); }} />
+      )}
+      {collectModal && (
+        <ReturnCollectModal assignment={assignment} onClose={() => setCollectModal(false)}
+          onDone={() => { setCollectModal(false); onRefresh(); }} />
       )}
       {failedModal && (
         <FailedModal assignment={assignment} onClose={() => setFailed(false)}

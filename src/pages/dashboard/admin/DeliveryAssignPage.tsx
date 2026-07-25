@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { deliveryService } from '@/services/deliveryService';
-import type { DeliveryPartner, UnassignedOrder, UnassignedExchange } from '@/types/delivery.types';
-import { Search, Truck, CheckCircle, ArrowLeftRight } from 'lucide-react';
+import type { DeliveryPartner, UnassignedOrder, UnassignedExchange, UnassignedReturnPickup } from '@/types/delivery.types';
+import { Search, Truck, CheckCircle, ArrowLeftRight, PackageX } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
-type Tab = 'orders' | 'exchanges';
+type Tab = 'orders' | 'exchanges' | 'pickups';
 
 export function DeliveryAssignPage() {
   const [mobileOpen, setMobileOpen]             = useState(false);
@@ -23,6 +23,11 @@ export function DeliveryAssignPage() {
   const [exchangesLoading, setExchangesLoading] = useState(true);
   const [selectedExchange, setSelectedExchange] = useState<UnassignedExchange | null>(null);
 
+  // Pickups tab state
+  const [pickups, setPickups]                   = useState<UnassignedReturnPickup[]>([]);
+  const [pickupsLoading, setPickupsLoading]     = useState(true);
+  const [selectedPickup, setSelectedPickup]     = useState<UnassignedReturnPickup | null>(null);
+
   // Shared
   const [allPartners, setAllPartners]           = useState<DeliveryPartner[]>([]);
   const [manualPartnerId, setManualPartnerId]   = useState('');
@@ -37,6 +42,7 @@ export function DeliveryAssignPage() {
       .catch(() => {});
     loadOrders();
     loadExchanges();
+    loadPickups();
   }, []);
 
   function loadOrders() {
@@ -55,9 +61,18 @@ export function DeliveryAssignPage() {
       .finally(() => setExchangesLoading(false));
   }
 
+  function loadPickups() {
+    setPickupsLoading(true);
+    deliveryService.getUnassignedReturnPickups()
+      .then(r => setPickups(r.data))
+      .catch(() => {})
+      .finally(() => setPickupsLoading(false));
+  }
+
   function clearPanel() {
     setSelectedOrder(null);
     setSelectedExchange(null);
+    setSelectedPickup(null);
     setEligiblePartners([]);
     setManualPartnerId('');
     setSuccess('');
@@ -87,6 +102,18 @@ export function DeliveryAssignPage() {
     );
   }, [exchanges, search]);
 
+  const filteredPickups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return pickups;
+    return pickups.filter(p =>
+      (p.order_number ?? '').toLowerCase().includes(q) ||
+      (p.customer_name ?? '').toLowerCase().includes(q) ||
+      (p.address_city ?? '').toLowerCase().includes(q) ||
+      (p.address_pincode ?? '').includes(q) ||
+      (p.product_name ?? '').toLowerCase().includes(q),
+    );
+  }, [pickups, search]);
+
   async function selectOrder(order: UnassignedOrder) {
     clearPanel();
     setSelectedOrder(order);
@@ -101,6 +128,11 @@ export function DeliveryAssignPage() {
   function selectExchange(ex: UnassignedExchange) {
     clearPanel();
     setSelectedExchange(ex);
+  }
+
+  function selectPickup(pu: UnassignedReturnPickup) {
+    clearPanel();
+    setSelectedPickup(pu);
   }
 
   async function doAssignOrder(partnerId: string) {
@@ -129,6 +161,19 @@ export function DeliveryAssignPage() {
     } finally { setAssigning(false); }
   }
 
+  async function doAssignPickup(partnerId: string) {
+    if (!selectedPickup || !partnerId) return;
+    setAssigning(true); setError('');
+    try {
+      await deliveryService.assignReturnPickupPartner(selectedPickup.assignment_id, partnerId);
+      setSuccess(`Assigned — return pickup for ${selectedPickup.order_number} is now scheduled.`);
+      loadPickups();
+      setSelectedPickup(null);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Assignment failed.');
+    } finally { setAssigning(false); }
+  }
+
   async function doAutoAssign(order: UnassignedOrder) {
     setAssigning(true); setError(''); setSuccess('');
     try {
@@ -150,6 +195,7 @@ export function DeliveryAssignPage() {
   }
 
   const activePartners = allPartners.filter(p => p.is_active);
+  const hasSelection   = !!(selectedOrder || selectedExchange || selectedPickup);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -157,7 +203,7 @@ export function DeliveryAssignPage() {
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="border-b border-border/50 bg-card px-6 py-3 flex-shrink-0">
           <h1 className="text-base font-semibold text-foreground">Assign Deliveries</h1>
-          <p className="text-xs text-muted-foreground">Manually assign deliveries to partners</p>
+          <p className="text-xs text-muted-foreground">Manually assign deliveries and return pickups to partners</p>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {success && (
@@ -205,6 +251,22 @@ export function DeliveryAssignPage() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => { setTab('pickups'); clearPanel(); }}
+              className={cn(
+                'flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+                tab === 'pickups'
+                  ? 'border-amber-500 text-amber-700 dark:text-amber-400'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <PackageX size={13} /> Return Pickups
+              {pickups.length > 0 && (
+                <span className="ml-0.5 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                  {pickups.length}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="flex gap-4">
@@ -214,9 +276,11 @@ export function DeliveryAssignPage() {
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-2 text-sm text-foreground"
-                  placeholder={tab === 'orders'
-                    ? 'Search by order number, customer, city…'
-                    : 'Search by order number, customer, product…'}
+                  placeholder={
+                    tab === 'orders'    ? 'Search by order number, customer, city…' :
+                    tab === 'exchanges' ? 'Search by order number, customer, product…' :
+                    'Search by order number, customer, product…'
+                  }
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
@@ -293,11 +357,51 @@ export function DeliveryAssignPage() {
                     </div>
                   )
                 )}
+
+                {/* Pickups tab */}
+                {tab === 'pickups' && (
+                  pickupsLoading ? (
+                    <div className="p-8 text-center text-muted-foreground text-sm">Loading…</div>
+                  ) : filteredPickups.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground text-sm">No return pickups awaiting assignment</div>
+                  ) : (
+                    <div className="divide-y divide-border/30">
+                      {filteredPickups.map(pu => (
+                        <button
+                          key={pu.assignment_id}
+                          onClick={() => selectPickup(pu)}
+                          className={cn(
+                            'w-full text-left px-4 py-3 hover:bg-muted/30 transition-colors',
+                            selectedPickup?.assignment_id === pu.assignment_id && 'bg-amber-500/5',
+                          )}
+                        >
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-400/40">
+                              <PackageX size={8} /> Return
+                            </span>
+                            <span className="font-mono font-medium text-sm text-foreground">{pu.order_number ?? '—'}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {pu.customer_name} · {pu.address_city} · {pu.address_pincode}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {pu.product_name} · {pu.variant_name} × {pu.quantity}
+                          </p>
+                          {pu.refund_amount && (
+                            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                              Refund: ₹{pu.refund_amount}
+                            </p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                )}
               </div>
             </div>
 
             {/* Partner selection panel */}
-            {(selectedOrder || selectedExchange) && (
+            {hasSelection && (
               <div className="w-80 flex-shrink-0 space-y-3">
                 <div className="rounded-lg border border-border/50 bg-card p-4 space-y-4">
                   {selectedOrder && (
@@ -352,6 +456,21 @@ export function DeliveryAssignPage() {
                     </div>
                   )}
 
+                  {selectedPickup && (
+                    <div>
+                      <h2 className="text-sm font-semibold text-foreground mb-0.5">Assign Return Pickup</h2>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {selectedPickup.order_number} · {selectedPickup.product_name}
+                      </p>
+                      <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400 mb-3">
+                        Partner will collect the item from the customer using an OTP, then hand it over to the company.
+                        {selectedPickup.refund_amount && (
+                          <span className="block mt-1 font-medium">Refund pending: ₹{selectedPickup.refund_amount}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Fallback: choose any active partner */}
                   <div className={cn(selectedOrder && eligiblePartners.length > 0 && 'border-t border-border/40 pt-3')}>
                     {selectedOrder && (
@@ -359,7 +478,7 @@ export function DeliveryAssignPage() {
                         {eligiblePartners.length > 0 ? 'Or choose any partner:' : 'Choose any active partner:'}
                       </p>
                     )}
-                    {selectedExchange && (
+                    {(selectedExchange || selectedPickup) && (
                       <p className="text-xs font-medium text-muted-foreground mb-2">Choose a partner:</p>
                     )}
                     <div className="flex gap-2">
@@ -374,7 +493,11 @@ export function DeliveryAssignPage() {
                         ))}
                       </select>
                       <button
-                        onClick={() => selectedOrder ? doAssignOrder(manualPartnerId) : doAssignExchange(manualPartnerId)}
+                        onClick={() =>
+                          selectedOrder    ? doAssignOrder(manualPartnerId)   :
+                          selectedExchange ? doAssignExchange(manualPartnerId) :
+                                            doAssignPickup(manualPartnerId)
+                        }
                         disabled={assigning || !manualPartnerId}
                         className="flex-shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
                       >

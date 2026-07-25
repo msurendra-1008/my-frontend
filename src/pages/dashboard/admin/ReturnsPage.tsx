@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Menu, X, ChevronRight, Plus } from 'lucide-react';
+import { Menu, X, ChevronRight, Plus, PackageCheck, Truck } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { FilterToolbar } from '@/components/admin/FilterToolbar';
 import { OrderItemStatusBadge } from '@/components/orders/OrderItemStatusBadge';
@@ -203,11 +203,26 @@ function ReturnDetailSheet({
     } finally { setActing(false); }
   };
 
+  const handleConfirmPickupReceived = async () => {
+    if (!rr) return;
+    if (!window.confirm('Confirm that you have physically received the returned item? This will trigger wallet credit and restock.')) return;
+    setActing(true);
+    try {
+      const r = await returnsService.confirmPickupReceived(rr.id);
+      setRr(r.data);
+      onUpdated(r.data);
+      toast.show('Item confirmed received — refund credited, stock restocked');
+    } catch (e: any) {
+      toast.show(e?.response?.data?.detail || 'Failed to confirm', true);
+    } finally { setActing(false); }
+  };
+
   // ── Derived state ────────────────────────────────────────────────────────────
 
   const notesLen        = notes.trim().length;
   const notesOk         = notesLen >= 10;
   const isActive        = rr?.status === 'raised' || rr?.status === 'under_review';
+  const isPickupDispatched = rr?.status === 'pickup_dispatched';
   const waitingFor      = rr?.waiting_for ?? '';
   const waitingForUser  = isActive && waitingFor === 'user';
   const canAct          = isActive && !waitingForUser && !acting;
@@ -308,6 +323,61 @@ function ReturnDetailSheet({
                 </p>
               )}
             </div>
+
+            {/* Return pickup assignment status */}
+            {rr.request_type === 'return' && isPickupDispatched && rr.pickup_assignment && (
+              <div className={cn(
+                'rounded-xl border p-4 text-sm space-y-2',
+                rr.pickup_assignment.status === 'delivered'
+                  ? 'border-amber-400/40 bg-amber-500/5'
+                  : 'border-border/50',
+              )}>
+                <p className="font-semibold flex items-center gap-2">
+                  <Truck size={14} />
+                  Return Pickup
+                </p>
+                <div className="space-y-1 text-xs">
+                  {rr.pickup_assignment.partner_name ? (
+                    <p className="text-muted-foreground">
+                      Partner: <span className="font-medium text-foreground">{rr.pickup_assignment.partner_name}</span>
+                      {rr.pickup_assignment.partner_mobile && ` · ${rr.pickup_assignment.partner_mobile}`}
+                    </p>
+                  ) : (
+                    <p className="text-amber-600 dark:text-amber-400">No partner assigned yet</p>
+                  )}
+                  <p className="text-muted-foreground">
+                    Status: <span className={cn(
+                      'font-medium',
+                      rr.pickup_assignment.status === 'delivered' ? 'text-green-600 dark:text-green-400' :
+                      rr.pickup_assignment.status === 'picked_up' ? 'text-amber-600 dark:text-amber-400' :
+                      'text-foreground',
+                    )}>{rr.pickup_assignment.status.replace(/_/g, ' ')}</span>
+                  </p>
+                  {rr.pickup_assignment.picked_up_at && (
+                    <p className="text-muted-foreground">Collected at: {formatDate(rr.pickup_assignment.picked_up_at)}</p>
+                  )}
+                  {rr.pickup_assignment.delivered_at && (
+                    <p className="text-muted-foreground">Handed over at: {formatDate(rr.pickup_assignment.delivered_at)}</p>
+                  )}
+                </div>
+                {rr.pickup_assignment.status === 'delivered' && (
+                  <button
+                    onClick={handleConfirmPickupReceived}
+                    disabled={acting}
+                    className="mt-2 w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                  >
+                    <PackageCheck size={15} />
+                    {acting ? 'Processing…' : 'Confirm Item Received'}
+                  </button>
+                )}
+                {rr.pickup_assignment.status !== 'delivered' && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mt-1">
+                    <Truck size={12} />
+                    Waiting for partner to hand over item to company
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Reason + Notes */}
             <div className="rounded-xl border p-4 text-sm space-y-1">
@@ -430,20 +500,24 @@ function ReturnDetailSheet({
               </div>
             )}
 
-            {/* Terminal state banner — RULE 4 */}
-            {!isActive && (
+            {/* Terminal/in-progress state banner */}
+            {!isActive && !isPickupDispatched && (
               <div className={cn(
                 'rounded-lg px-3 py-2.5 text-sm font-medium',
                 rr.status === 'completed'
-                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                  ? 'bg-emerald-500/10 border border-emerald-400/40 text-emerald-600 dark:text-emerald-400'
                   : rr.status === 'rejected_final'
-                  ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+                  ? 'bg-red-500/10 border border-red-400/40 text-red-600 dark:text-red-400'
+                  : rr.status === 'exchange_dispatched'
+                  ? 'bg-violet-500/10 border border-violet-400/40 text-violet-700 dark:text-violet-400'
                   : 'bg-muted/50 border text-muted-foreground',
               )}>
                 {rr.status === 'completed'
                   ? '✓ Resolved'
                   : rr.status === 'rejected_final'
                   ? 'Rejected — no more attempts allowed'
+                  : rr.status === 'exchange_dispatched'
+                  ? 'Exchange dispatched — delivery partner en route'
                   : `Status: ${rr.status}`}
               </div>
             )}
@@ -852,12 +926,14 @@ export function AdminReturnsPage() {
                 onChange:    setStatusFilter,
                 width:       'w-[150px]',
                 options: [
-                  { label: 'Raised',           value: 'raised'         },
-                  { label: 'Under Review',     value: 'under_review'   },
-                  { label: 'Approved',         value: 'approved'       },
-                  { label: 'Rejected',         value: 'rejected'       },
-                  { label: 'Rejected (Final)', value: 'rejected_final' },
-                  { label: 'Completed',        value: 'completed'      },
+                  { label: 'Raised',             value: 'raised'             },
+                  { label: 'Under Review',       value: 'under_review'       },
+                  { label: 'Approved',           value: 'approved'           },
+                  { label: 'Exchange Dispatched',value: 'exchange_dispatched' },
+                  { label: 'Pickup Dispatched',  value: 'pickup_dispatched'  },
+                  { label: 'Rejected',           value: 'rejected'           },
+                  { label: 'Rejected (Final)',   value: 'rejected_final'     },
+                  { label: 'Completed',          value: 'completed'          },
                 ],
               },
             ]}
@@ -905,10 +981,12 @@ export function AdminReturnsPage() {
                           status={
                             rr.request_type === 'return'
                               ? rr.status === 'raised' ? 'return_requested'
+                                : rr.status === 'pickup_dispatched' ? 'return_requested'
                                 : (rr.status === 'approved' || rr.status === 'completed') ? 'return_approved'
                                 : (rr.status === 'rejected' || rr.status === 'rejected_final') ? 'return_rejected'
                                 : 'return_requested'
                               : rr.status === 'raised' ? 'exchange_requested'
+                                : rr.status === 'exchange_dispatched' ? 'exchange_requested'
                                 : (rr.status === 'approved' || rr.status === 'completed') ? 'exchange_approved'
                                 : (rr.status === 'rejected' || rr.status === 'rejected_final') ? 'exchange_rejected'
                                 : 'exchange_requested'
