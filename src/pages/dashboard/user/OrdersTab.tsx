@@ -392,7 +392,7 @@ function OrderDetailSheet({
                   )}
                 </div>
               ) : order.order_status === 'delivered' && (() => {
-                const activeReturnStatuses = ['raised', 'under_review', 'approved', 'exchange_dispatched'];
+                const activeReturnStatuses = ['raised', 'under_review', 'approved', 'exchange_dispatched', 'pickup_dispatched'];
                 const blockedItems = order.items.filter(
                   (i) => i.return_status && activeReturnStatuses.includes(i.return_status)
                 );
@@ -452,11 +452,12 @@ function OrderDetailSheet({
                   const rejCount    = item.return_rejection_count ?? 0;
                   const maxAttempts = retSettings?.max_attempts ?? 2;
                   const windowDays = retSettings?.return_window_days ?? returnWindowDays;
+                  const isReturnableStatus = item.status === 'delivered' || item.status === 'exchanged';
                   const eligible = (() => {
                     try {
                       if (item.return_window_blocked) return false;
                       if (rejCount >= maxAttempts) return false;
-                      if (item.status !== 'delivered') return false;
+                      if (!isReturnableStatus) return false;
                       if (!item.delivered_at) return false;
                       const windowEnd = new Date(item.delivered_at);
                       windowEnd.setDate(windowEnd.getDate() + windowDays);
@@ -466,7 +467,7 @@ function OrderDetailSheet({
                     }
                   })();
                   const windowExpired = (() => {
-                    if (!item.delivered_at || item.status !== 'delivered') return false;
+                    if (!item.delivered_at || !isReturnableStatus) return false;
                     const windowEnd = new Date(item.delivered_at);
                     windowEnd.setDate(windowEnd.getDate() + windowDays);
                     return new Date() > windowEnd;
@@ -492,7 +493,7 @@ function OrderDetailSheet({
                                 <RotateCcw size={9} /> Return/Exchange
                               </button>
                             )}
-                            {order.is_satisfied && item.status === 'delivered' && (
+                            {order.is_satisfied && isReturnableStatus && (
                               <span className="text-[10px] text-muted-foreground">
                                 Returns not available — order satisfied
                               </span>
@@ -502,7 +503,7 @@ function OrderDetailSheet({
                                 Return window expired ({windowDays}d)
                               </span>
                             )}
-                            {!eligible && rejCount >= maxAttempts && item.status === 'delivered' && (
+                            {!eligible && rejCount >= maxAttempts && isReturnableStatus && (
                               <span className="text-[10px] text-muted-foreground">
                                 Maximum return attempts reached
                               </span>
