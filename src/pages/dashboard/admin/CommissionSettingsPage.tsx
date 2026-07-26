@@ -482,7 +482,7 @@ export function CommissionSettingsPage() {
       .catch(() => {});
   };
 
-  const handleVariantSaved = (saved: VariantCommissionRule, productRuleId: string) => {
+  const handleVariantSaved = (_saved: VariantCommissionRule, productRuleId: string) => {
     setVariantModal(null);
     toast.show('Variant override saved');
     refreshVariantsAndRules(productRuleId);
