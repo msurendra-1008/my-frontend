@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { productService } from '@/services/productService';
-import { cartService } from '@/services/cartService';
-import { useCartStore } from '@/store/cartStore';
 import type { ProductListItem, Category, StockLabel, UPAPrice } from '@/types/product.types';
 
 function Skeleton({ className }: { className?: string }) {
@@ -18,32 +16,16 @@ function StockBadge({ label }: { label: StockLabel }) {
   return <span className="text-[10px] font-medium text-emerald-600">In Stock</span>;
 }
 
-interface ToastState {
-  text: string;
-  action?: { label: string; onClick: () => void };
-}
-
-function useToast() {
-  const [toast, setToast] = useState<ToastState | null>(null);
-  const timerRef = { current: 0 as ReturnType<typeof setTimeout> };
-  const show = (text: string, action?: ToastState['action']) => {
-    clearTimeout(timerRef.current);
-    setToast({ text, action });
-    timerRef.current = setTimeout(() => setToast(null), 4000);
-  };
-  const dismiss = () => setToast(null);
-  return { toast, show, dismiss };
-}
-
 // Cache UPA prices so we don't re-fetch on every render
 const upaCache: Record<string, UPAPrice> = {};
 
 function ProductCard({ product }: { product: ProductListItem }) {
-  const navigate              = useNavigate();
-  const toast                 = useToast();
-  const fetchCartCount        = useCartStore((s) => s.fetchCartCount);
-  const [upaPrice, setUpaPrice]         = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
-  const [addingToCart, setAddingToCart] = useState(false);
+  const navigate = useNavigate();
+  const [upaPrice, setUpaPrice] = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
+
+  const displayPrice = product.min_variant_mrp ?? product.mrp;
+  const showFrom     = product.variant_count > 1 && product.min_variant_mrp !== null;
+  const isOutOfStock = product.stock_label === 'Out of Stock';
 
   useEffect(() => {
     if (upaCache[product.slug]) { setUpaPrice(upaCache[product.slug]); return; }
@@ -56,12 +38,12 @@ function ProductCard({ product }: { product: ProductListItem }) {
   }, [product.slug]);
 
   return (
-    <div className="rounded-lg border bg-card hover:shadow-sm transition-shadow duration-150 overflow-hidden">
-      {/* Image — fixed height */}
-      <div
-        onClick={() => navigate(`/shop/${product.slug}`)}
-        className="relative h-28 w-full bg-muted overflow-hidden cursor-pointer"
-      >
+    <div
+      onClick={() => navigate(`/shop/${product.slug}`)}
+      className="rounded-lg border bg-card hover:shadow-sm transition-shadow duration-150 overflow-hidden cursor-pointer"
+    >
+      {/* Image */}
+      <div className="relative h-28 w-full bg-muted overflow-hidden">
         {product.primary_image ? (
           <img src={product.primary_image} alt={product.name}
             className="h-full w-full object-cover" />
@@ -80,77 +62,52 @@ function ProductCard({ product }: { product: ProductListItem }) {
       {/* Info */}
       <div className="p-3">
         {product.category_name && (
-          <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded mb-1">
+          <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded mb-1">
             {product.category_name}
           </span>
         )}
-        <p
-          onClick={() => navigate(`/shop/${product.slug}`)}
-          className="text-sm font-medium leading-tight line-clamp-2 cursor-pointer hover:text-primary text-foreground"
-        >
+        <p className="text-sm font-medium leading-tight line-clamp-2 text-foreground">
           {product.name}
         </p>
 
         {/* Pricing */}
-        <div className="mt-1">
-          {upaPrice ? (
-            <div className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline gap-1 mt-1">
+          {showFrom && <span className="text-[10px] text-muted-foreground">From</span>}
+          {upaPrice && parseFloat(upaPrice.discount_percent) > 0 ? (
+            <>
               <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                 &#8377;{upaPrice.upa_price}
               </span>
-              {parseFloat(upaPrice.discount_percent) > 0 && (
-                <span className="text-xs text-muted-foreground line-through">&#8377;{product.mrp}</span>
-              )}
-            </div>
+              <span className="text-xs text-muted-foreground line-through">
+                &#8377;{displayPrice}
+              </span>
+            </>
+          ) : displayPrice ? (
+            <span className="text-sm font-semibold text-foreground">
+              &#8377;{Number(displayPrice).toLocaleString('en-IN')}
+            </span>
           ) : (
-            <span className="text-sm font-semibold text-foreground">&#8377;{product.mrp}</span>
+            <span className="text-xs text-muted-foreground">—</span>
           )}
         </div>
 
-        <div className="mt-1">
+        <div className="flex items-center justify-between mt-1.5 gap-1">
+          {product.variant_count > 1 && (
+            <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
+              {product.variant_count} options
+            </span>
+          )}
           <StockBadge label={product.stock_label} />
         </div>
 
         <button
-          onClick={async () => {
-            if (!product.first_variant_id) {
-              navigate(`/shop/${product.slug}`);
-              return;
-            }
-            setAddingToCart(true);
-            try {
-              await cartService.addItem(product.first_variant_id);
-              await fetchCartCount();
-              toast.show('Added to cart', {
-                label: 'Go to Cart →',
-                onClick: () => navigate('/cart'),
-              });
-            } catch {
-              toast.show('Failed to add to cart');
-            } finally {
-              setAddingToCart(false);
-            }
-          }}
-          disabled={product.stock_label === 'Out of Stock' || addingToCart}
-          className="mt-2 w-full h-8 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          onClick={(e) => { e.stopPropagation(); navigate(`/shop/${product.slug}`); }}
+          disabled={isOutOfStock}
+          className="mt-2 w-full h-8 rounded-md border border-primary/30 bg-primary/5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {addingToCart ? 'Adding…' : 'Add to Cart'}
+          {isOutOfStock ? 'Out of Stock' : product.variant_count > 1 ? 'View Options →' : 'View Product →'}
         </button>
       </div>
-
-      {toast.toast && (
-        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-lg text-sm text-foreground">
-          <span>{toast.toast.text}</span>
-          {toast.toast.action && (
-            <button
-              onClick={() => { toast.toast!.action!.onClick(); toast.dismiss(); }}
-              className="ml-1 font-medium text-purple-600 hover:underline shrink-0"
-            >
-              {toast.toast.action.label}
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
