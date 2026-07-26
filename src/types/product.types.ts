@@ -44,8 +44,9 @@ export interface ProductListItem {
   id:                 string;
   name:               string;
   slug:               string;
-  sku:                string;
-  mrp:                string;
+  sku:                string | null;
+  mrp:                string | null;
+  min_variant_mrp:    string | null;
   primary_image:      string | null;
   category_name:      string | null;
   is_published:       boolean;
@@ -67,9 +68,9 @@ export interface Product {
   slug:                  string;
   description:           string;
   category:              Category | null;
-  sku:                   string;
+  sku:                   string | null;
   barcode:               string;
-  mrp:                   string;
+  mrp:                   string | null;
   upa_discount_override: string | null;  // existing nullable field
   upa_price_override:    string | null;
   is_published:          boolean;

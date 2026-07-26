@@ -591,7 +591,7 @@ export function ProductPricingPage() {
   const filtered = products.filter((p) => {
     const matchSearch = !search ||
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase());
+      (p.sku ?? '').toLowerCase().includes(search.toLowerCase());
     const matchFilter =
       filter === '' ? true :
       filter === 'configured' ? p.pricing_configured :
