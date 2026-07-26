@@ -39,8 +39,10 @@ export interface ProductCommissionRule {
   id:                      string;
   product:                 string;
   product_name:            string;
+  product_slug:            string;
   product_mrp:             string;
   product_pricing:         ProductPricing | null;
+  variant_rule_count:      number;
   is_active:               boolean;
   network_commission_pct:  string;
   team_commission_pct:     string;
@@ -56,6 +58,49 @@ export interface ProductCommissionRule {
   left_leg_pct:            string;
   middle_leg_pct:          string;
   right_leg_pct:           string;
+  created_at:              string;
+  updated_at:              string;
+}
+
+export interface VariantCommissionRule {
+  id:                      string;
+  variant:                 string;
+  variant_name:            string;
+  variant_sku:             string;
+  variant_mrp:             string;
+  product_id:              string;
+  product_name:            string;
+  variant_pricing:         ProductPricing | null;
+  is_active:               boolean;
+  network_commission_pct:  string;
+  team_commission_pct:     string;
+  social_work_pct:         string;
+  company_pct:             string;
+  self_commission_enabled: boolean;
+  self_commission_pct:     string;
+  delivery_packaging_pct:  string;
+  max_upline_levels:       number;
+  use_max_levels:          boolean;
+  direction:               CommissionDirection;
+  level_percentages:       number[];
+  left_leg_pct:            string;
+  middle_leg_pct:          string;
+  right_leg_pct:           string;
+  created_at:              string;
+  updated_at:              string;
+}
+
+export interface VariantCommissionStatus {
+  variant_id:     string;
+  variant_name:   string;
+  variant_sku:    string;
+  variant_mrp:    string;
+  upa_price:      string;
+  variant_profit: number | null;
+  is_active:      boolean;
+  stock_quantity: number;
+  has_override:   boolean;
+  rule:           VariantCommissionRule | null;
 }
 
 export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant' | 'ignored' | 'cancelled';
