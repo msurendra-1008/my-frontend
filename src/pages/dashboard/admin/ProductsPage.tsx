@@ -74,22 +74,50 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
 
   const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
+  const parseApiError = (err: unknown): string => {
+    const data = (err as { response?: { data?: unknown } })?.response?.data;
+    if (!data) return 'Save failed. Please try again.';
+    if (typeof data === 'string') return data;
+    if (typeof data === 'object' && data !== null) {
+      const d = data as Record<string, unknown>;
+      if (typeof d.detail === 'string') return d.detail;
+      return Object.entries(d)
+        .map(([k, v]) => {
+          const label = k === 'name' ? 'Product Name' : k === 'sku' ? 'SKU' : k === 'mrp' ? 'MRP' : k;
+          const msg   = Array.isArray(v) ? v.join(', ') : String(v);
+          return `${label}: ${msg}`;
+        })
+        .join(' · ');
+    }
+    return 'Save failed. Please try again.';
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    for (const v of variants) {
-      if (!v.name.trim()) { toast.show('Each variant must have a name.', true); return; }
-      if (!v.sku.trim())  { toast.show(`Variant "${v.name || 'unnamed'}": SKU is required.`, true); return; }
-      if (!v.mrp)         { toast.show(`Variant "${v.name}": MRP is required.`, true); return; }
+
+    if (!form.name.trim()) {
+      toast.show('Product Name is required.', true); return;
     }
+    for (const v of variants) {
+      const label = v.name || 'unnamed variant';
+      if (!v.name.trim())  { toast.show(`Variant name is required (${label}).`, true); return; }
+      if (!v.sku.trim())   { toast.show(`SKU is required for variant "${v.name}".`, true); return; }
+      if (!v.mrp)          { toast.show(`MRP is required for variant "${v.name}".`, true); return; }
+    }
+
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        name: form.name, description: form.description, sku: form.sku,
-        barcode: form.barcode, mrp: form.mrp, is_published: form.is_published,
+        name:         form.name.trim(),
+        description:  form.description,
+        sku:          form.sku || null,
+        barcode:      form.barcode,
+        mrp:          form.mrp || null,
+        is_published: form.is_published,
       };
-      if (form.category)               payload.category               = form.category;
-      if (form.upa_discount_override)  payload.upa_discount_override  = form.upa_discount_override;
-      if (form.upa_price_override)     payload.upa_price_override      = form.upa_price_override;
+      if (form.category)              payload.category              = form.category;
+      if (form.upa_discount_override) payload.upa_discount_override = form.upa_discount_override;
+      if (form.upa_price_override)    payload.upa_price_override    = form.upa_price_override;
 
       let slug: string;
       if (product) {
@@ -98,9 +126,9 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
       } else {
         const r = await productService.createProduct(payload);
         slug = r.data.slug;
+        if (!slug) throw new Error('Product created but slug missing — contact support.');
       }
 
-      // Upload image if selected
       if (imgFile) {
         const fd = new FormData();
         fd.append('image', imgFile);
@@ -108,29 +136,30 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
         await productService.uploadImage(slug, fd).catch(() => {});
       }
 
-      // Save variants
       for (const v of variants) {
         const vp = {
-          name: v.name, variant_type: v.variant_type, sku: v.sku,
-          mrp: v.mrp, stock_quantity: v.stock_quantity, is_active: v.is_active,
+          name:           v.name,
+          variant_type:   v.variant_type,
+          sku:            v.sku,
+          mrp:            v.mrp,
+          stock_quantity: v.stock_quantity,
+          is_active:      v.is_active,
           ...(v.upa_price_override ? { upa_price_override: v.upa_price_override } : {}),
         };
-        if (v._new) {
-          await productService.addVariant(slug, vp);
-        } else {
-          await productService.updateVariant(slug, v.id, vp);
+        try {
+          if (v._new) {
+            await productService.addVariant(slug, vp);
+          } else {
+            await productService.updateVariant(slug, v.id, vp);
+          }
+        } catch (varErr: unknown) {
+          throw new Error(`Variant "${v.name}": ${parseApiError(varErr)}`);
         }
       }
 
       onSaved();
     } catch (err: unknown) {
-      const errData = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
-      const msg = errData
-        ? (errData.detail as string | undefined) ??
-          Object.entries(errData)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-            .join(' | ')
-        : 'Save failed.';
+      const msg = err instanceof Error ? err.message : parseApiError(err);
       toast.show(msg, true);
     } finally {
       setSaving(false);
@@ -180,8 +209,8 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
                     className="input-base resize-none" placeholder="Short product description…" />
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="SKU" required>
-                    <input required value={form.sku} onChange={(e) => set('sku', e.target.value)}
+                  <Field label="SKU" hint="Optional">
+                    <input value={form.sku} onChange={(e) => set('sku', e.target.value)}
                       className="input-base" placeholder="SKU-001" />
                   </Field>
                   <Field label="Barcode">
@@ -201,8 +230,8 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
               <section className="space-y-4">
                 <SectionHeader label="Pricing" />
                 <div className="grid grid-cols-3 gap-4">
-                  <Field label="MRP (₹)" required>
-                    <input required type="number" step="0.01" min="0" value={form.mrp}
+                  <Field label="MRP (₹)" hint="Optional — set on variants">
+                    <input type="number" step="0.01" min="0" value={form.mrp}
                       onChange={(e) => set('mrp', e.target.value)} className="input-base" placeholder="0.00" />
                   </Field>
                   <Field label="UPA Discount %" hint="Overrides global %">
@@ -332,14 +361,14 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
                 )}
               </section>
 
+            </div>
+
+            <div className="sticky bottom-0 border-t bg-card/95 backdrop-blur-sm px-4 pt-3 pb-4 rounded-b-2xl space-y-2">
               {toast.msg && (
-                <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium', toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
+                <p className={cn('text-xs rounded-lg px-3 py-2.5 border font-medium leading-snug', toast.err ? 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-400/40' : 'text-emerald-700 dark:text-emerald-400 bg-green-500/10 border-green-400/40')}>
                   {toast.msg}
                 </p>
               )}
-            </div>
-
-            <div className="sticky bottom-0 border-t bg-card/95 backdrop-blur-sm p-4 rounded-b-2xl">
               <button type="submit" disabled={saving}
                 className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors">
                 {saving ? 'Saving…' : product ? 'Save Changes' : 'Create Product'}
@@ -404,7 +433,7 @@ function CategoryFormModal({ categories, onClose, onSaved }: CategoryFormModalPr
             </Field>
             {toast.msg && (
               <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium',
-                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
+                toast.err ? 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-400/40' : 'text-emerald-700 dark:text-emerald-400 bg-green-500/10 border-green-400/40')}>
                 {toast.msg}
               </p>
             )}
@@ -533,7 +562,7 @@ function CategoryEditModal({
             </Field>
             {toast.msg && (
               <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium',
-                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
+                toast.err ? 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-400/40' : 'text-emerald-700 dark:text-emerald-400 bg-green-500/10 border-green-400/40')}>
                 {toast.msg}
               </p>
             )}
@@ -675,7 +704,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
 
       {toast.msg && (
         <div className={cn('fixed bottom-5 right-5 z-50 rounded-lg border px-4 py-3 shadow-lg text-sm',
-          toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
+          toast.err ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
       )}
@@ -771,7 +800,7 @@ function DiscountSettingsCard() {
 
       {toast.msg && (
         <div className={cn('fixed bottom-5 right-5 z-50 rounded-lg border px-4 py-3 shadow-lg text-sm',
-          toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
+          toast.err ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
       )}
@@ -996,7 +1025,9 @@ function ProductsTab({
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">{p.id.slice(0,8)}…</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-muted-foreground">{p.category_name ?? '—'}</td>
-                  <td className="px-4 py-3 font-medium text-foreground">&#8377;{p.mrp}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    {p.mrp ? `₹${p.mrp}` : <span className="text-muted-foreground">—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge variant={p.is_published ? 'success' : 'secondary'}>
                       {p.is_published ? 'Published' : 'Draft'}
@@ -1064,7 +1095,7 @@ function ProductsTab({
 
       {toast.msg && (
         <div className={cn('fixed bottom-5 right-5 z-50 rounded-lg border px-4 py-3 shadow-lg text-sm',
-          toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
+          toast.err ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
       )}

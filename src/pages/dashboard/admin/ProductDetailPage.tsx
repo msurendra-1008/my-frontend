@@ -236,7 +236,7 @@ export function ProductDetailPage() {
               </button>
               <button
                 onClick={() => setDeleteDialog(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-colors"
               >
                 <Trash2 size={12} /> Delete
               </button>
@@ -311,14 +311,18 @@ export function ProductDetailPage() {
                 <div className="rounded-xl border bg-card shadow-sm p-5 space-y-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pricing</p>
                   <InfoField label="MRP">
-                    <span className="text-lg font-bold">₹{product.mrp}</span>
-                  </InfoField>
-                  <InfoField label="UPA Price">
-                    <span className="font-semibold text-primary">₹{product.upa_price.upa_price}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({product.upa_price.discount_percent}% off · saves ₹{product.upa_price.saving})
+                    <span className="text-lg font-bold">
+                      {product.mrp ? `₹${product.mrp}` : <span className="text-muted-foreground text-sm">Set on variants</span>}
                     </span>
                   </InfoField>
+                  {product.upa_price && (
+                    <InfoField label="UPA Price">
+                      <span className="font-semibold text-primary">₹{product.upa_price.upa_price}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ({product.upa_price.discount_percent}% off · saves ₹{product.upa_price.saving})
+                      </span>
+                    </InfoField>
+                  )}
                   {product.upa_discount_override && (
                     <InfoField label="UPA Discount Override">
                       {product.upa_discount_override}%
@@ -460,7 +464,7 @@ export function ProductDetailPage() {
       {toast.msg && (
         <div className={cn(
           'fixed bottom-5 right-5 z-50 rounded-lg border px-4 py-3 shadow-lg text-sm',
-          toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground',
+          toast.err ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40' : 'bg-card text-foreground',
         )}>
           {toast.msg}
         </div>

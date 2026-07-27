@@ -93,7 +93,7 @@ export function ProductDetail() {
   const active   = selectedVariant ?? (product.variants[0] ?? null);
   const stockCnt = active ? active.stock_quantity : product.total_stock;
   const stockLbl = active ? active.stock_label    : product.stock_label;
-  const mrp      = active ? active.mrp             : product.mrp;
+  const mrp      = active?.mrp ?? product.mrp;
 
   return (
     <div className="min-h-screen bg-background">
@@ -173,33 +173,72 @@ export function ProductDetail() {
             )}
             <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
 
-            <div className="flex items-baseline gap-3">
-              <span className="text-2xl font-semibold text-foreground">&#8377;{mrp}</span>
+            {/* Price */}
+            <div className="rounded-xl border bg-muted/30 px-4 py-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">MRP</p>
+                  <span className="text-2xl font-bold text-foreground">
+                    {mrp ? `₹${Number(mrp).toLocaleString('en-IN')}` : '—'}
+                  </span>
+                  {active?.upa_price_computed && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                        ₹{Number(active.upa_price_computed.upa_price).toLocaleString('en-IN')}
+                      </span>
+                      <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-600 dark:text-green-400">
+                        {active.upa_price_computed.discount_percent}% off
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">UPA Price</span>
+                    </div>
+                  )}
+                </div>
+                <StockBadge label={stockLbl} count={stockCnt} />
+              </div>
             </div>
 
-            <StockBadge label={stockLbl} count={stockCnt} />
-
-            {/* Variants */}
+            {/* Variant selector */}
             {product.variants.filter((v) => v.is_active).length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {product.variants[0]?.variant_type ?? 'Variant'}
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {product.variants[0]?.variant_type ?? 'Variant'}
+                  </p>
+                  {active && (
+                    <span className="text-xs font-medium text-primary">
+                      {active.name} selected
+                    </span>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {product.variants.filter((v) => v.is_active).map((v) => (
                     <button
                       key={v.id}
-                      onClick={() => setSelectedVariant(v)}
-                      className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+                      onClick={() => { if (v.stock_quantity > 0) setSelectedVariant(v); }}
+                      className={[
+                        'flex flex-col items-center rounded-xl border px-3 py-2 min-w-[64px] text-sm transition-colors',
                         active?.id === v.id
-                          ? 'border-primary bg-primary/10 text-primary font-medium'
-                          : 'text-foreground hover:bg-muted'
-                      } ${v.stock_quantity === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          ? 'border-primary bg-primary text-primary-foreground font-semibold'
+                          : v.stock_quantity === 0
+                            ? 'opacity-40 cursor-not-allowed border-border text-muted-foreground line-through'
+                            : 'border-border text-foreground hover:border-primary hover:text-primary',
+                      ].join(' ')}
                     >
-                      {v.name}
+                      <span>{v.name}</span>
+                      <span className={`text-[10px] mt-0.5 ${active?.id === v.id ? 'opacity-90' : 'text-muted-foreground'}`}>
+                        ₹{Number(v.mrp).toLocaleString('en-IN')}
+                      </span>
                     </button>
                   ))}
                 </div>
+                {active && (
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    SKU: <span className="font-mono">{active.sku}</span>
+                    {active.stock_quantity > 0 && active.stock_quantity <= 10 && (
+                      <span className="ml-2 text-amber-600 dark:text-amber-400">· Only {active.stock_quantity} left</span>
+                    )}
+                  </p>
+                )}
               </div>
             )}
 

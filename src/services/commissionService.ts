@@ -2,6 +2,8 @@ import axiosInstance from '@/utils/axiosInstance';
 import type {
   CommissionSettings,
   ProductCommissionRule,
+  VariantCommissionRule,
+  VariantCommissionStatus,
   CommissionBreakup,
   CommissionEntry,
   PendingCommissionEntry,
@@ -23,6 +25,11 @@ export const commissionService = {
   getProductRuleByProduct: (productId: string) =>
     axiosInstance.get<ProductCommissionRule>(`/api/v1/commissions/product-rules/by-product/?product_id=${productId}`),
 
+  getProductPricing: (productId: string) =>
+    axiosInstance.get<import('@/types/commission.types').ProductPricing | null>(
+      `/api/v1/commissions/product-rules/product-pricing/?product_id=${productId}`,
+    ),
+
   createProductRule: (data: Omit<Partial<ProductCommissionRule>, 'id' | 'product_name' | 'product_mrp' | 'product_pricing' | 'created_at' | 'updated_at'>) =>
     axiosInstance.post<ProductCommissionRule>('/api/v1/commissions/product-rules/', data),
 
@@ -31,6 +38,31 @@ export const commissionService = {
 
   deleteProductRule: (id: string) =>
     axiosInstance.delete(`/api/v1/commissions/product-rules/${id}/`),
+
+  getVariantsStatus: (productRuleId: string) =>
+    axiosInstance.get<VariantCommissionStatus[]>(
+      `/api/v1/commissions/product-rules/${productRuleId}/variants-status/`,
+    ),
+
+  getVariantRules: (params?: { product_id?: string }) =>
+    axiosInstance.get<Paginated<VariantCommissionRule>>('/api/v1/commissions/variant-rules/', { params }),
+
+  getVariantRuleByVariant: (variantId: string) =>
+    axiosInstance.get<VariantCommissionRule>(
+      `/api/v1/commissions/variant-rules/by-variant/?variant_id=${variantId}`,
+    ),
+
+  createVariantRule: (
+    data: Omit<Partial<VariantCommissionRule>, 'id' | 'variant_name' | 'variant_sku' | 'variant_mrp' | 'product_id' | 'product_name' | 'variant_pricing' | 'created_at' | 'updated_at'>,
+  ) => axiosInstance.post<VariantCommissionRule>('/api/v1/commissions/variant-rules/', data),
+
+  updateVariantRule: (
+    id: string,
+    data: Omit<Partial<VariantCommissionRule>, 'id' | 'variant_name' | 'variant_sku' | 'variant_mrp' | 'product_id' | 'product_name' | 'variant_pricing' | 'created_at' | 'updated_at'>,
+  ) => axiosInstance.patch<VariantCommissionRule>(`/api/v1/commissions/variant-rules/${id}/`, data),
+
+  deleteVariantRule: (id: string) =>
+    axiosInstance.delete(`/api/v1/commissions/variant-rules/${id}/`),
 
   getBreakups: (orderId: string) =>
     axiosInstance.get<Paginated<CommissionBreakup>>(`/api/v1/commissions/breakups/?order=${orderId}`),

@@ -118,11 +118,19 @@ export function ProductCommissionModal({ rule, initialProduct = null, onSave, on
     });
   }, [formData.max_upline_levels]);
 
-  const handleSelectProduct = (p: ProductListItem) => {
+  const handleSelectProduct = async (p: ProductListItem) => {
     setSelectedProduct(p);
     setProductId(p.id);
     setSearchQuery(''); setDropdownOpen(false); setSearchResults([]);
-    // pricing comes from commission rule API on rule fetch, not product API
+    setPricing(null);
+    if (p.pricing_configured) {
+      try {
+        const r = await commissionService.getProductPricing(p.id);
+        setPricing(r.data);
+      } catch {
+        setPricing(null);
+      }
+    }
   };
 
   const handleSave = async () => {
