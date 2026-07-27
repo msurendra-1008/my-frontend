@@ -25,6 +25,11 @@ export const commissionService = {
   getProductRuleByProduct: (productId: string) =>
     axiosInstance.get<ProductCommissionRule>(`/api/v1/commissions/product-rules/by-product/?product_id=${productId}`),
 
+  getProductPricing: (productId: string) =>
+    axiosInstance.get<import('@/types/commission.types').ProductPricing | null>(
+      `/api/v1/commissions/product-rules/product-pricing/?product_id=${productId}`,
+    ),
+
   createProductRule: (data: Omit<Partial<ProductCommissionRule>, 'id' | 'product_name' | 'product_mrp' | 'product_pricing' | 'created_at' | 'updated_at'>) =>
     axiosInstance.post<ProductCommissionRule>('/api/v1/commissions/product-rules/', data),
 
