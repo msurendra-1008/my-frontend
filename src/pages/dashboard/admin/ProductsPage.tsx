@@ -84,8 +84,11 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
     setSaving(true);
     try {
       const payload: Record<string, unknown> = {
-        name: form.name, description: form.description, sku: form.sku,
-        barcode: form.barcode, mrp: form.mrp, is_published: form.is_published,
+        name: form.name, description: form.description,
+        sku: form.sku || null,
+        barcode: form.barcode,
+        mrp: form.mrp || null,
+        is_published: form.is_published,
       };
       if (form.category)               payload.category               = form.category;
       if (form.upa_discount_override)  payload.upa_discount_override  = form.upa_discount_override;
@@ -180,8 +183,8 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
                     className="input-base resize-none" placeholder="Short product description…" />
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="SKU" required>
-                    <input required value={form.sku} onChange={(e) => set('sku', e.target.value)}
+                  <Field label="SKU" hint="Optional">
+                    <input value={form.sku} onChange={(e) => set('sku', e.target.value)}
                       className="input-base" placeholder="SKU-001" />
                   </Field>
                   <Field label="Barcode">
@@ -201,8 +204,8 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
               <section className="space-y-4">
                 <SectionHeader label="Pricing" />
                 <div className="grid grid-cols-3 gap-4">
-                  <Field label="MRP (₹)" required>
-                    <input required type="number" step="0.01" min="0" value={form.mrp}
+                  <Field label="MRP (₹)" hint="Optional — set on variants">
+                    <input type="number" step="0.01" min="0" value={form.mrp}
                       onChange={(e) => set('mrp', e.target.value)} className="input-base" placeholder="0.00" />
                   </Field>
                   <Field label="UPA Discount %" hint="Overrides global %">
@@ -333,7 +336,7 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
               </section>
 
               {toast.msg && (
-                <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium', toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
+                <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium', toast.err ? 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-400/40' : 'text-emerald-700 dark:text-emerald-400 bg-green-500/10 border-green-400/40')}>
                   {toast.msg}
                 </p>
               )}
@@ -404,7 +407,7 @@ function CategoryFormModal({ categories, onClose, onSaved }: CategoryFormModalPr
             </Field>
             {toast.msg && (
               <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium',
-                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
+                toast.err ? 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-400/40' : 'text-emerald-700 dark:text-emerald-400 bg-green-500/10 border-green-400/40')}>
                 {toast.msg}
               </p>
             )}
@@ -533,7 +536,7 @@ function CategoryEditModal({
             </Field>
             {toast.msg && (
               <p className={cn('text-xs rounded-xl px-4 py-3 border font-medium',
-                toast.err ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200')}>
+                toast.err ? 'text-red-600 dark:text-red-400 bg-red-500/10 border-red-400/40' : 'text-emerald-700 dark:text-emerald-400 bg-green-500/10 border-green-400/40')}>
                 {toast.msg}
               </p>
             )}
@@ -675,7 +678,7 @@ function CategoriesTab({ categories, onRefresh }: { categories: Category[]; onRe
 
       {toast.msg && (
         <div className={cn('fixed bottom-5 right-5 z-50 rounded-lg border px-4 py-3 shadow-lg text-sm',
-          toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
+          toast.err ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
       )}
@@ -771,7 +774,7 @@ function DiscountSettingsCard() {
 
       {toast.msg && (
         <div className={cn('fixed bottom-5 right-5 z-50 rounded-lg border px-4 py-3 shadow-lg text-sm',
-          toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
+          toast.err ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
       )}
@@ -996,7 +999,9 @@ function ProductsTab({
                   </td>
                   <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">{p.id.slice(0,8)}…</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-muted-foreground">{p.category_name ?? '—'}</td>
-                  <td className="px-4 py-3 font-medium text-foreground">&#8377;{p.mrp}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    {p.mrp ? `₹${p.mrp}` : <span className="text-muted-foreground">—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge variant={p.is_published ? 'success' : 'secondary'}>
                       {p.is_published ? 'Published' : 'Draft'}
@@ -1064,7 +1069,7 @@ function ProductsTab({
 
       {toast.msg && (
         <div className={cn('fixed bottom-5 right-5 z-50 rounded-lg border px-4 py-3 shadow-lg text-sm',
-          toast.err ? 'bg-red-50 text-red-600 border-red-200' : 'bg-card text-foreground')}>
+          toast.err ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-400/40' : 'bg-card text-foreground')}>
           {toast.msg}
         </div>
       )}

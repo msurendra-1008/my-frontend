@@ -78,7 +78,7 @@ export interface Product {
   updated_at:            string;
   images:                ProductImage[];
   variants:              ProductVariant[];
-  upa_price:             UPAPrice;
+  upa_price:             UPAPrice | null;
   stock_label:           StockLabel;
   total_stock:           number;
   purchase_price:        string | null;
