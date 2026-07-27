@@ -91,16 +91,17 @@ export interface VariantCommissionRule {
 }
 
 export interface VariantCommissionStatus {
-  variant_id:     string;
-  variant_name:   string;
-  variant_sku:    string;
-  variant_mrp:    string;
-  upa_price:      string;
-  variant_profit: number | null;
-  is_active:      boolean;
-  stock_quantity: number;
-  has_override:   boolean;
-  rule:           VariantCommissionRule | null;
+  variant_id:      string;
+  variant_name:    string;
+  variant_sku:     string;
+  variant_mrp:     string;
+  upa_price:       string;
+  variant_profit:  number | null;
+  variant_pricing: ProductPricing | null;
+  is_active:       boolean;
+  stock_quantity:  number;
+  has_override:    boolean;
+  rule:            VariantCommissionRule | null;
 }
 
 export type EntryStatus = 'pending_window' | 'credited' | 'pending' | 'vacant' | 'ignored' | 'cancelled';
