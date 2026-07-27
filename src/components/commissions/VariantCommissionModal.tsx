@@ -61,8 +61,8 @@ export function VariantCommissionModal({
     });
   }, [form.max_upline_levels]);
 
-  // Derived amounts — use variant pricing if available, else fall back to ₹100 preview
-  const pricing   = variantStatus.rule?.variant_pricing ?? existingRule?.variant_pricing ?? null;
+  // Derived amounts — prefer top-level pricing (always fresh from API), fall back to rule snapshots
+  const pricing   = variantStatus.variant_pricing ?? variantStatus.rule?.variant_pricing ?? existingRule?.variant_pricing ?? null;
   const upaProfit = pricing?.upa_profit ?? 100;
 
   const networkPool  = upaProfit * Number(form.network_commission_pct) / 100;
