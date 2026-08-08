@@ -65,8 +65,9 @@ const SECTIONS: Section[] = [
   {
     key: 'master', label: 'Master',
     items: [
-      { label: 'Products',        path: '/admin/products',        icon: Package,          allowedRoles: ['superadmin', 'admin', 'employee'], permission: ['products.view', 'products.edit'] },
-      { label: 'Product Pricing', path: '/admin/product-pricing', icon: BadgeDollarSign,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
+      { label: 'Categories & Brands', path: '/admin/categories',     icon: Tag,             allowedRoles: ['superadmin', 'admin', 'employee'], permission: ['products.view', 'products.edit'] },
+      { label: 'Products',            path: '/admin/products',        icon: Package,          allowedRoles: ['superadmin', 'admin', 'employee'], permission: ['products.view', 'products.edit'] },
+      { label: 'Product Pricing',     path: '/admin/product-pricing', icon: BadgeDollarSign,  allowedRoles: ['superadmin', 'admin'] as UserRole[] },
     ],
   },
   {

@@ -1,11 +1,70 @@
-export interface Category {
-  id:          string;
-  name:        string;
-  slug:        string;
-  parent_id:   string | null;
-  parent_name: string | null;
-  is_active:   boolean;
+// ── Field Schema Types ────────────────────────────────────────────────────────
+
+export interface FieldDefinition {
+  key:      string;
+  label:    string;
+  type:     'text' | 'number' | 'select' | 'boolean';
+  required: boolean;
+  options?: string[];
 }
+
+export interface FieldSchema {
+  product_fields:     FieldDefinition[];
+  variant_attributes: FieldDefinition[];
+}
+
+// ── Category ──────────────────────────────────────────────────────────────────
+
+export interface Category {
+  id:             string;
+  name:           string;
+  slug:           string;
+  short_code:     string;
+  depth:          0 | 1 | 2 | 3;
+  level_name:     string;
+  parent_id:      string | null;
+  parent_name:    string | null;
+  field_schema:   FieldSchema;
+  is_active:      boolean;
+  children_count: number;
+}
+
+export interface CategoryTreeNode {
+  id:         string;
+  name:       string;
+  slug:       string;
+  short_code: string;
+  depth:      number;
+  level_name: string;
+  is_active:  boolean;
+  children:   CategoryTreeNode[];
+}
+
+export type PaginatedCategories = {
+  count:    number;
+  next:     string | null;
+  previous: string | null;
+  results:  Category[];
+};
+
+// ── Brand ─────────────────────────────────────────────────────────────────────
+
+export interface Brand {
+  id:       string;
+  name:     string;
+  slug:     string;
+  logo_url: string | null;
+  is_active: boolean;
+}
+
+export type PaginatedBrands = {
+  count:    number;
+  next:     string | null;
+  previous: string | null;
+  results:  Brand[];
+};
+
+// ── Product ───────────────────────────────────────────────────────────────────
 
 export interface ProductImage {
   id:         string;
@@ -28,32 +87,34 @@ export interface ProductVariant {
   id:                  string;
   name:                string;
   variant_type:        'size' | 'colour' | 'weight' | 'other';
+  attributes:          Record<string, string>;
   sku:                 string;
-  mrp:                 string;
+  mrp:                 string | null;
   upa_price_override:  string | null;
   stock_quantity:      number;
   stock_label:         StockLabel;
   is_active:           boolean;
-  upa_price_computed:  UPAPrice;
+  upa_price_computed:  UPAPrice | null;
   upa_price:           string | null;
   purchase_price:      string | null;
   variant_profit:      number | null;
 }
 
 export interface ProductListItem {
-  id:                 string;
-  name:               string;
-  slug:               string;
-  sku:                string | null;
-  mrp:                string | null;
-  min_variant_mrp:    string | null;
-  primary_image:      string | null;
-  category_name:      string | null;
-  is_published:       boolean;
-  stock_label:        StockLabel;
-  total_stock:        number;
-  variant_count:      number;
-  first_variant_id:   string | null;
+  id:                    string;
+  name:                  string;
+  slug:                  string;
+  sku:                   string | null;
+  mrp:                   string | null;
+  min_variant_mrp:       string | null;
+  primary_image:         string | null;
+  category_name:         string | null;
+  brand_name:            string | null;
+  is_published:          boolean;
+  stock_label:           StockLabel;
+  total_stock:           number;
+  variant_count:         number;
+  first_variant_id:      string | null;
   pricing_configured:    boolean;
   purchase_price:        string | null;
   profit_amount:         number | null;
@@ -68,10 +129,12 @@ export interface Product {
   slug:                  string;
   description:           string;
   category:              Category | null;
+  brand:                 Brand | null;
+  extra_fields:          Record<string, unknown>;
   sku:                   string | null;
   barcode:               string;
   mrp:                   string | null;
-  upa_discount_override: string | null;  // existing nullable field
+  upa_discount_override: string | null;
   upa_price_override:    string | null;
   is_published:          boolean;
   created_at:            string;
@@ -108,9 +171,28 @@ export interface PaginatedProducts {
 
 export interface ProductFilters {
   category?: string;
+  brand?:    string;
   search?:   string;
   in_stock?: boolean;
   status?:   'published' | 'unpublished';
   stock?:    'in_stock' | 'low_stock' | 'out_of_stock';
   page?:     number;
+}
+
+// ── Product create payload ────────────────────────────────────────────────────
+
+export interface VariantCombination {
+  attributes:     Record<string, string>;
+  stock_quantity: number;
+}
+
+export interface ProductCreatePayload {
+  name:                string;
+  description?:        string;
+  category?:           string;
+  brand?:              string | null;
+  extra_fields?:       Record<string, unknown>;
+  barcode?:            string;
+  is_published?:       boolean;
+  variant_combinations?: VariantCombination[];
 }
