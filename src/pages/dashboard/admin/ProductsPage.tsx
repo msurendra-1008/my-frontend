@@ -12,7 +12,7 @@ import { ProductCommissionModal } from '@/components/commissions/ProductCommissi
 import { useAuthStore } from '@/store/authStore';
 import type {
   ProductListItem, Product, Category,
-  UPADiscountSettings,
+  UPADiscountSettings, ProductCreatePayload,
 } from '@/types/product.types';
 import type { ProductCommissionRule } from '@/types/commission.types';
 
@@ -124,7 +124,7 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
         await productService.updateProduct(product.slug, payload);
         slug = product.slug;
       } else {
-        const r = await productService.createProduct(payload);
+        const r = await productService.createProduct(payload as unknown as ProductCreatePayload);
         slug = r.data.slug;
         if (!slug) throw new Error('Product created but slug missing — contact support.');
       }
@@ -331,7 +331,7 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
                                 className="input-base" />
                             </Field>
                             <Field label="MRP (₹)">
-                              <input type="number" step="0.01" value={v.mrp} placeholder="0.00"
+                              <input type="number" step="0.01" value={v.mrp ?? ''} placeholder="0.00"
                                 onChange={(e) => updateVariant(i, { mrp: e.target.value })}
                                 className="input-base" />
                             </Field>
@@ -399,7 +399,7 @@ function CategoryFormModal({ categories, onClose, onSaved }: CategoryFormModalPr
     e.preventDefault();
     setSaving(true);
     try {
-      await productService.createCategory({ name, parent: parent || null });
+      await productService.createCategory({ name, depth: 0, parent: parent || null });
       onSaved();
       toast.show('Category created.');
     } catch { toast.show('Failed.', true); }
@@ -1165,6 +1165,7 @@ type PageTab = 'products' | 'categories';
 export function ProductsPage() {
   const { user }               = useAuthStore();
   const { theme, toggleTheme } = useTheme();
+  const navigate               = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab,  setActiveTab]   = useState<PageTab>('products');
   const [categories, setCategories]  = useState<Category[]>([]);
@@ -1211,7 +1212,7 @@ export function ProductsPage() {
           <div className="flex items-center gap-2">
             {canEdit && (
               <button
-                onClick={() => { setEditProduct(null); setFormOpen(true); }}
+                onClick={() => navigate('/admin/products/new')}
                 className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <Plus size={13} /> New Product

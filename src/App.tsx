@@ -11,8 +11,10 @@ import { AdminDashboard }  from '@/pages/dashboard/AdminDashboard';
 import { UserDashboard }   from '@/pages/dashboard/UserDashboard';
 import { UpaUsersPage }    from '@/pages/dashboard/UpaUsersPage';
 import { UPATreePage }     from '@/pages/dashboard/admin/UPATreePage';
-import { ProductsPage }       from '@/pages/dashboard/admin/ProductsPage';
-import { ProductDetailPage } from '@/pages/dashboard/admin/ProductDetailPage';
+import { ProductsPage }            from '@/pages/dashboard/admin/ProductsPage';
+import { ProductDetailPage }       from '@/pages/dashboard/admin/ProductDetailPage';
+import { CategoryManagementPage }  from '@/pages/dashboard/admin/CategoryManagementPage';
+import { ProductCreatePage }       from '@/pages/dashboard/admin/ProductCreatePage';
 import { StoreFront }         from '@/pages/shop/StoreFront';
 import { ProductDetail }      from '@/pages/shop/ProductDetail';
 import { CheckoutPage }       from '@/pages/checkout/CheckoutPage';
@@ -95,10 +97,26 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/admin/categories"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <CategoryManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/admin/products"
         element={
           <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
             <ProductsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/products/new"
+        element={
+          <ProtectedRoute allowedRoles={['superadmin','admin','employee']}>
+            <ProductCreatePage />
           </ProtectedRoute>
         }
       />
