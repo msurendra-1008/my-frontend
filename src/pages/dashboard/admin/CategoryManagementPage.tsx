@@ -34,7 +34,9 @@ function FieldBuilder({ schema, onChange }: FieldBuilderProps) {
   };
 
   const addField = (section: 'product_fields' | 'variant_attributes') => {
-    const newField: FieldDefinition = { key: '', label: '', type: 'text', required: false };
+    const newField: FieldDefinition = section === 'variant_attributes'
+      ? { key: '', label: '', type: 'select', required: false, variant_type: 'other' }
+      : { key: '', label: '', type: 'text', required: false };
     onChange({ ...schema, [section]: [...schema[section], newField] });
   };
 
@@ -55,38 +57,55 @@ function FieldBuilder({ schema, onChange }: FieldBuilderProps) {
 
       {schema[section].map((field, idx) => (
         <div key={idx} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Input
               placeholder="key (e.g. weight)"
               value={field.key}
               onChange={e => updateField(section, idx, { key: e.target.value.replace(/\s/g, '_').toLowerCase() })}
-              className="flex-1 h-8 text-xs"
+              className="flex-1 min-w-[100px] h-8 text-xs"
             />
             <Input
               placeholder="Label (e.g. Weight)"
               value={field.label}
               onChange={e => updateField(section, idx, { label: e.target.value })}
-              className="flex-1 h-8 text-xs"
+              className="flex-1 min-w-[100px] h-8 text-xs"
             />
-            <select
-              value={field.type}
-              onChange={e => updateField(section, idx, { type: e.target.value as FieldDefinition['type'] })}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
-            >
-              <option value="text">Text</option>
-              <option value="number">Number</option>
-              <option value="select">Select</option>
-              <option value="boolean">Yes/No</option>
-            </select>
-            <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={field.required}
-                onChange={e => updateField(section, idx, { required: e.target.checked })}
-                className="w-3 h-3"
-              />
-              Required
-            </label>
+            {section === 'variant_attributes' && (
+              <select
+                value={field.variant_type ?? 'other'}
+                onChange={e => updateField(section, idx, { variant_type: e.target.value as FieldDefinition['variant_type'] })}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                title="Variant Type"
+              >
+                <option value="size">Size</option>
+                <option value="colour">Colour</option>
+                <option value="weight">Weight</option>
+                <option value="other">Other</option>
+              </select>
+            )}
+            {section === 'product_fields' && (
+              <select
+                value={field.type}
+                onChange={e => updateField(section, idx, { type: e.target.value as FieldDefinition['type'] })}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              >
+                <option value="text">Text</option>
+                <option value="number">Number</option>
+                <option value="select">Select</option>
+                <option value="boolean">Yes/No</option>
+              </select>
+            )}
+            {section === 'product_fields' && (
+              <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={field.required}
+                  onChange={e => updateField(section, idx, { required: e.target.checked })}
+                  className="w-3 h-3"
+                />
+                Required
+              </label>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -97,7 +116,22 @@ function FieldBuilder({ schema, onChange }: FieldBuilderProps) {
             </Button>
           </div>
 
-          {field.type === 'select' && (
+          {section === 'variant_attributes' && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Options (one per line) — these become the selectable values</p>
+              <textarea
+                rows={2}
+                placeholder="500g&#10;1kg&#10;2kg&#10;5kg"
+                value={(field.options || []).join('\n')}
+                onChange={e => updateField(section, idx, {
+                  options: e.target.value.split('\n').filter(Boolean),
+                })}
+                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs resize-none"
+              />
+            </div>
+          )}
+
+          {section === 'product_fields' && field.type === 'select' && (
             <div>
               <p className="text-xs text-muted-foreground mb-1">Options (one per line)</p>
               <textarea

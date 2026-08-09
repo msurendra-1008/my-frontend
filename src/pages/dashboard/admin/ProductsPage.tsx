@@ -46,27 +46,22 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
-    name:                   product?.name ?? '',
-    description:            product?.description ?? '',
-    sku:                    product?.sku ?? '',
-    barcode:                product?.barcode ?? '',
-    category:               product?.category?.id ?? '',
-    mrp:                    product?.mrp ?? '',
-    upa_discount_override:  product?.upa_discount_override ?? '',
-    upa_price_override:     product?.upa_price_override ?? '',
-    is_published:           product?.is_published ?? false,
+    name:         product?.name ?? '',
+    description:  product?.description ?? '',
+    sku:          product?.sku ?? '',
+    barcode:      product?.barcode ?? '',
+    category:     product?.category?.id ?? '',
+    is_published: product?.is_published ?? false,
   });
   const [variants, setVariants] = useState(
     product?.variants.map((v) => ({
-      id:                  v.id,
-      name:                v.name,
-      variant_type:        v.variant_type,
-      sku:                 v.sku,
-      mrp:                 v.mrp,
-      upa_price_override:  v.upa_price_override ?? '',
-      stock_quantity:      v.stock_quantity,
-      is_active:           v.is_active,
-      _new:                false,
+      id:             v.id,
+      name:           v.name,
+      variant_type:   v.variant_type,
+      sku:            v.sku,
+      stock_quantity: v.stock_quantity,
+      is_active:      v.is_active,
+      _new:           false,
     })) ?? [],
   );
   const [saving,  setSaving]  = useState(false);
@@ -100,9 +95,8 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
     }
     for (const v of variants) {
       const label = v.name || 'unnamed variant';
-      if (!v.name.trim())  { toast.show(`Variant name is required (${label}).`, true); return; }
-      if (!v.sku.trim())   { toast.show(`SKU is required for variant "${v.name}".`, true); return; }
-      if (!v.mrp)          { toast.show(`MRP is required for variant "${v.name}".`, true); return; }
+      if (!v.name.trim()) { toast.show(`Variant name is required (${label}).`, true); return; }
+      if (!v.sku.trim())  { toast.show(`SKU is required for variant "${v.name}".`, true); return; }
     }
 
     setSaving(true);
@@ -112,12 +106,9 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
         description:  form.description,
         sku:          form.sku || null,
         barcode:      form.barcode,
-        mrp:          form.mrp || null,
         is_published: form.is_published,
       };
-      if (form.category)              payload.category              = form.category;
-      if (form.upa_discount_override) payload.upa_discount_override = form.upa_discount_override;
-      if (form.upa_price_override)    payload.upa_price_override    = form.upa_price_override;
+      if (form.category) payload.category = form.category;
 
       let slug: string;
       if (product) {
@@ -141,10 +132,8 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
           name:           v.name,
           variant_type:   v.variant_type,
           sku:            v.sku,
-          mrp:            v.mrp,
           stock_quantity: v.stock_quantity,
           is_active:      v.is_active,
-          ...(v.upa_price_override ? { upa_price_override: v.upa_price_override } : {}),
         };
         try {
           if (v._new) {
@@ -169,8 +158,7 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
   const addVariant = () => {
     setVariants((v) => [...v, {
       id: crypto.randomUUID(), name: '', variant_type: 'other' as const,
-      sku: '', mrp: '', upa_price_override: '',
-      stock_quantity: 0, is_active: true, _new: true,
+      sku: '', stock_quantity: 0, is_active: true, _new: true,
     }]);
   };
 
@@ -224,25 +212,6 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
                     {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </Field>
-              </section>
-
-              {/* ── Section: Pricing ── */}
-              <section className="space-y-4">
-                <SectionHeader label="Pricing" />
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="MRP (₹)" hint="Optional — set on variants">
-                    <input type="number" step="0.01" min="0" value={form.mrp}
-                      onChange={(e) => set('mrp', e.target.value)} className="input-base" placeholder="0.00" />
-                  </Field>
-                  <Field label="UPA Discount %" hint="Overrides global %">
-                    <input type="number" step="0.01" min="0" max="100" value={form.upa_discount_override}
-                      onChange={(e) => set('upa_discount_override', e.target.value)} className="input-base" placeholder="e.g. 10" />
-                  </Field>
-                  <Field label="UPA Price (₹)" hint="Fixed override">
-                    <input type="number" step="0.01" min="0" value={form.upa_price_override}
-                      onChange={(e) => set('upa_price_override', e.target.value)} className="input-base" placeholder="e.g. 199" />
-                  </Field>
-                </div>
               </section>
 
               {/* ── Section: Image ── */}
@@ -324,15 +293,10 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
                               </select>
                             </Field>
                           </div>
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-2 gap-3">
                             <Field label="SKU">
                               <input value={v.sku} placeholder="VAR-001"
                                 onChange={(e) => updateVariant(i, { sku: e.target.value })}
-                                className="input-base" />
-                            </Field>
-                            <Field label="MRP (₹)">
-                              <input type="number" step="0.01" value={v.mrp ?? ''} placeholder="0.00"
-                                onChange={(e) => updateVariant(i, { mrp: e.target.value })}
                                 className="input-base" />
                             </Field>
                             <Field label="Stock Qty">
@@ -341,19 +305,12 @@ export function ProductFormSheet({ categories, product, onClose, onSaved }: Prod
                                 className="input-base" />
                             </Field>
                           </div>
-                          <div className="flex items-center justify-between pt-1">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input type="checkbox" checked={v.is_active}
-                                onChange={(e) => updateVariant(i, { is_active: e.target.checked })}
-                                className="h-3.5 w-3.5 rounded accent-primary" />
-                              <span className="text-xs text-muted-foreground">Active</span>
-                            </label>
-                            <Field label="UPA Price Override (₹)">
-                              <input type="number" step="0.01" value={v.upa_price_override} placeholder="Optional"
-                                onChange={(e) => updateVariant(i, { upa_price_override: e.target.value })}
-                                className="input-base w-32" />
-                            </Field>
-                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer pt-1">
+                            <input type="checkbox" checked={v.is_active}
+                              onChange={(e) => updateVariant(i, { is_active: e.target.checked })}
+                              className="h-3.5 w-3.5 rounded accent-primary" />
+                            <span className="text-xs text-muted-foreground">Active</span>
+                          </label>
                         </div>
                       </div>
                     ))}
