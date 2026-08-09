@@ -108,7 +108,9 @@ function AutoVariantBuilder({ attributes, combinations, onChange }: AutoVariantB
         .filter(attrs => Object.keys(attrs).length > 0);
 
       const existing = new Map(combinations.map(c => [JSON.stringify(c.attributes), c.stock_quantity]));
+      const primaryType = withOptions[0]?.variant_type ?? 'other';
       onChange(combos.map(attrs => ({
+        variant_type:   primaryType,
         attributes:     attrs,
         stock_quantity: existing.get(JSON.stringify(attrs)) ?? 0,
       })));
@@ -204,7 +206,7 @@ function AutoVariantBuilder({ attributes, combinations, onChange }: AutoVariantB
 
 // ── Manual variant rows ───────────────────────────────────────────────────────
 
-interface ManualVariant { id: string; name: string; stock_quantity: number }
+interface ManualVariant { id: string; name: string; stock_quantity: number; variant_type: 'size' | 'colour' | 'weight' | 'other' }
 
 interface ManualVariantEditorProps {
   variants: ManualVariant[];
@@ -213,7 +215,7 @@ interface ManualVariantEditorProps {
 
 function ManualVariantEditor({ variants, onChange }: ManualVariantEditorProps) {
   const add = () =>
-    onChange([...variants, { id: crypto.randomUUID(), name: '', stock_quantity: 0 }]);
+    onChange([...variants, { id: crypto.randomUUID(), name: '', stock_quantity: 0, variant_type: 'other' as const }]);
 
   const update = (id: string, patch: Partial<ManualVariant>) =>
     onChange(variants.map(v => v.id === id ? { ...v, ...patch } : v));
@@ -242,12 +244,24 @@ function ManualVariantEditor({ variants, onChange }: ManualVariantEditorProps) {
               {variants.map(v => (
                 <tr key={v.id} className="hover:bg-muted/20">
                   <td className="px-3 py-2">
-                    <Input
-                      placeholder="e.g. 1 kg Pack, 500g, Large"
-                      value={v.name}
-                      onChange={e => update(v.id, { name: e.target.value })}
-                      className="h-8 text-sm"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="e.g. 1 kg Pack, 500g, Large"
+                        value={v.name}
+                        onChange={e => update(v.id, { name: e.target.value })}
+                        className="h-8 text-sm flex-1"
+                      />
+                      <select
+                        value={v.variant_type}
+                        onChange={e => update(v.id, { variant_type: e.target.value as ManualVariant['variant_type'] })}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                      >
+                        <option value="size">Size</option>
+                        <option value="colour">Colour</option>
+                        <option value="weight">Weight</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
@@ -417,7 +431,7 @@ export function ProductCreatePage() {
     ...combinations,
     ...manualVariants
       .filter(m => m.name.trim())
-      .map(m => ({ name: m.name.trim(), attributes: {}, stock_quantity: m.stock_quantity })),
+      .map(m => ({ name: m.name.trim(), variant_type: m.variant_type, attributes: {}, stock_quantity: m.stock_quantity })),
   ];
 
   const handleSubmit = async () => {

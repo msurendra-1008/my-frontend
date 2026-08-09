@@ -1,11 +1,12 @@
 // ── Field Schema Types ────────────────────────────────────────────────────────
 
 export interface FieldDefinition {
-  key:      string;
-  label:    string;
-  type:     'text' | 'number' | 'select' | 'boolean';
-  required: boolean;
-  options?: string[];
+  key:           string;
+  label:         string;
+  type:          'text' | 'number' | 'select' | 'boolean';
+  required:      boolean;
+  options?:      string[];
+  variant_type?: 'size' | 'colour' | 'weight' | 'other';
 }
 
 export interface FieldSchema {
@@ -184,6 +185,7 @@ export interface ProductFilters {
 
 export interface VariantCombination {
   name?:          string;
+  variant_type?:  'size' | 'colour' | 'weight' | 'other';
   attributes:     Record<string, string>;
   stock_quantity: number;
 }
