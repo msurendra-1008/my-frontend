@@ -94,6 +94,7 @@ export interface ProductVariant {
   stock_quantity:      number;
   stock_label:         StockLabel;
   is_active:           boolean;
+  order:               number;
   upa_price_computed:  UPAPrice | null;
   upa_price:           string | null;
   purchase_price:      string | null;
