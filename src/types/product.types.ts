@@ -118,6 +118,13 @@ export interface ProductListItem {
   variant_count:         number;
   first_variant_id:      string | null;
   pricing_configured:    boolean;
+  configured_variant_count: number;
+  mrp_min:               string | null;
+  mrp_max:               string | null;
+  profit_min:            number | null;
+  profit_max:            number | null;
+  upa_profit_min:        number | null;
+  upa_profit_max:        number | null;
   purchase_price:        string | null;
   profit_amount:         number | null;
   upa_profit_amount:     number | null;
