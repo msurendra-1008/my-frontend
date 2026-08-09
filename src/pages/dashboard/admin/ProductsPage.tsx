@@ -949,66 +949,101 @@ function ProductsTab({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Product</th>
-                <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SKU</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">MRP</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Stock</th>
-                {canEdit && <th className="px-4 py-3 w-24" />}
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wide">Product</th>
+                <th className="hidden md:table-cell px-4 py-2.5 text-left text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wide">Category</th>
+                <th className="hidden lg:table-cell px-4 py-2.5 text-left text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wide">Brand</th>
+                <th className="hidden sm:table-cell px-4 py-2.5 text-left text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wide">Variants</th>
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wide">Stock</th>
+                <th className="px-4 py-2.5 text-left text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
+                {canEdit && <th className="px-4 py-2.5 w-8" />}
               </tr>
             </thead>
             <tbody>
               {products.map((p) => (
-                <tr key={p.id} className="border-b last:border-0 hover:bg-muted/20">
+                <tr
+                  key={p.id}
+                  className="border-b last:border-0 hover:bg-muted/20 cursor-pointer group"
+                  onClick={() => navigate(`/admin/products/${p.slug}`)}
+                >
+                  {/* Product: thumbnail + name + SKU */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 shrink-0 rounded-lg bg-muted overflow-hidden">
+                      <div className="h-9 w-9 shrink-0 rounded-lg bg-muted overflow-hidden border border-border/50">
                         {p.primary_image ? (
                           <img src={p.primary_image} alt={p.name} className="h-full w-full object-cover" />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center">
-                            <Package size={14} className="text-muted-foreground/40" />
+                            <Package size={14} className="text-muted-foreground/30" />
                           </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => navigate(`/admin/products/${p.slug}`)}
-                        className="font-medium text-foreground hover:text-primary hover:underline text-left transition-colors"
-                      >
-                        {p.name}
-                      </button>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[13px] text-foreground group-hover:text-primary transition-colors truncate leading-tight">
+                          {p.name}
+                        </p>
+                        {p.sku && (
+                          <p className="text-[10.5px] font-mono text-muted-foreground mt-0.5">{p.sku}</p>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="hidden md:table-cell px-4 py-3 font-mono text-xs text-muted-foreground">{p.id.slice(0,8)}…</td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-muted-foreground">{p.category_name ?? '—'}</td>
-                  <td className="px-4 py-3 font-medium text-foreground">
-                    {p.mrp ? `₹${p.mrp}` : <span className="text-muted-foreground">—</span>}
+
+                  {/* Category */}
+                  <td className="hidden md:table-cell px-4 py-3">
+                    <span className="text-[12px] text-muted-foreground">{p.category_name ?? '—'}</span>
                   </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={p.is_published ? 'success' : 'secondary'}>
-                      {p.is_published ? 'Published' : 'Draft'}
-                    </Badge>
+
+                  {/* Brand */}
+                  <td className="hidden lg:table-cell px-4 py-3">
+                    <span className="text-[12px] text-foreground">{p.brand_name ?? <span className="text-muted-foreground">—</span>}</span>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={cn('text-xs font-medium',
-                      p.stock_label === 'Out of Stock' ? 'text-red-500' :
-                      p.stock_label === 'Low Stock'    ? 'text-amber-600' : 'text-emerald-600'
-                    )}>
-                      {p.stock_label}
+
+                  {/* Variant count */}
+                  <td className="hidden sm:table-cell px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] bg-muted/60 border border-border text-muted-foreground text-[11px] font-medium">
+                      {p.variant_count} variant{p.variant_count !== 1 ? 's' : ''}
                     </span>
                   </td>
+
+                  {/* Stock */}
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <span className={cn(
+                      'inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-[4px]',
+                      p.stock_label === 'Out of Stock'
+                        ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                        : p.stock_label === 'Low Stock'
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                        : 'bg-green-500/10 text-green-600 dark:text-green-400',
+                    )}>
+                      {p.stock_label === 'In Stock' ? '●' : p.stock_label === 'Low Stock' ? '⚠' : '✕'}
+                      {' '}{p.stock_label}
+                    </span>
+                  </td>
+
+                  {/* Published status */}
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <span className={cn(
+                      'inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-[4px]',
+                      p.is_published
+                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'bg-muted/60 text-muted-foreground border border-border',
+                    )}>
+                      {p.is_published ? 'Published' : 'Draft'}
+                    </span>
+                  </td>
+
+                  {/* Actions */}
                   {canEdit && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button onClick={() => handleEdit(p)}
-                          className="text-muted-foreground hover:text-foreground" title="Edit">
-                          <Pencil size={14} />
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors" title="Edit">
+                          <Pencil size={13} />
                         </button>
                         <button onClick={() => handleTogglePublish(p)}
-                          className="text-muted-foreground hover:text-foreground"
+                          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                           title={p.is_published ? 'Unpublish' : 'Publish'}>
-                          {p.is_published ? <EyeOff size={14} /> : <Eye size={14} />}
+                          {p.is_published ? <EyeOff size={13} /> : <Eye size={13} />}
                         </button>
                         <button
                           onClick={() => handleOpenCommission(p)}
@@ -1019,11 +1054,11 @@ function ProductsTab({
                               ? 'bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20'
                               : 'bg-muted text-muted-foreground hover:bg-muted/80',
                           )}>
-                          {p.has_commission_rule ? '● Commission' : '+ Commission'}
+                          {p.has_commission_rule ? '●' : '+'}%
                         </button>
                         <button onClick={() => setDeleteTarget(p)}
-                          className="text-red-500 hover:text-red-700" title="Delete">
-                          <Trash2 size={14} />
+                          className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors" title="Delete">
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
