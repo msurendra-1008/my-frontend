@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Menu, Pencil, Trash2, Eye, EyeOff, Package, ImageIcon } from 'lucide-react';
+import { ArrowLeft, Menu, Pencil, Trash2, Eye, EyeOff, Package, ImageIcon, GripVertical } from 'lucide-react';
 import { cn } from '@utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Badge } from '@/components/ui/Badge';
 import { productService } from '@/services/productService';
 import { useAuthStore } from '@/store/authStore';
 import { ProductFormSheet } from './ProductsPage';
-import type { Product, Category } from '@/types/product.types';
+import type { Product, Category, ProductVariant } from '@/types/product.types';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -93,6 +93,7 @@ export function ProductDetailPage() {
 
   const [sidebarOpen,   setSidebarOpen]   = useState(false);
   const [product,       setProduct]       = useState<Product | null>(null);
+  const [variants,      setVariants]      = useState<ProductVariant[]>([]);
   const [categories,    setCategories]    = useState<Category[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [editOpen,      setEditOpen]      = useState(false);
@@ -100,6 +101,11 @@ export function ProductDetailPage() {
   const [deleteDialog,  setDeleteDialog]  = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [activeImage,   setActiveImage]   = useState(0);
+
+  // drag-and-drop reorder
+  const dragIdx   = useRef<number | null>(null);
+  const [saving,  setSaving]  = useState(false);
+  const [dragOver, setDragOver] = useState<number | null>(null);
 
   const canEdit =
     user?.role === 'superadmin' ||
@@ -111,11 +117,45 @@ export function ProductDetailPage() {
     try {
       const r = await productService.getProduct(slug);
       setProduct(r.data);
+      setVariants([...r.data.variants].sort((a, b) => a.order - b.order));
       setActiveImage(0);
     } catch {
       toast.show('Failed to load product.', true);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onDragStart = (idx: number) => { dragIdx.current = idx; };
+
+  const onDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOver(idx);
+    const from = dragIdx.current;
+    if (from === null || from === idx) return;
+    setVariants(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(idx, 0, moved);
+      dragIdx.current = idx;
+      return next;
+    });
+  };
+
+  const onDragEnd = async () => {
+    setDragOver(null);
+    dragIdx.current = null;
+    if (!slug) return;
+    setSaving(true);
+    try {
+      await Promise.all(
+        variants.map((v, i) => productService.updateVariant(slug, v.id, { order: i }))
+      );
+    } catch {
+      toast.show('Failed to save order.', true);
+      loadProduct();
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -389,10 +429,16 @@ export function ProductDetailPage() {
             {/* ── Variants ── */}
             <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
               <div className="flex items-center justify-between border-b px-5 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</p>
-                <span className="text-xs text-muted-foreground">{product.variants.length} total · {product.total_stock} units</span>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</p>
+                  {canEdit && variants.length > 1 && (
+                    <span className="text-[10px] text-muted-foreground/60">drag to reorder</span>
+                  )}
+                  {saving && <span className="text-[10px] text-primary animate-pulse">saving…</span>}
+                </div>
+                <span className="text-xs text-muted-foreground">{variants.length} total · {product.total_stock} units</span>
               </div>
-              {product.variants.length === 0 ? (
+              {variants.length === 0 ? (
                 <div className="py-10 text-center">
                   <p className="text-sm text-muted-foreground">No variants configured.</p>
                 </div>
@@ -401,6 +447,7 @@ export function ProductDetailPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-muted/30">
+                        {canEdit && <th className="w-8" />}
                         <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Name</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Type</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SKU</th>
@@ -411,8 +458,24 @@ export function ProductDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {product.variants.map((v) => (
-                        <tr key={v.id} className="border-b last:border-0 hover:bg-muted/20">
+                      {variants.map((v, idx) => (
+                        <tr
+                          key={v.id}
+                          draggable={canEdit}
+                          onDragStart={() => onDragStart(idx)}
+                          onDragOver={e => onDragOver(e, idx)}
+                          onDragEnd={onDragEnd}
+                          className={cn(
+                            'border-b last:border-0 transition-colors',
+                            dragOver === idx ? 'bg-primary/5' : 'hover:bg-muted/20',
+                            canEdit && 'cursor-grab active:cursor-grabbing',
+                          )}
+                        >
+                          {canEdit && (
+                            <td className="pl-3 py-3">
+                              <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+                            </td>
+                          )}
                           <td className="px-4 py-3 font-medium">{v.name || '—'}</td>
                           <td className="px-4 py-3 capitalize text-muted-foreground">{v.variant_type}</td>
                           <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{v.sku || '—'}</td>
