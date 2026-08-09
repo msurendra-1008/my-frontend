@@ -14,6 +14,12 @@ function fmt(n: number) {
   return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getPricingStatus(p: ProductListItem): 'configured' | 'partial' | 'pending' {
+  if (p.configured_variant_count === 0) return 'pending';
+  if (p.configured_variant_count >= p.variant_count) return 'configured';
+  return 'partial';
+}
+
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
 }
@@ -550,7 +556,7 @@ function PricingModal({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-type PricingFilter = '' | 'configured' | 'pending';
+type PricingFilter = '' | 'configured' | 'partial' | 'pending';
 
 export function ProductPricingPage() {
   const [products,     setProducts]     = useState<ProductListItem[]>([]);
@@ -592,16 +598,19 @@ export function ProductPricingPage() {
     const matchSearch = !search ||
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       (p.sku ?? '').toLowerCase().includes(search.toLowerCase());
+    const pStatus = getPricingStatus(p);
     const matchFilter =
-      filter === '' ? true :
-      filter === 'configured' ? p.pricing_configured :
-      !p.pricing_configured;
+      filter === ''            ? true :
+      filter === 'configured'  ? pStatus === 'configured' :
+      filter === 'partial'     ? pStatus === 'partial' :
+      pStatus === 'pending';
     return matchSearch && matchFilter;
   });
 
   const total      = products.length;
-  const configured = products.filter((p) => p.pricing_configured).length;
-  const pending    = total - configured;
+  const configured = products.filter((p) => getPricingStatus(p) === 'configured').length;
+  const partial    = products.filter((p) => getPricingStatus(p) === 'partial').length;
+  const pending    = products.filter((p) => getPricingStatus(p) === 'pending').length;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -635,11 +644,12 @@ export function ProductPricingPage() {
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Total products',      value: total,      icon: DollarSign,    color: 'text-purple-600 dark:text-purple-400',  bg: 'bg-purple-500/10' },
-              { label: 'Pricing configured',  value: configured, icon: CheckCircle2,  color: 'text-green-600 dark:text-green-400',    bg: 'bg-green-500/10'  },
-              { label: 'Pricing pending',     value: pending,    icon: Clock,         color: 'text-amber-600 dark:text-amber-400',    bg: 'bg-amber-500/10'  },
+              { label: 'Total products',     value: total,      icon: DollarSign,   color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10' },
+              { label: 'Fully configured',   value: configured, icon: CheckCircle2, color: 'text-green-600 dark:text-green-400',   bg: 'bg-green-500/10'  },
+              { label: 'Partial setup',      value: partial,    icon: Clock,        color: 'text-amber-600 dark:text-amber-400',   bg: 'bg-amber-500/10'  },
+              { label: 'Pricing pending',    value: pending,    icon: Clock,        color: 'text-muted-foreground',                bg: 'bg-muted/50'      },
             ].map(({ label, value, icon: Icon, color, bg }) => (
               <div key={label} className="rounded-xl border bg-card p-4 flex items-center gap-3">
                 <div className={`h-9 w-9 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
@@ -672,6 +682,7 @@ export function ProductPricingPage() {
             >
               <option value="">All status</option>
               <option value="configured">Configured</option>
+              <option value="partial">Partial</option>
               <option value="pending">Pending</option>
             </select>
           </div>
@@ -687,11 +698,10 @@ export function ProductPricingPage() {
                 <thead>
                   <tr className="bg-muted/50 text-left">
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Product</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden md:table-cell">SKU</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">MRP</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden sm:table-cell">Purchase</th>
-                    <th className="pb-3 pr-4 pt-4 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">Regular Profit</th>
-                    <th className="pb-3 pr-4 pt-4 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">UPA Profit</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden sm:table-cell">Variants</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">MRP Range</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden sm:table-cell">Regular Profit</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground hidden sm:table-cell">UPA Profit</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Action</th>
                   </tr>
@@ -699,11 +709,38 @@ export function ProductPricingPage() {
                 <tbody className="divide-y divide-border">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
                         No products found.
                       </td>
                     </tr>
-                  ) : filtered.map((p) => (
+                  ) : filtered.map((p) => {
+                    const pStatus  = getPricingStatus(p);
+                    const total    = p.variant_count;
+                    const conf     = p.configured_variant_count;
+                    const pct      = total ? conf / total * 100 : 0;
+
+                    const mrpMin = p.mrp_min ? Number(p.mrp_min) : null;
+                    const mrpMax = p.mrp_max ? Number(p.mrp_max) : null;
+
+                    const profitRangeEl = (min: number | null, max: number | null, sub?: string) => {
+                      if (min == null) return <span className="text-muted-foreground text-sm">—</span>;
+                      const minCls = min >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500';
+                      const maxCls = (max ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500';
+                      return (
+                        <div>
+                          <span className="font-mono text-xs">
+                            <span className={cn('font-semibold', minCls)}>₹{Math.round(min).toLocaleString('en-IN')}</span>
+                            {max !== min && (
+                              <><span className="text-muted-foreground mx-1">–</span>
+                              <span className={cn('font-semibold', maxCls)}>₹{Math.round(max!).toLocaleString('en-IN')}</span></>
+                            )}
+                          </span>
+                          {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+                        </div>
+                      );
+                    };
+
+                    return (
                     <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
@@ -714,58 +751,65 @@ export function ProductPricingPage() {
                               <DollarSign size={14} className="text-muted-foreground" />
                             </div>
                           )}
-                          <span className="font-medium text-foreground truncate max-w-[160px]">{p.name}</span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate max-w-[160px]">{p.name}</p>
+                            {p.sku && <p className="font-mono text-[10.5px] text-muted-foreground mt-0.5">{p.sku}</p>}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground font-mono text-xs hidden md:table-cell">{p.sku}</td>
-                      <td className="px-4 py-3 font-medium">₹{fmt(Number(p.mrp))}</td>
-                      <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
-                        {p.purchase_price ? `₹${fmt(Number(p.purchase_price))}` : '—'}
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        <div className="flex flex-col gap-1.5 min-w-[110px]">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium text-foreground">{total} variant{total !== 1 ? 's' : ''}</span>
+                            <span className="text-muted-foreground">{conf}/{total}</span>
+                          </div>
+                          <div className="h-1 rounded-full bg-muted/50 overflow-hidden">
+                            <div
+                              className={cn('h-full rounded-full transition-all',
+                                pStatus === 'configured' ? 'bg-green-500' :
+                                pStatus === 'partial'    ? 'bg-amber-500' : 'bg-muted'
+                              )}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-3 pr-4 hidden sm:table-cell">
-                        {p.profit_amount != null ? (
-                          <span className={cn(
-                            'font-semibold text-sm',
-                            Number(p.profit_amount) >= 0
-                              ? 'text-green-600 dark:text-green-400'
-                              : 'text-red-500'
-                          )}>
-                            ₹{Number(p.profit_amount).toLocaleString()}
+                      <td className="px-4 py-3">
+                        {mrpMin != null ? (
+                          <span className="font-mono text-xs font-medium">
+                            ₹{Math.round(mrpMin).toLocaleString('en-IN')}
+                            {mrpMax !== mrpMin && (
+                              <><span className="text-muted-foreground mx-1">–</span>₹{Math.round(mrpMax!).toLocaleString('en-IN')}</>
+                            )}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground text-sm">—</span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 hidden sm:table-cell">
-                        {p.upa_profit_amount != null ? (
-                          <div>
-                            <span className={cn(
-                              'font-semibold text-sm',
-                              Number(p.upa_profit_amount) >= 0
-                                ? 'text-primary'
-                                : 'text-red-500'
-                            )}>
-                              ₹{Number(p.upa_profit_amount).toLocaleString()}
-                            </span>
-                            {p.upa_discount_override && Number(p.upa_discount_override) > 0 && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                after {p.upa_discount_override}% discount
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        {profitRangeEl(p.profit_min, p.profit_max)}
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell">
+                        {profitRangeEl(
+                          p.upa_profit_min, p.upa_profit_max,
+                          p.upa_discount_override && Number(p.upa_discount_override) > 0
+                            ? `after ${p.upa_discount_override}% discount`
+                            : undefined
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {p.pricing_configured ? (
+                        {pStatus === 'configured' && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-green-600 dark:text-green-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                            Configured
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />Configured
                           </span>
-                        ) : (
+                        )}
+                        {pStatus === 'partial' && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />Partial
+                          </span>
+                        )}
+                        {pStatus === 'pending' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted/50 border border-border px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                             Pending
                           </span>
                         )}
@@ -776,26 +820,19 @@ export function ProductPricingPage() {
                           className={cn(
                             'h-8 px-3 rounded-lg text-xs font-medium',
                             'flex items-center gap-1.5 transition-colors',
-                            p.pricing_configured
+                            pStatus === 'configured'
                               ? 'border border-green-500/40 text-green-600 dark:text-green-400 hover:bg-green-500/10'
+                              : pStatus === 'partial'
+                              ? 'border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
                               : 'border border-border text-muted-foreground hover:bg-muted hover:text-foreground'
                           )}
                         >
-                          {p.pricing_configured ? (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
-                              Edit pricing
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-base leading-none">$</span>
-                              Set pricing
-                            </>
-                          )}
+                          {pStatus === 'configured' ? 'Edit pricing' : pStatus === 'partial' ? 'Continue setup' : 'Set pricing'}
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
