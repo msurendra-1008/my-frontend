@@ -103,8 +103,8 @@ export function ProductDetailPage() {
   const [activeImage,   setActiveImage]   = useState(0);
 
   // drag-and-drop reorder
-  const dragIdx   = useRef<number | null>(null);
-  const [saving,  setSaving]  = useState(false);
+  const dragIdx    = useRef<number | null>(null);
+  const [saving,   setSaving]   = useState(false);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
   const canEdit =
@@ -284,160 +284,73 @@ export function ProductDetailPage() {
           )}
         </header>
 
-        {/* Body */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="max-w-5xl mx-auto space-y-5">
+        {/* Body — split layout */}
+        <main className="flex-1 overflow-hidden flex">
 
-            {/* ── Top row: Details + Sidebar ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* ── LEFT: main content ── */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 min-w-0">
 
-              {/* Basic info */}
-              <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm p-5 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product Details</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                  <InfoField label="Product Name">
-                    <span className="font-medium">{product.name}</span>
-                  </InfoField>
-                  <InfoField label="SKU">
-                    <span className="font-mono">{product.sku || '—'}</span>
-                  </InfoField>
+            {/* Basic Info card */}
+            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground pb-2.5 border-b border-border">
+                Basic Info
+              </p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                <InfoField label="Product Name">
+                  <span className="font-semibold">{product.name}</span>
+                </InfoField>
+                <InfoField label="SKU">
+                  <span className="font-mono text-sm">{product.sku || '—'}</span>
+                </InfoField>
+                <InfoField label="Category">
+                  {product.category?.name ?? '—'}
+                </InfoField>
+                <InfoField label="Brand">
+                  {product.brand?.name ?? '—'}
+                </InfoField>
+                {product.barcode && (
                   <InfoField label="Barcode">
-                    <span className="font-mono">{product.barcode || '—'}</span>
-                  </InfoField>
-                  <InfoField label="Category">
-                    {product.category?.name ?? '—'}
-                  </InfoField>
-                </div>
-                {product.description && (
-                  <InfoField label="Description">
-                    <p className="text-muted-foreground whitespace-pre-line leading-relaxed">{product.description}</p>
+                    <span className="font-mono text-sm">{product.barcode}</span>
                   </InfoField>
                 )}
               </div>
-
-              {/* Status + Pricing sidebar */}
-              <div className="space-y-4">
-
-                {/* Status card */}
-                <div className="rounded-xl border bg-card shadow-sm p-5 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={product.is_published ? 'success' : 'secondary'}>
-                      {product.is_published ? 'Published' : 'Draft'}
-                    </Badge>
-                    <Badge variant={
-                      product.stock_label === 'Out of Stock' ? 'danger' :
-                      product.stock_label === 'Low Stock'    ? 'warning' : 'success'
-                    }>
-                      {product.stock_label}
-                    </Badge>
+              {product.description && (
+                <InfoField label="Description">
+                  <p className="text-muted-foreground whitespace-pre-line leading-relaxed text-sm">{product.description}</p>
+                </InfoField>
+              )}
+              {/* Extra fields */}
+              {product.extra_fields && Object.keys(product.extra_fields).length > 0 && (
+                <div className="pt-3 border-t border-border">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Product Fields</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    {Object.entries(product.extra_fields).map(([k, v]) => (
+                      <InfoField key={k} label={k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}>
+                        {String(v)}
+                      </InfoField>
+                    ))}
                   </div>
-                  {canEdit && (
-                    <button
-                      onClick={() => setPublishDialog(true)}
-                      className={cn(
-                        'w-full rounded-xl py-2 text-xs font-semibold transition-colors',
-                        product.is_published
-                          ? 'border border-border text-muted-foreground hover:bg-muted'
-                          : 'bg-primary text-primary-foreground hover:bg-primary/90',
-                      )}
-                    >
-                      {product.is_published ? 'Unpublish' : 'Publish'}
-                    </button>
-                  )}
                 </div>
-
-                {/* Pricing card */}
-                <div className="rounded-xl border bg-card shadow-sm p-5 space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pricing</p>
-                  <InfoField label="MRP">
-                    <span className="text-lg font-bold">
-                      {product.mrp ? `₹${product.mrp}` : <span className="text-muted-foreground text-sm">Set on variants</span>}
-                    </span>
-                  </InfoField>
-                  {product.upa_price && (
-                    <InfoField label="UPA Price">
-                      <span className="font-semibold text-primary">₹{product.upa_price.upa_price}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        ({product.upa_price.discount_percent}% off · saves ₹{product.upa_price.saving})
-                      </span>
-                    </InfoField>
-                  )}
-                  {product.upa_discount_override && (
-                    <InfoField label="UPA Discount Override">
-                      {product.upa_discount_override}%
-                    </InfoField>
-                  )}
-                  {product.upa_price_override && (
-                    <InfoField label="UPA Price Override">
-                      ₹{product.upa_price_override}
-                    </InfoField>
-                  )}
-                </div>
-
-              </div>
+              )}
             </div>
 
-            {/* ── Image Gallery ── */}
-            {images.length > 0 && (
-              <div className="rounded-xl border bg-card shadow-sm p-5 space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Images <span className="normal-case font-normal text-muted-foreground/60">({images.length})</span>
-                </p>
-                <div className="flex gap-4">
-                  {/* Main preview */}
-                  <div className="h-56 w-56 shrink-0 rounded-xl overflow-hidden bg-muted flex items-center justify-center border border-border/40">
-                    {images[activeImage]?.image ? (
-                      <img
-                        src={images[activeImage].image!}
-                        alt={images[activeImage].alt_text || product.name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <ImageIcon size={36} className="text-muted-foreground/30" />
-                    )}
-                  </div>
-                  {/* Thumbnail strip */}
-                  {images.length > 1 && (
-                    <div className="flex flex-wrap gap-2 content-start">
-                      {images.map((img, idx) => (
-                        <button
-                          key={img.id}
-                          onClick={() => setActiveImage(idx)}
-                          className={cn(
-                            'h-14 w-14 rounded-lg overflow-hidden border-2 transition-colors',
-                            idx === activeImage
-                              ? 'border-primary'
-                              : 'border-border hover:border-primary/50',
-                          )}
-                        >
-                          {img.image ? (
-                            <img src={img.image} alt={img.alt_text || ''} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="h-full w-full bg-muted flex items-center justify-center">
-                              <Package size={12} className="text-muted-foreground/40" />
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── Variants ── */}
-            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between border-b px-5 py-3">
+            {/* Variants card */}
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <div className="flex items-center gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</p>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Variants</span>
+                  <span className="inline-flex px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10.5px] font-bold">
+                    {variants.length}
+                  </span>
                   {canEdit && variants.length > 1 && (
-                    <span className="text-[10px] text-muted-foreground/60">drag to reorder</span>
+                    <span className="text-[10px] text-muted-foreground/60">⠿ drag to reorder</span>
                   )}
                   {saving && <span className="text-[10px] text-primary animate-pulse">saving…</span>}
                 </div>
-                <span className="text-xs text-muted-foreground">{variants.length} total · {product.total_stock} units</span>
+                <span className="text-xs text-muted-foreground">{product.total_stock} units total</span>
               </div>
+
               {variants.length === 0 ? (
                 <div className="py-10 text-center">
                   <p className="text-sm text-muted-foreground">No variants configured.</p>
@@ -448,13 +361,12 @@ export function ProductDetailPage() {
                     <thead>
                       <tr className="border-b bg-muted/30">
                         {canEdit && <th className="w-8" />}
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Type</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">SKU</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">MRP</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">UPA Override</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Stock</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase">Active</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Name</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Type</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Attributes</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">SKU</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Stock</th>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Active</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -472,27 +384,52 @@ export function ProductDetailPage() {
                           )}
                         >
                           {canEdit && (
-                            <td className="pl-3 py-3">
+                            <td className="pl-3 py-3 w-8">
                               <GripVertical className="h-4 w-4 text-muted-foreground/40" />
                             </td>
                           )}
-                          <td className="px-4 py-3 font-medium">{v.name || '—'}</td>
-                          <td className="px-4 py-3 capitalize text-muted-foreground">{v.variant_type}</td>
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{v.sku || '—'}</td>
-                          <td className="px-4 py-3">₹{v.mrp}</td>
-                          <td className="px-4 py-3">{v.upa_price_override ? `₹${v.upa_price_override}` : '—'}</td>
+                          <td className="px-4 py-3 font-semibold text-foreground text-[13px]">{v.name || '—'}</td>
                           <td className="px-4 py-3">
                             <span className={cn(
-                              'text-xs font-medium',
-                              v.stock_label === 'Out of Stock' ? 'text-red-500' :
-                              v.stock_label === 'Low Stock'    ? 'text-amber-600' : 'text-emerald-600',
+                              'text-[10.5px] font-semibold px-2 py-0.5 rounded-[4px]',
+                              v.variant_type === 'weight' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                              v.variant_type === 'size'   ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
+                              v.variant_type === 'colour' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400' :
+                              'bg-muted/60 text-muted-foreground border border-border',
                             )}>
-                              {v.stock_quantity} · {v.stock_label}
+                              {v.variant_type.charAt(0).toUpperCase() + v.variant_type.slice(1)}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <Badge variant={v.is_active ? 'success' : 'secondary'}>
-                              {v.is_active ? 'Active' : 'Inactive'}
+                            {Object.keys(v.attributes ?? {}).length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(v.attributes).map(([k, val]) => (
+                                  <span key={k} className="text-[10.5px] font-mono px-1.5 py-0.5 rounded-[3px] bg-muted/60 border border-border text-muted-foreground">
+                                    {k}: {val}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : <span className="text-muted-foreground">—</span>}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{v.sku || '—'}</td>
+                          <td className="px-4 py-3">
+                            <span className={cn(
+                              'text-xs font-semibold tabular-nums',
+                              v.stock_label === 'Out of Stock' ? 'text-red-600 dark:text-red-400' :
+                              v.stock_label === 'Low Stock'    ? 'text-amber-700 dark:text-amber-400' : 'text-foreground',
+                            )}>
+                              {v.stock_quantity}
+                              {v.stock_label === 'Low Stock' && (
+                                <span className="ml-1.5 text-[9.5px] font-bold px-1 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400">LOW</span>
+                              )}
+                              {v.stock_label === 'Out of Stock' && (
+                                <span className="ml-1.5 text-[9.5px] font-bold px-1 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400">OUT</span>
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant={v.is_active ? 'success' : 'secondary'} className="text-xs">
+                              {v.is_active ? 'Active' : 'Off'}
                             </Badge>
                           </td>
                         </tr>
@@ -503,23 +440,140 @@ export function ProductDetailPage() {
               )}
             </div>
 
-            {/* ── Meta ── */}
-            <div className="rounded-xl border bg-card shadow-sm p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-4">Meta</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <InfoField label="Created At">
-                  {new Date(product.created_at).toLocaleString()}
-                </InfoField>
-                <InfoField label="Last Updated">
-                  {new Date(product.updated_at).toLocaleString()}
-                </InfoField>
-                <InfoField label="Total Stock">
-                  {product.total_stock} units
-                </InfoField>
+          </div>
+
+          {/* ── RIGHT: sidebar ── */}
+          <div className="w-[248px] shrink-0 border-l border-border flex flex-col overflow-y-auto bg-card">
+
+            {/* Section 1 — Visibility */}
+            <div className="px-4 py-3.5 border-b border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Visibility</p>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-medium text-foreground">Published</span>
+                <Badge variant={product.is_published ? 'success' : 'secondary'} className="text-[10.5px]">
+                  {product.is_published ? 'Live' : 'Draft'}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {product.is_published ? 'Visible to customers on store' : 'Hidden from customers'}
+              </p>
+              {canEdit && (
+                <button
+                  onClick={() => setPublishDialog(true)}
+                  className={cn(
+                    'mt-2.5 w-full rounded-lg py-1.5 text-xs font-semibold transition-colors',
+                    product.is_published
+                      ? 'border border-border text-muted-foreground hover:bg-muted'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                  )}
+                >
+                  {product.is_published ? 'Unpublish' : 'Publish'}
+                </button>
+              )}
+            </div>
+
+            {/* Section 2 — Images */}
+            <div className="px-4 py-3.5 border-b border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Images</p>
+              {images.length > 0 ? (
+                <div className="space-y-2">
+                  {/* Primary */}
+                  <div className="w-full aspect-square rounded-lg overflow-hidden bg-muted border border-border flex items-center justify-center">
+                    {images[activeImage]?.image ? (
+                      <img src={images[activeImage].image!} alt={product.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon size={24} className="text-muted-foreground/30" />
+                    )}
+                  </div>
+                  {/* Thumbnails */}
+                  {images.length > 1 && (
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {images.map((img, idx) => (
+                        <button
+                          key={img.id}
+                          onClick={() => setActiveImage(idx)}
+                          className={cn(
+                            'aspect-square rounded overflow-hidden border-2 transition-colors',
+                            idx === activeImage ? 'border-primary' : 'border-border hover:border-primary/50',
+                          )}
+                        >
+                          {img.image ? (
+                            <img src={img.image} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex items-center justify-center">
+                              <Package size={10} className="text-muted-foreground/40" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="w-full aspect-square rounded-lg bg-muted/50 border-2 border-dashed border-border/70 flex flex-col items-center justify-center gap-2 text-muted-foreground/40">
+                  <ImageIcon size={22} />
+                  <p className="text-[10px]">No images</p>
+                </div>
+              )}
+            </div>
+
+            {/* Section 3 — Quick Stats */}
+            <div className="px-4 py-3.5 border-b border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Quick Stats</p>
+              {[
+                { label: 'Total Stock', value: `${product.total_stock} units` },
+                { label: 'Variants',    value: String(variants.length) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="text-muted-foreground text-xs">{label}</span>
+                  <span className="font-semibold text-foreground tabular-nums">{value}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-muted-foreground text-xs">Stock Status</span>
+                <span className={cn(
+                  'text-[10.5px] font-bold px-2 py-0.5 rounded-[4px]',
+                  product.stock_label === 'Out of Stock' ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+                  product.stock_label === 'Low Stock'    ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+                  'bg-green-500/10 text-green-600 dark:text-green-400',
+                )}>
+                  {product.stock_label}
+                </span>
               </div>
             </div>
 
+            {/* Section 4 — Identifiers */}
+            <div className="px-4 py-3.5 border-b border-border">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Identifiers</p>
+              {[
+                { label: 'SKU',      value: product.sku || '—',          mono: true  },
+                { label: 'Barcode',  value: product.barcode || '—',      mono: true  },
+                { label: 'Category', value: product.category?.name ?? '—', mono: false },
+                { label: 'Brand',    value: product.brand?.name ?? '—',  mono: false },
+              ].map(({ label, value, mono }) => (
+                <div key={label} className="flex items-center justify-between py-1.5">
+                  <span className="text-muted-foreground text-xs">{label}</span>
+                  <span className={cn('text-xs font-medium text-foreground', mono && 'font-mono')}>{value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 5 — Timestamps */}
+            <div className="px-4 py-3.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Timestamps</p>
+              {[
+                { label: 'Created', value: new Date(product.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
+                { label: 'Updated', value: new Date(product.updated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-1.5">
+                  <span className="text-muted-foreground text-xs">{label}</span>
+                  <span className="text-xs text-foreground">{value}</span>
+                </div>
+              ))}
+            </div>
+
           </div>
+
         </main>
       </div>
 
