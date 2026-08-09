@@ -175,11 +175,8 @@ function CategoryNode({ node, onEdit, onDelete, onAdd }: CategoryNodeProps) {
         {node.short_code && (
           <span className="text-xs text-muted-foreground font-mono">({node.short_code})</span>
         )}
-        {!node.is_active && (
-          <Badge variant="secondary" className="text-xs h-4">Inactive</Badge>
-        )}
 
-        <div className="hidden group-hover:flex items-center gap-1 ml-auto">
+        <div className="hidden group-hover:flex items-center gap-0.5">
           {node.depth < 3 && (
             <Button
               variant="ghost" size="icon"
@@ -205,6 +202,10 @@ function CategoryNode({ node, onEdit, onDelete, onAdd }: CategoryNodeProps) {
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
+
+        {!node.is_active && (
+          <Badge variant="secondary" className="text-xs h-4">Inactive</Badge>
+        )}
       </div>
 
       {open && node.children.length > 0 && (
