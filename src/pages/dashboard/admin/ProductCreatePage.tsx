@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Plus, Minus, Package, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { ChevronRight, Plus, Minus, Package, CheckCircle2, ArrowLeft, Trash2 } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -65,12 +65,6 @@ function StepBar({ current }: StepBarProps) {
 
 // ── Variant builder ───────────────────────────────────────────────────────────
 
-interface VariantBuilderProps {
-  attributes: FieldDefinition[];
-  combinations: VariantCombination[];
-  onChange:     (c: VariantCombination[]) => void;
-}
-
 function cartesian(lists: string[][]): string[][] {
   if (!lists.length) return [[]];
   const [first, ...rest] = lists;
@@ -78,8 +72,17 @@ function cartesian(lists: string[][]): string[][] {
   return first.flatMap(v => restProduct.map(combo => [v, ...combo]));
 }
 
-function VariantBuilder({ attributes, combinations, onChange }: VariantBuilderProps) {
+interface AutoVariantBuilderProps {
+  attributes:   FieldDefinition[];
+  combinations: VariantCombination[];
+  onChange:     (c: VariantCombination[]) => void;
+}
+
+function AutoVariantBuilder({ attributes, combinations, onChange }: AutoVariantBuilderProps) {
   const [selectedValues, setSelectedValues] = useState<Record<string, Set<string>>>({});
+
+  const withOptions = attributes.filter(a => (a.options ?? []).length > 0);
+  const withoutOptions = attributes.filter(a => (a.options ?? []).length === 0);
 
   const toggleValue = (key: string, val: string) => {
     setSelectedValues(prev => {
@@ -87,11 +90,10 @@ function VariantBuilder({ attributes, combinations, onChange }: VariantBuilderPr
       if (next[key].has(val)) next[key].delete(val);
       else next[key].add(val);
 
-      const keys = attributes.map(a => a.key);
+      const keys = withOptions.map(a => a.key);
       const valueLists = keys.map(k => Array.from(next[k] || []));
-      const filled = valueLists.filter(l => l.length > 0);
 
-      if (filled.length === 0) {
+      if (valueLists.every(l => l.length === 0)) {
         onChange([]);
         return next;
       }
@@ -118,21 +120,27 @@ function VariantBuilder({ attributes, combinations, onChange }: VariantBuilderPr
     onChange(combinations.map((c, i) => i === idx ? { ...c, stock_quantity: Math.max(0, qty) } : c));
   };
 
-  if (!attributes.length) {
-    return (
-      <p className="text-sm text-muted-foreground text-center py-6">
-        No variant attributes defined for this product type. Product will have no variants.
-      </p>
-    );
-  }
+  if (!attributes.length) return null;
 
   return (
-    <div className="space-y-5">
-      {attributes.map(attr => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <h4 className="text-sm font-semibold text-foreground">Auto-generate from Category Schema</h4>
+        <span className="text-xs text-muted-foreground">(select values → variants generated automatically)</span>
+      </div>
+
+      {withoutOptions.length > 0 && (
+        <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          Attribute{withoutOptions.length > 1 ? 's' : ''} <strong>{withoutOptions.map(a => a.label).join(', ')}</strong> {withoutOptions.length > 1 ? 'have' : 'has'} no options configured.
+          Edit the category to add options, or add variants manually below.
+        </div>
+      )}
+
+      {withOptions.map(attr => (
         <div key={attr.key}>
           <label className="text-sm font-medium text-foreground">{attr.label}</label>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {(attr.options || []).map(opt => {
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            {attr.options!.map(opt => {
               const selected = selectedValues[attr.key]?.has(opt);
               return (
                 <button
@@ -153,58 +161,126 @@ function VariantBuilder({ attributes, combinations, onChange }: VariantBuilderPr
       ))}
 
       {combinations.length > 0 && (
-        <div>
-          <h4 className="text-sm font-medium text-foreground mb-2">
-            Generated variants ({combinations.length})
-          </h4>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Variant</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground w-40">Stock Qty</th>
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground">Variant</th>
+                <th className="px-4 py-2 text-left font-medium text-muted-foreground w-40">Stock Qty</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {combinations.map((c, i) => (
+                <tr key={i} className="hover:bg-muted/20">
+                  <td className="px-4 py-2">
+                    {Object.entries(c.attributes).map(([k, v]) => (
+                      <Badge key={k} variant="secondary" className="mr-1 text-xs">{k}: {v}</Badge>
+                    ))}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => updateStock(i, c.stock_quantity - 1)}
+                        className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted">
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <Input type="number" min={0} value={c.stock_quantity}
+                        onChange={e => updateStock(i, parseInt(e.target.value) || 0)}
+                        className="h-7 w-20 text-center text-sm" />
+                      <button onClick={() => updateStock(i, c.stock_quantity + 1)}
+                        className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted">
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {combinations.map((c, i) => (
-                  <tr key={i} className="hover:bg-muted/20">
-                    <td className="px-4 py-2">
-                      {Object.entries(c.attributes).map(([k, v]) => (
-                        <Badge key={k} variant="secondary" className="mr-1 text-xs">
-                          {k}: {v}
-                        </Badge>
-                      ))}
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => updateStock(i, c.stock_quantity - 1)}
-                          className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted"
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={c.stock_quantity}
-                          onChange={e => updateStock(i, parseInt(e.target.value) || 0)}
-                          className="h-7 w-20 text-center text-sm"
-                        />
-                        <button
-                          onClick={() => updateStock(i, c.stock_quantity + 1)}
-                          className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Manual variant rows ───────────────────────────────────────────────────────
+
+interface ManualVariant { id: string; name: string; stock_quantity: number }
+
+interface ManualVariantEditorProps {
+  variants: ManualVariant[];
+  onChange: (v: ManualVariant[]) => void;
+}
+
+function ManualVariantEditor({ variants, onChange }: ManualVariantEditorProps) {
+  const add = () =>
+    onChange([...variants, { id: crypto.randomUUID(), name: '', stock_quantity: 0 }]);
+
+  const update = (id: string, patch: Partial<ManualVariant>) =>
+    onChange(variants.map(v => v.id === id ? { ...v, ...patch } : v));
+
+  const remove = (id: string) =>
+    onChange(variants.filter(v => v.id !== id));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h4 className="text-sm font-semibold text-foreground">Manual Variants</h4>
+        <span className="text-xs text-muted-foreground">(add custom variants directly)</span>
+      </div>
+
+      {variants.length > 0 && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Variant Name</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground w-36">Stock Qty</th>
+                <th className="px-3 py-2 w-10" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {variants.map(v => (
+                <tr key={v.id} className="hover:bg-muted/20">
+                  <td className="px-3 py-2">
+                    <Input
+                      placeholder="e.g. 1 kg Pack, 500g, Large"
+                      value={v.name}
+                      onChange={e => update(v.id, { name: e.target.value })}
+                      className="h-8 text-sm"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => update(v.id, { stock_quantity: Math.max(0, v.stock_quantity - 1) })}
+                        className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted">
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <Input type="number" min={0} value={v.stock_quantity}
+                        onChange={e => update(v.id, { stock_quantity: parseInt(e.target.value) || 0 })}
+                        className="h-7 w-16 text-center text-sm" />
+                      <button onClick={() => update(v.id, { stock_quantity: v.stock_quantity + 1 })}
+                        className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted">
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <button onClick={() => remove(v.id)}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded p-1">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={add}>
+        <Plus className="h-3.5 w-3.5" />
+        Add Variant
+      </Button>
     </div>
   );
 }
@@ -283,7 +359,8 @@ export function ProductCreatePage() {
   const [extraFields, setExtraFields] = useState<Record<string, unknown>>({});
 
   // Step 3: variants
-  const [combinations, setCombinations] = useState<VariantCombination[]>([]);
+  const [combinations,   setCombinations]   = useState<VariantCombination[]>([]);
+  const [manualVariants, setManualVariants] = useState<ManualVariant[]>([]);
 
   // Load root groups on mount
   useEffect(() => {
@@ -321,6 +398,7 @@ export function ProductCreatePage() {
     setSelType(t);
     setExtraFields({});
     setCombinations([]);
+    setManualVariants([]);
   };
 
   const updateExtraField = (key: string, val: unknown) => {
@@ -335,18 +413,25 @@ export function ProductCreatePage() {
     return required.every(f => extraFields[f.key] !== undefined && extraFields[f.key] !== '');
   })();
 
+  const allCombinations: VariantCombination[] = [
+    ...combinations,
+    ...manualVariants
+      .filter(m => m.name.trim())
+      .map(m => ({ name: m.name.trim(), attributes: {}, stock_quantity: m.stock_quantity })),
+  ];
+
   const handleSubmit = async () => {
     setSaving(true);
     setError('');
     try {
       const product = await productService.createProduct({
-        name:                name.trim(),
-        description:         description.trim(),
-        category:            selType?.id,
-        brand:               selBrand?.id ?? null,
-        extra_fields:        extraFields,
-        is_published:        false,
-        variant_combinations: combinations,
+        name:                 name.trim(),
+        description:          description.trim(),
+        category:             selType?.id,
+        brand:                selBrand?.id ?? null,
+        extra_fields:         extraFields,
+        is_published:         false,
+        variant_combinations: allCombinations,
       });
       navigate(`/admin/products/${product.data.slug}`);
     } catch (e: unknown) {
@@ -357,7 +442,8 @@ export function ProductCreatePage() {
     }
   };
 
-  const variantAttributes = selType?.field_schema?.variant_attributes ?? [];
+  const variantAttributes  = selType?.field_schema?.variant_attributes ?? [];
+  const hasAutoAttributes  = variantAttributes.length > 0;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -535,19 +621,35 @@ export function ProductCreatePage() {
 
             {/* ── Step 2: Variants ── */}
             {step === 2 && (
-              <div className="space-y-5">
+              <div className="space-y-6">
                 <div>
                   <h2 className="text-base font-semibold text-foreground">Variant Options</h2>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    Select values for each attribute. Variants are auto-generated from all combinations.
+                    Add variants automatically from the category schema or manually.
                   </p>
                 </div>
 
-                <VariantBuilder
-                  attributes={variantAttributes}
-                  combinations={combinations}
-                  onChange={setCombinations}
+                {hasAutoAttributes && (
+                  <>
+                    <AutoVariantBuilder
+                      attributes={variantAttributes}
+                      combinations={combinations}
+                      onChange={setCombinations}
+                    />
+                    <div className="border-t border-border" />
+                  </>
+                )}
+
+                <ManualVariantEditor
+                  variants={manualVariants}
+                  onChange={setManualVariants}
                 />
+
+                {allCombinations.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    No variants added yet — product will be created as a single unit.
+                  </p>
+                )}
 
                 <div className="flex justify-between pt-2">
                   <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
@@ -593,13 +695,13 @@ export function ProductCreatePage() {
                     </ReviewRow>
                   )}
                   <ReviewRow label="Variants">
-                    {combinations.length === 0 ? (
+                    {allCombinations.length === 0 ? (
                       <span className="text-sm text-muted-foreground">No variants (single product)</span>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
-                        {combinations.map((c, i) => (
+                        {allCombinations.map((c, i) => (
                           <span key={i} className="text-xs bg-muted px-2 py-1 rounded">
-                            {Object.values(c.attributes).join(' / ')} — {c.stock_quantity} units
+                            {c.name ?? Object.values(c.attributes).join(' / ')} — {c.stock_quantity} units
                           </span>
                         ))}
                       </div>

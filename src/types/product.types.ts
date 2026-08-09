@@ -182,6 +182,7 @@ export interface ProductFilters {
 // ── Product create payload ────────────────────────────────────────────────────
 
 export interface VariantCombination {
+  name?:          string;
   attributes:     Record<string, string>;
   stock_quantity: number;
 }
