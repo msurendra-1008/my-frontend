@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, ChevronRight, ChevronDown, Edit2, Trash2, Save, X, Tag, Layers } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Tag, Layers, ChevronRight, Menu } from 'lucide-react';
 import { cn } from '@utils/cn';
 import { AdminSidebar } from '@/components/layout/AdminSidebar';
 import { Button } from '@/components/ui/Button';
@@ -190,152 +190,6 @@ function FieldBuilderSection({ section, fields, onChange }: FieldBuilderSectionP
   );
 }
 
-// ── TreeNode ───────────────────────────────────────────────────────────────────
-
-interface TreeNodeProps {
-  node: CategoryTreeNode;
-  selectedId: string | null;
-  onSelect: (node: CategoryTreeNode, path: CategoryTreeNode[]) => void;
-  onAdd: (parent: CategoryTreeNode) => void;
-  onDelete: (node: CategoryTreeNode) => void;
-  ancestors?: CategoryTreeNode[];
-}
-
-function TreeNode({
-  node,
-  selectedId,
-  onSelect,
-  onAdd,
-  onDelete,
-  ancestors = [],
-}: TreeNodeProps) {
-  const [open, setOpen] = useState(true);
-  const meta = DEPTH_META[node.depth as 0 | 1 | 2 | 3] ?? DEPTH_META[0];
-  const path = [...ancestors, node];
-  const isSelected = selectedId === node.id;
-  const hasChildren = node.children.length > 0;
-  const nextMeta = node.depth < 3 ? DEPTH_META[(node.depth + 1) as 1 | 2 | 3] : null;
-
-  return (
-    <div>
-      {/* Node row */}
-      <div
-        className={cn(
-          'flex items-center h-[30px] mx-1.5 rounded-[4px] cursor-pointer select-none group',
-          isSelected ? 'bg-primary/10' : 'hover:bg-muted/50',
-        )}
-        onClick={() => onSelect(node, path)}
-      >
-        {/* Depth indent */}
-        <div style={{ width: node.depth * 16 + 'px' }} className="shrink-0" />
-
-        {/* Chevron */}
-        <button
-          className={cn(
-            'w-3.5 h-3.5 flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0',
-            !hasChildren && 'invisible',
-          )}
-          onClick={e => {
-            e.stopPropagation();
-            setOpen(o => !o);
-          }}
-          tabIndex={-1}
-        >
-          {open ? (
-            <ChevronDown className="h-2.5 w-2.5" />
-          ) : (
-            <ChevronRight className="h-2.5 w-2.5" />
-          )}
-        </button>
-
-        {/* Depth pip */}
-        <div
-          className="w-[6px] h-[6px] rounded-[2px] shrink-0 mr-1.5"
-          style={{ background: meta.pip }}
-        />
-
-        {/* Name */}
-        <span
-          className={cn(
-            'flex-1 text-[12.5px] truncate leading-none',
-            isSelected ? 'text-primary font-semibold' : 'text-foreground',
-          )}
-        >
-          {node.name}
-        </span>
-
-        {/* Short code badge */}
-        {node.short_code && (
-          <span className="text-[10px] font-mono text-muted-foreground bg-muted/60 border border-border px-[5px] py-[1px] rounded-[3px] shrink-0 mx-1">
-            {node.short_code}
-          </span>
-        )}
-
-        {/* "off" badge */}
-        {!node.is_active && (
-          <span className="text-[9px] font-semibold uppercase px-[5px] py-[1px] rounded-[3px] bg-muted/60 border border-border text-muted-foreground shrink-0 mx-0.5">
-            off
-          </span>
-        )}
-
-        {/* Hover actions */}
-        <div className="hidden group-hover:flex items-center gap-[2px] shrink-0 mr-1">
-          {node.depth < 3 && nextMeta && (
-            <button
-              className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-              title={`Add ${nextMeta.label}`}
-              onClick={e => {
-                e.stopPropagation();
-                onAdd(node);
-              }}
-              tabIndex={-1}
-            >
-              <Plus className="h-2.5 w-2.5" />
-            </button>
-          )}
-          <button
-            className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors"
-            onClick={e => {
-              e.stopPropagation();
-              onSelect(node, path);
-            }}
-            tabIndex={-1}
-          >
-            <Edit2 className="h-2.5 w-2.5" />
-          </button>
-          <button
-            className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
-            onClick={e => {
-              e.stopPropagation();
-              onDelete(node);
-            }}
-            tabIndex={-1}
-          >
-            <Trash2 className="h-2.5 w-2.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Children */}
-      {open && hasChildren && (
-        <div className="ml-4 border-l border-border/40">
-          {node.children.map(child => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              selectedId={selectedId}
-              onSelect={onSelect}
-              onAdd={onAdd}
-              onDelete={onDelete}
-              ancestors={path}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Brand Panel ───────────────────────────────────────────────────────────────
 
 function BrandPanel() {
@@ -472,6 +326,29 @@ function BrandPanel() {
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+interface FlatRow {
+  node: CategoryTreeNode;
+  parentName: string;
+}
+
+function findAncestors(
+  targetId: string,
+  nodes: CategoryTreeNode[],
+  path: CategoryTreeNode[] = [],
+): CategoryTreeNode[] | null {
+  for (const node of nodes) {
+    const current = [...path, node];
+    if (node.id === targetId) return current;
+    if (node.children.length > 0) {
+      const found = findAncestors(targetId, node.children, current);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export function CategoryManagementPage() {
@@ -479,14 +356,16 @@ export function CategoryManagementPage() {
   const [tree,        setTree]        = useState<CategoryTreeNode[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [search,      setSearch]      = useState('');
 
   // Selection / form state
-  const [selectedId,    setSelectedId]    = useState<string | null>(null);
-  const [nodePath,      setNodePath]      = useState<CategoryTreeNode[]>([]);
-  const [fullCat,       setFullCat]       = useState<Category | null>(null);
-  const [formMode,      setFormMode]      = useState<'edit' | 'create' | null>(null);
-  const [parentForNew,  setParentForNew]  = useState<CategoryTreeNode | null>(null);
-  const [loadingCat,    setLoadingCat]    = useState(false);
+  const [selectedId,   setSelectedId]   = useState<string | null>(null);
+  const [nodePath,     setNodePath]     = useState<CategoryTreeNode[]>([]);
+  const [fullCat,      setFullCat]      = useState<Category | null>(null);
+  const [formMode,     setFormMode]     = useState<'edit' | 'create' | null>(null);
+  const [parentForNew, setParentForNew] = useState<CategoryTreeNode | null>(null);
+  const [loadingCat,   setLoadingCat]   = useState(false);
 
   // Form fields
   const [formName,   setFormName]   = useState('');
@@ -513,6 +392,12 @@ export function CategoryManagementPage() {
     try {
       const r = await productService.getCategoryTree();
       setTree(r.data);
+      // Auto-expand root groups on first load only
+      setExpandedIds(prev =>
+        prev.size === 0
+          ? new Set((r.data as CategoryTreeNode[]).map(n => n.id))
+          : prev,
+      );
     } finally {
       setLoading(false);
     }
@@ -554,6 +439,12 @@ export function CategoryManagementPage() {
     setError('');
   };
 
+  const closeForm = () => {
+    setFormMode(null);
+    setSelectedId(null);
+    setFullCat(null);
+  };
+
   const handleSave = async () => {
     if (!formName.trim()) { setError('Name is required'); return; }
     setSaving(true);
@@ -574,8 +465,7 @@ export function CategoryManagementPage() {
         if (isLeaf && r.data?.slug) {
           await productService.updateCategorySchema(r.data.slug, formSchema);
         }
-        setFormMode(null);
-        setSelectedId(null);
+        closeForm();
       }
       loadTree();
     } catch (e: unknown) {
@@ -589,8 +479,7 @@ export function CategoryManagementPage() {
 
   const handleDiscard = () => {
     if (formMode === 'create') {
-      setFormMode(null);
-      setSelectedId(null);
+      closeForm();
     } else if (fullCat) {
       setFormName(fullCat.name);
       setFormCode(fullCat.short_code ?? '');
@@ -603,9 +492,51 @@ export function CategoryManagementPage() {
   const handleDelete = async (node: CategoryTreeNode) => {
     if (!confirm(`Delete "${node.name}"? This will also delete all subcategories.`)) return;
     await productService.deleteCategory(node.slug);
-    if (selectedId === node.id) { setFormMode(null); setSelectedId(null); }
+    if (selectedId === node.id) closeForm();
     loadTree();
   };
+
+  const handleToggleActive = async (node: CategoryTreeNode) => {
+    try {
+      await productService.updateCategory(node.slug, { is_active: !node.is_active });
+      loadTree();
+    } catch { /* ignore */ }
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Flatten tree into visible rows for the table
+  const flattenTree = (
+    nodes: CategoryTreeNode[],
+    parentName = '—',
+    result: FlatRow[] = [],
+  ): FlatRow[] => {
+    for (const node of nodes) {
+      result.push({ node, parentName });
+      const showChildren = search
+        ? node.children.length > 0  // expand all when searching
+        : expandedIds.has(node.id) && node.children.length > 0;
+      if (showChildren) {
+        flattenTree(node.children, node.name, result);
+      }
+    }
+    return result;
+  };
+
+  const allRows = flattenTree(tree);
+  const flatRows = search
+    ? allRows.filter(r =>
+        r.node.name.toLowerCase().includes(search.toLowerCase()) ||
+        (r.node.short_code ?? '').toLowerCase().includes(search.toLowerCase()),
+      )
+    : allRows;
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -615,8 +546,14 @@ export function CategoryManagementPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
 
-        {/* ── Header (48px) ─────────────────────────────────────────────────── */}
+        {/* Header */}
         <header className="h-12 flex items-center gap-1 px-4 border-b border-border bg-card shrink-0">
+          <button
+            className="rounded-md p-1.5 hover:bg-muted md:hidden mr-1"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu size={16} />
+          </button>
           <span className="text-sm font-semibold text-foreground mr-3">
             Category &amp; Brand Management
           </span>
@@ -640,291 +577,415 @@ export function CategoryManagementPage() {
           ))}
         </header>
 
-        {/* ── Brands tab ────────────────────────────────────────────────────── */}
+        {/* Brands tab */}
         {tab === 'brands' && (
           <main className="flex-1 overflow-y-auto p-6">
             <BrandPanel />
           </main>
         )}
 
-        {/* ── Categories tab — split workspace ──────────────────────────────── */}
+        {/* Categories tab — full-width table */}
         {tab === 'categories' && (
-          <div className="flex flex-1 overflow-hidden">
+          <main className="flex-1 overflow-hidden flex flex-col">
 
-            {/* Tree panel */}
-            <div className="w-[280px] shrink-0 flex flex-col border-r border-border bg-card">
-
-              {/* Tree header */}
-              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border shrink-0">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  HIERARCHY
-                </span>
-                <button
-                  onClick={() => startCreate(null)}
-                  className="text-[11px] font-semibold text-primary bg-primary/10 hover:bg-primary hover:text-white px-2.5 py-1 rounded-[5px] flex items-center gap-1 transition-colors"
-                >
-                  <Plus className="h-3 w-3" />
-                  Add Group
-                </button>
-              </div>
-
-              {/* Depth key */}
-              <div className="flex items-center gap-3 px-3.5 py-2 border-b border-border shrink-0 flex-wrap">
+            {/* Toolbar */}
+            <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-card shrink-0">
+              {/* Depth legend */}
+              <div className="hidden md:flex items-center gap-3 mr-2">
                 {DEPTH_META.map(m => (
-                  <div key={m.depth} className="flex items-center gap-1">
-                    <div
-                      className="w-2 h-2 rounded-[2px] shrink-0"
-                      style={{ background: m.pip }}
-                    />
-                    <span className="text-[10px] text-muted-foreground">{m.label}</span>
+                  <div key={m.depth} className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: m.pip }} />
+                    <span className="text-[10.5px] text-muted-foreground">{m.label}</span>
                   </div>
                 ))}
               </div>
+              <div className="flex-1" />
+              {/* Search */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search categories…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="w-52 h-8 rounded-lg border border-input bg-background pl-3 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground placeholder:text-muted-foreground"
+                />
+              </div>
+              <Button
+                size="sm"
+                onClick={() => startCreate(null)}
+                className="gap-1.5 shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Group
+              </Button>
+            </div>
 
-              {/* Tree scroll */}
-              <div className="flex-1 overflow-y-auto py-1.5">
-                {loading ? (
-                  <p className="text-xs text-muted-foreground px-4 py-3">Loading…</p>
-                ) : tree.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-2 px-4 text-center">
-                    <Layers className="h-8 w-8 text-muted-foreground/20" />
-                    <p className="text-xs text-muted-foreground">
-                      No categories yet. Start by adding a group.
-                    </p>
-                  </div>
-                ) : (
-                  tree.map(node => (
-                    <TreeNode
-                      key={node.id}
-                      node={node}
-                      selectedId={selectedId}
-                      onSelect={selectNode}
-                      onAdd={startCreate}
-                      onDelete={handleDelete}
-                    />
-                  ))
+            {/* Table */}
+            <div className="flex-1 overflow-auto">
+              {loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <p className="text-sm text-muted-foreground">Loading categories…</p>
+                </div>
+              ) : tree.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Layers className="h-10 w-10 text-muted-foreground/20" />
+                  <p className="text-sm text-muted-foreground">No categories yet. Start by adding a group.</p>
+                  <Button size="sm" onClick={() => startCreate(null)} className="gap-1.5">
+                    <Plus className="h-3.5 w-3.5" /> Add Group
+                  </Button>
+                </div>
+              ) : (
+                <table className="w-full border-collapse" style={{ minWidth: 700 }}>
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border" style={{ minWidth: 280 }}>
+                        Category
+                      </th>
+                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border whitespace-nowrap">
+                        Level
+                      </th>
+                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
+                        Short Code
+                      </th>
+                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border hidden md:table-cell">
+                        Parent
+                      </th>
+                      <th className="sticky top-0 z-10 bg-muted/50 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
+                        Status
+                      </th>
+                      <th className="sticky top-0 z-10 bg-muted/50 px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flatRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                          No categories match your search.
+                        </td>
+                      </tr>
+                    ) : flatRows.map(({ node, parentName }) => {
+                      const d    = node.depth as 0 | 1 | 2 | 3;
+                      const meta = DEPTH_META[d];
+                      const hasKids = node.children.length > 0;
+                      const isExp   = expandedIds.has(node.id);
+                      const isSelected = selectedId === node.id;
+                      const indent = d * 20;
+                      const nextMeta = d < 3 ? DEPTH_META[(d + 1) as 1 | 2 | 3] : null;
+
+                      return (
+                        <tr
+                          key={node.id}
+                          className={cn(
+                            'border-b border-border/60 last:border-0 group transition-colors',
+                            isSelected ? 'bg-primary/5' : 'hover:bg-muted/30',
+                          )}
+                        >
+                          {/* Category name cell */}
+                          <td className="px-4 py-0" style={{ height: 44 }}>
+                            <div className="flex items-center gap-1" style={{ paddingLeft: indent }}>
+                              {/* Expand / leaf indicator */}
+                              {hasKids ? (
+                                <button
+                                  onClick={() => toggleExpand(node.id)}
+                                  className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors shrink-0"
+                                >
+                                  <ChevronRight
+                                    className={cn('h-3 w-3 transition-transform', isExp && 'rotate-90')}
+                                  />
+                                </button>
+                              ) : (
+                                <span className="w-5 h-5 flex items-center justify-center shrink-0 text-border text-xs">·</span>
+                              )}
+                              {/* Depth pip */}
+                              <div
+                                className="w-2 h-2 rounded-full shrink-0 mx-1"
+                                style={{ background: meta.pip }}
+                              />
+                              {/* Name */}
+                              <span className={cn(
+                                'text-[13px] font-semibold truncate max-w-[220px]',
+                                isSelected ? 'text-primary' : 'text-foreground',
+                              )}>
+                                {node.name}
+                              </span>
+                              {/* Inactive badge */}
+                              {!node.is_active && (
+                                <span className="ml-1.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-muted/60 border border-border text-muted-foreground shrink-0">
+                                  off
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Level badge */}
+                          <td className="px-3 py-0">
+                            <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap', meta.badgeCls)}>
+                              {meta.label}
+                            </span>
+                          </td>
+
+                          {/* Short code */}
+                          <td className="px-3 py-0">
+                            {node.short_code ? (
+                              <span className="font-mono text-xs text-muted-foreground bg-muted/40 border border-border px-2 py-0.5 rounded">
+                                {node.short_code}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </td>
+
+                          {/* Parent */}
+                          <td className="px-3 py-0 hidden md:table-cell">
+                            <span className="text-xs text-muted-foreground truncate max-w-[140px] block">
+                              {parentName}
+                            </span>
+                          </td>
+
+                          {/* Status toggle */}
+                          <td className="px-3 py-0">
+                            <button
+                              onClick={() => handleToggleActive(node)}
+                              className={cn(
+                                'inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-2.5 py-1 rounded-full border transition-colors',
+                                node.is_active
+                                  ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-400/40 hover:bg-green-500/20'
+                                  : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted',
+                              )}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
+                              {node.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-4 py-0">
+                            <div className="flex items-center gap-1.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                              {nextMeta && d < 3 && (
+                                <button
+                                  onClick={() => startCreate(node)}
+                                  title={`Add ${nextMeta.label}`}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-[11.5px] font-medium rounded-md border border-green-400/40 text-green-600 dark:text-green-400 hover:bg-green-500/10 transition-colors whitespace-nowrap"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                  Child
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  const path = findAncestors(node.id, tree) ?? [node];
+                                  selectNode(node, path);
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[11.5px] font-medium rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-primary hover:bg-primary/5 transition-colors"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDelete(node)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[11.5px] font-medium rounded-md border border-border text-muted-foreground hover:text-red-500 hover:border-red-400/40 hover:bg-red-500/10 transition-colors"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </main>
+        )}
+      </div>
+
+      {/* Edit / Create Drawer */}
+      {formMode !== null && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/40" onClick={closeForm} />
+          <div className="relative z-10 w-full max-w-md bg-background shadow-2xl flex flex-col h-full overflow-hidden">
+
+            {/* Drawer header */}
+            <div className="flex items-start justify-between border-b px-5 py-4 flex-shrink-0 bg-background">
+              <div className="min-w-0">
+                {nodePath.length > 0 && (
+                  <p className="text-[10.5px] text-muted-foreground mb-0.5 truncate">
+                    {nodePath.map((n, i) => (
+                      <span key={n.id}>
+                        {i > 0 && <span className="mx-1 text-muted-foreground/50">›</span>}
+                        {i === nodePath.length - 1
+                          ? <span className="font-bold text-foreground">{n.name}</span>
+                          : n.name}
+                      </span>
+                    ))}
+                  </p>
                 )}
+                <p className="text-sm font-bold text-foreground leading-tight">
+                  {formMode === 'edit' ? 'Edit' : 'Add'} {formMeta.label}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {formMode === 'create'
+                    ? parentForNew
+                      ? `Under: ${parentForNew.name}`
+                      : 'New root category group'
+                    : formMeta.level}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 ml-3 shrink-0">
+                <span className={cn('text-[11px] font-semibold px-2.5 py-1 rounded-md', formMeta.badgeCls)}>
+                  ● {formMeta.level}
+                </span>
+                <button
+                  onClick={closeForm}
+                  className="text-muted-foreground hover:text-foreground text-xl leading-none"
+                >
+                  ×
+                </button>
               </div>
             </div>
 
-            {/* Right panel */}
-            <div className="flex-1 flex flex-col bg-muted/20">
-
-              {formMode === null ? (
-                /* Empty state */
-                <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8">
-                  <Layers className="h-12 w-12 text-muted-foreground/20" />
-                  <p className="text-sm font-medium text-muted-foreground/60">Select a category</p>
-                  <p className="text-xs text-muted-foreground text-center max-w-[260px]">
-                    Click any node in the tree to edit it, or use the buttons to add new items.
-                  </p>
+            {/* Drawer body */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {loadingCat ? (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-sm text-muted-foreground">Loading…</p>
                 </div>
               ) : (
-                /* Form */
-                <div className="flex flex-col h-full overflow-hidden">
-
-                  {/* Form header */}
-                  <div className="px-5 py-3.5 border-b border-border bg-card shrink-0 flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      {/* Breadcrumb */}
-                      {nodePath.length > 0 && (
-                        <p className="text-[10.5px] text-muted-foreground mb-0.5 truncate">
-                          {nodePath.map((n, i) => (
-                            <span key={n.id}>
-                              {i > 0 && (
-                                <span className="mx-1 text-muted-foreground/50">›</span>
-                              )}
-                              {i === nodePath.length - 1 ? (
-                                <span className="font-bold text-foreground">{n.name}</span>
-                              ) : (
-                                n.name
-                              )}
-                            </span>
-                          ))}
-                        </p>
-                      )}
-                      {/* Title */}
-                      <p className="text-sm font-bold text-foreground leading-tight">
-                        {formMode === 'edit' ? 'Edit' : 'Add'} {formMeta.label}
-                      </p>
-                      {/* Subtitle */}
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {formMode === 'create'
-                          ? parentForNew
-                            ? `Under: ${parentForNew.name}`
-                            : 'New root category group'
-                          : formMeta.level}
-                      </p>
+                <>
+                  {error && (
+                    <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-600 dark:text-red-400">
+                      {error}
                     </div>
+                  )}
 
-                    {/* Depth badge */}
-                    <span
-                      className={cn(
-                        'text-[11px] font-semibold px-2.5 py-1 rounded-md shrink-0',
-                        formMeta.badgeCls,
-                      )}
-                    >
-                      ● {formMeta.level}
-                    </span>
-                  </div>
-
-                  {/* Form body */}
-                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-                    {loadingCat ? (
-                      <div className="flex items-center justify-center py-12">
-                        <p className="text-sm text-muted-foreground">Loading…</p>
+                  {/* Basic Info */}
+                  <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground pb-2 border-b border-border">
+                      BASIC INFO
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block mb-1">Name *</label>
+                        <Input
+                          value={formName}
+                          onChange={e => setFormName(e.target.value)}
+                          placeholder={`${formMeta.label} name`}
+                          className="h-8 text-sm"
+                        />
                       </div>
-                    ) : (
-                      <>
-                        {/* Error banner */}
-                        {error && (
-                          <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-600 dark:text-red-400">
-                            {error}
-                          </div>
-                        )}
-
-                        {/* Basic Info card */}
-                        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground pb-2 border-b border-border">
-                            BASIC INFO
-                          </p>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs font-medium text-muted-foreground block mb-1">
-                                Name *
-                              </label>
-                              <Input
-                                value={formName}
-                                onChange={e => setFormName(e.target.value)}
-                                placeholder={`${formMeta.label} name`}
-                                className="h-8 text-sm"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs font-medium text-muted-foreground block mb-1">
-                                Short Code{' '}
-                                <span className="text-muted-foreground/60">(for SKU)</span>
-                              </label>
-                              <Input
-                                value={formCode}
-                                onChange={e =>
-                                  setFormCode(
-                                    e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''),
-                                  )
-                                }
-                                placeholder="e.g. GR"
-                                maxLength={10}
-                                className="h-8 text-sm font-mono"
-                              />
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={formActive}
-                                onChange={e => setFormActive(e.target.checked)}
-                                className="w-4 h-4 accent-primary"
-                              />
-                              Active
-                            </label>
-                            {formMode === 'edit' && fullCat?.parent_name && (
-                              <span className="text-xs text-muted-foreground">
-                                Parent:{' '}
-                                <span className="font-medium text-foreground">
-                                  {fullCat.parent_name}
-                                </span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Field Schema card — leaf nodes only */}
-                        {isLeaf && (
-                          <div className="rounded-lg border border-border bg-card overflow-hidden">
-                            {/* Card header */}
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                FIELD SCHEMA
-                              </p>
-                              {/* Sub-tab switcher */}
-                              <div className="bg-muted/50 border border-border p-0.5 rounded-md flex items-center gap-0.5">
-                                <button
-                                  onClick={() => setSchemaTab('pf')}
-                                  className={cn(
-                                    'text-[11px] font-medium px-2.5 py-1 rounded transition-colors',
-                                    schemaTab === 'pf'
-                                      ? 'bg-card text-foreground shadow-sm'
-                                      : 'text-muted-foreground hover:text-foreground',
-                                  )}
-                                >
-                                  Product Fields
-                                </button>
-                                <button
-                                  onClick={() => setSchemaTab('va')}
-                                  className={cn(
-                                    'text-[11px] font-medium px-2.5 py-1 rounded transition-colors',
-                                    schemaTab === 'va'
-                                      ? 'bg-card text-foreground shadow-sm'
-                                      : 'text-muted-foreground hover:text-foreground',
-                                  )}
-                                >
-                                  Variant Attrs
-                                </button>
-                              </div>
-                            </div>
-                            {/* Card body */}
-                            <div className="p-4">
-                              {schemaTab === 'pf' ? (
-                                <FieldBuilderSection
-                                  section="product_fields"
-                                  fields={formSchema.product_fields}
-                                  onChange={updated =>
-                                    setFormSchema(s => ({ ...s, product_fields: updated }))
-                                  }
-                                />
-                              ) : (
-                                <FieldBuilderSection
-                                  section="variant_attributes"
-                                  fields={formSchema.variant_attributes}
-                                  onChange={updated =>
-                                    setFormSchema(s => ({ ...s, variant_attributes: updated }))
-                                  }
-                                />
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Form footer */}
-                  <div className="px-5 py-3 border-t border-border bg-card shrink-0 flex items-center justify-between">
-                    <span className="text-[10.5px] text-muted-foreground">
-                      {saving ? 'Saving changes…' : 'Changes are not auto-saved'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={handleDiscard} disabled={saving}>
-                        Discard
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="gap-1.5"
-                      >
-                        <Save className="h-3.5 w-3.5" />
-                        Save Changes
-                      </Button>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground block mb-1">
+                          Short Code <span className="text-muted-foreground/60">(for SKU)</span>
+                        </label>
+                        <Input
+                          value={formCode}
+                          onChange={e =>
+                            setFormCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                          }
+                          placeholder="e.g. GR"
+                          maxLength={10}
+                          className="h-8 text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formActive}
+                          onChange={e => setFormActive(e.target.checked)}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        Active
+                      </label>
+                      {formMode === 'edit' && fullCat?.parent_name && (
+                        <span className="text-xs text-muted-foreground">
+                          Parent:{' '}
+                          <span className="font-medium text-foreground">{fullCat.parent_name}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
-                </div>
+
+                  {/* Field Schema — leaf nodes only */}
+                  {isLeaf && (
+                    <div className="rounded-lg border border-border bg-card overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          FIELD SCHEMA
+                        </p>
+                        <div className="bg-muted/50 border border-border p-0.5 rounded-md flex items-center gap-0.5">
+                          <button
+                            onClick={() => setSchemaTab('pf')}
+                            className={cn(
+                              'text-[11px] font-medium px-2.5 py-1 rounded transition-colors',
+                              schemaTab === 'pf'
+                                ? 'bg-card text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            Product Fields
+                          </button>
+                          <button
+                            onClick={() => setSchemaTab('va')}
+                            className={cn(
+                              'text-[11px] font-medium px-2.5 py-1 rounded transition-colors',
+                              schemaTab === 'va'
+                                ? 'bg-card text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground',
+                            )}
+                          >
+                            Variant Attrs
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        {schemaTab === 'pf' ? (
+                          <FieldBuilderSection
+                            section="product_fields"
+                            fields={formSchema.product_fields}
+                            onChange={updated =>
+                              setFormSchema(s => ({ ...s, product_fields: updated }))
+                            }
+                          />
+                        ) : (
+                          <FieldBuilderSection
+                            section="variant_attributes"
+                            fields={formSchema.variant_attributes}
+                            onChange={updated =>
+                              setFormSchema(s => ({ ...s, variant_attributes: updated }))
+                            }
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
+
+            {/* Drawer footer */}
+            <div className="px-5 py-3 border-t border-border bg-background shrink-0 flex items-center justify-between">
+              <span className="text-[10.5px] text-muted-foreground">
+                {saving ? 'Saving changes…' : 'Changes are not auto-saved'}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleDiscard} disabled={saving}>
+                  Discard
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={saving} className="gap-1.5">
+                  <Save className="h-3.5 w-3.5" />
+                  Save Changes
+                </Button>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
