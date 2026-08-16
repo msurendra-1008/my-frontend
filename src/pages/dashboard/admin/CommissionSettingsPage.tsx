@@ -165,7 +165,7 @@ function CommissionBreakupCard({
                 {pool.pct.toFixed(2)}%
               </span>
               <span className={cn('w-20 text-right font-bold tabular-nums', pool.color)}>
-                {pool.amt > 0 ? `−${fmt(pool.amt)}` : '—'}
+                {pool.amt > 0 ? fmt(pool.amt) : '—'}
               </span>
               <span className="flex-1" />
               <span className="text-[10px] text-muted-foreground">balance →</span>
