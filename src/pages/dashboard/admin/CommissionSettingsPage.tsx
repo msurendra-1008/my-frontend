@@ -243,41 +243,71 @@ function CommissionBreakupCard({
               ↓ Team pool {fmt(teamAmt)} — distributed across 3 downline legs
             </p>
           </div>
-          <div className="grid grid-cols-3 divide-x">
-            {[
+          {(() => {
+            const legs = [
               { label: 'Left leg',   pct: leftLeg   },
               { label: 'Middle leg', pct: middleLeg  },
               { label: 'Right leg',  pct: rightLeg   },
-            ].map(leg => {
-              const legAmt = teamAmt * leg.pct / 100;
-              return (
-                <div key={leg.label} className="flex flex-col items-center gap-0.5 p-3 text-center">
-                  <span className="text-[10px] text-muted-foreground">{leg.label}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{leg.pct.toFixed(1)}% of pool</span>
-                  <span className="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums">{fmt(legAmt)}</span>
+            ];
+            const legTotal = leftLeg + middleLeg + rightLeg;
+            const legTotalAmt = teamAmt * legTotal / 100;
+            return (
+              <>
+                <div className="grid grid-cols-3 divide-x">
+                  {legs.map(leg => {
+                    const legAmt = teamAmt * leg.pct / 100;
+                    const profitPct = teamPct * leg.pct / 100;
+                    return (
+                      <div key={leg.label} className="flex flex-col items-center gap-0.5 p-3 text-center">
+                        <span className="text-[10px] text-muted-foreground">{leg.label}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">{leg.pct.toFixed(1)}% of pool</span>
+                        <span className="text-sm font-bold text-green-600 dark:text-green-400 tabular-nums">{fmt(legAmt)}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">{profitPct.toFixed(2)}% of profit</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
+                <div className="flex items-center gap-2.5 px-3 py-2 bg-muted/20 border-t text-xs">
+                  <span className="flex-1 font-semibold text-muted-foreground">Total allocated across 3 legs</span>
+                  <span className={cn('text-[10px] tabular-nums', legTotal > 100 ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-muted-foreground')}>
+                    {legTotal.toFixed(1)}% of pool{legTotal > 100 ? ' ⚠ exceeds 100%' : legTotal < 100 ? ` · ${(100 - legTotal).toFixed(1)}% unassigned` : ''}
+                  </span>
+                  <span className="w-20 text-right font-bold text-green-600 dark:text-green-400 tabular-nums">
+                    {fmt(legTotalAmt)}
+                  </span>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
       {/* 5. Summary row */}
       <div className={cn(
-        'flex items-center justify-between rounded-lg px-3 py-2 text-xs',
+        'rounded-lg px-3 py-2.5 text-xs space-y-1',
         totalPct > 100
           ? 'bg-red-500/10 border border-red-400/40'
           : 'bg-muted/40',
       )}>
-        <span className="text-muted-foreground">
-          <span className={cn('font-semibold', totalPct > 100 ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
-            {totalPct.toFixed(2)}%
-          </span>{' '}
-          distributed · {fmt(totalAmt)} out of {fmt(profit)}
-        </span>
-        <span className={cn('font-semibold', totalPct > 100 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')}>
-          {totalPct > 100 ? `⚠ Over by ${(totalPct - 100).toFixed(2)}%` : `${fmt(retained)} retained`}
-        </span>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">
+          Commission payout summary (per sale)
+        </p>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">
+            Total commission paid out
+          </span>
+          <span className={cn('font-bold tabular-nums', totalPct > 100 ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
+            {fmt(totalAmt)} ({totalPct.toFixed(2)}% of profit)
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">
+            Company keeps after commissions
+          </span>
+          <span className={cn('font-bold tabular-nums', totalPct > 100 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')}>
+            {totalPct > 100 ? `⚠ Over by ${(totalPct - 100).toFixed(2)}%` : `${fmt(Math.max(0, retained))} (${(100 - totalPct).toFixed(2)}% of profit)`}
+          </span>
+        </div>
       </div>
     </div>
   );
