@@ -130,6 +130,8 @@ export interface ProductListItem {
   upa_profit_amount:     number | null;
   upa_discount_override: string | null;
   has_commission_rule:   boolean;
+  min_variant_upa_price: string | null;
+  max_discount_percent:  string | null;
 }
 
 export interface Product {

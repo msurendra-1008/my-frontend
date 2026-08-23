@@ -2,110 +2,125 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { productService } from '@/services/productService';
-import type { ProductListItem, Category, StockLabel, UPAPrice } from '@/types/product.types';
+import { cartService } from '@/services/cartService';
+import { useCartStore } from '@/store/cartStore';
+import type { ProductListItem, Category } from '@/types/product.types';
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
 }
 
-function StockBadge({ label }: { label: StockLabel }) {
-  if (label === 'Out of Stock')
-    return <span className="text-[10px] font-medium text-red-500">Out of Stock</span>;
-  if (label === 'Low Stock')
-    return <span className="text-[10px] font-medium text-amber-600">Low Stock</span>;
-  return <span className="text-[10px] font-medium text-emerald-600">In Stock</span>;
-}
-
-// Cache UPA prices so we don't re-fetch on every render
-const upaCache: Record<string, UPAPrice> = {};
-
 function ProductCard({ product }: { product: ProductListItem }) {
   const navigate = useNavigate();
-  const [upaPrice, setUpaPrice] = useState<UPAPrice | null>(upaCache[product.slug] ?? null);
+  const { fetchCartCount } = useCartStore();
+  const [addingCart, setAddingCart] = useState(false);
 
-  const displayPrice = product.min_variant_mrp ?? product.mrp;
-  const showFrom     = product.variant_count > 1 && product.min_variant_mrp !== null;
-  const isOutOfStock = product.stock_label === 'Out of Stock';
+  const displayMrp  = product.min_variant_mrp ?? product.mrp;
+  const upaPrice    = product.min_variant_upa_price;
+  const discPct     = product.max_discount_percent;
+  const showFrom    = product.variant_count > 1;
+  const isOos       = product.stock_label === 'Out of Stock';
+  const hasDiscount = upaPrice !== null && discPct !== null && parseFloat(discPct) > 0;
 
-  useEffect(() => {
-    if (upaCache[product.slug]) { setUpaPrice(upaCache[product.slug]); return; }
-    productService.getUPAPrice(product.slug)
-      .then((r) => {
-        upaCache[product.slug] = r.data.product;
-        setUpaPrice(r.data.product);
-      })
-      .catch(() => {});
-  }, [product.slug]);
+  const handleQuickAdd = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!product.first_variant_id || isOos) return;
+    setAddingCart(true);
+    try {
+      await cartService.addItem(product.first_variant_id);
+      await fetchCartCount();
+    } catch { /* ignore */ } finally {
+      setAddingCart(false);
+    }
+  };
 
   return (
     <div
       onClick={() => navigate(`/shop/${product.slug}`)}
-      className="rounded-lg border bg-card hover:shadow-sm transition-shadow duration-150 overflow-hidden cursor-pointer"
+      className="rounded-xl border bg-card overflow-hidden cursor-pointer transition-all duration-150 hover:border-primary/50 hover:shadow-md flex flex-col"
     >
       {/* Image */}
-      <div className="relative h-28 w-full bg-muted overflow-hidden">
+      <div className="relative aspect-square bg-muted overflow-hidden">
         {product.primary_image ? (
-          <img src={product.primary_image} alt={product.name}
-            className="h-full w-full object-cover" />
+          <img src={product.primary_image} alt={product.name} className="h-full w-full object-cover" />
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
-            <ShoppingCart size={28} />
+          <div className="h-full w-full flex items-center justify-center text-muted-foreground/20">
+            <ShoppingCart size={32} />
           </div>
         )}
-        {upaPrice && parseFloat(upaPrice.discount_percent) > 0 && (
-          <span className="absolute top-2 left-2 rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-            {upaPrice.discount_percent}% OFF
-          </span>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="p-3">
         {product.category_name && (
-          <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded mb-1">
+          <span className="absolute top-2 left-2 rounded-full bg-black/50 backdrop-blur-sm text-white/80 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5">
             {product.category_name}
           </span>
         )}
-        <p className="text-sm font-medium leading-tight line-clamp-2 text-foreground">
-          {product.name}
-        </p>
+        {product.variant_count > 1 && (
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/55 text-white/70 text-[10px] font-semibold px-1.5 py-0.5 border border-white/10">
+            {product.variant_count} options
+          </span>
+        )}
+        <span className={[
+          'absolute top-2.5 right-2.5 h-2 w-2 rounded-full',
+          product.stock_label === 'In Stock'  ? 'bg-emerald-500 shadow-[0_0_5px_#10b981]' :
+          product.stock_label === 'Low Stock' ? 'bg-amber-400 shadow-[0_0_5px_#fbbf24]' :
+          'bg-red-500'
+        ].join(' ')} />
+      </div>
 
-        {/* Pricing */}
-        <div className="flex items-baseline gap-1 mt-1">
+      {/* Info */}
+      <div className="p-3 flex-1 flex flex-col gap-1">
+        {product.brand_name && (
+          <p className="text-[10px] text-muted-foreground">{product.brand_name}</p>
+        )}
+        <p className="text-sm font-semibold leading-tight line-clamp-2 text-foreground">{product.name}</p>
+        <div className="flex items-baseline gap-1.5 flex-wrap mt-0.5">
           {showFrom && <span className="text-[10px] text-muted-foreground">From</span>}
-          {upaPrice && parseFloat(upaPrice.discount_percent) > 0 ? (
+          {hasDiscount ? (
             <>
-              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                &#8377;{upaPrice.upa_price}
+              <span className="text-sm font-bold text-primary">
+                ₹{Number(upaPrice).toLocaleString('en-IN')}
               </span>
-              <span className="text-xs text-muted-foreground line-through">
-                &#8377;{displayPrice}
+              <span className="text-[11px] text-muted-foreground line-through">
+                ₹{Number(displayMrp).toLocaleString('en-IN')}
+              </span>
+              <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-500/10 px-1 rounded">
+                {parseFloat(discPct!).toFixed(0)}% off
               </span>
             </>
-          ) : displayPrice ? (
-            <span className="text-sm font-semibold text-foreground">
-              &#8377;{Number(displayPrice).toLocaleString('en-IN')}
+          ) : displayMrp ? (
+            <span className="text-sm font-bold text-foreground">
+              ₹{Number(displayMrp).toLocaleString('en-IN')}
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground">—</span>
+            <span className="text-xs text-muted-foreground">Price not set</span>
           )}
         </div>
+        <p className={[
+          'text-[10px] font-medium',
+          product.stock_label === 'In Stock'  ? 'text-emerald-600 dark:text-emerald-400' :
+          product.stock_label === 'Low Stock' ? 'text-amber-600 dark:text-amber-400' :
+          'text-red-500'
+        ].join(' ')}>
+          {product.stock_label === 'In Stock'  ? '● In Stock' :
+           product.stock_label === 'Low Stock' ? '● Low Stock' : '● Out of Stock'}
+        </p>
+      </div>
 
-        <div className="flex items-center justify-between mt-1.5 gap-1">
-          {product.variant_count > 1 && (
-            <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
-              {product.variant_count} options
-            </span>
-          )}
-          <StockBadge label={product.stock_label} />
-        </div>
-
+      {/* CTAs */}
+      <div className="px-3 pb-3 flex gap-2">
         <button
           onClick={(e) => { e.stopPropagation(); navigate(`/shop/${product.slug}`); }}
-          disabled={isOutOfStock}
-          className="mt-2 w-full h-8 rounded-md border border-primary/30 bg-primary/5 text-xs font-medium text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          disabled={isOos}
+          className="flex-1 h-8 rounded-lg border border-primary/40 bg-primary/10 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {isOutOfStock ? 'Out of Stock' : product.variant_count > 1 ? 'View Options →' : 'View Product →'}
+          {isOos ? 'Out of Stock' : product.variant_count > 1 ? 'View Options' : 'View Product'}
+        </button>
+        <button
+          onClick={handleQuickAdd}
+          disabled={isOos || addingCart || !product.first_variant_id}
+          className="h-8 w-8 flex items-center justify-center rounded-lg border border-border bg-muted/50 text-muted-foreground hover:border-primary/50 hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          title={product.variant_count > 1 ? 'Add first option to cart' : 'Add to cart'}
+        >
+          {addingCart ? <span className="text-[10px] font-bold">…</span> : <ShoppingCart size={13} />}
         </button>
       </div>
     </div>

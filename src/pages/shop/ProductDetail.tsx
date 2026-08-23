@@ -5,18 +5,10 @@ import { productService } from '@/services/productService';
 import { cartService } from '@/services/cartService';
 import { useAuthStore } from '@/store/authStore';
 import { useCartStore } from '@/store/cartStore';
-import type { Product, ProductVariant, StockLabel } from '@/types/product.types';
+import type { Product, ProductVariant } from '@/types/product.types';
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-md bg-muted ${className ?? ''}`} />;
-}
-
-function StockBadge({ label, count }: { label: StockLabel; count: number }) {
-  if (label === 'Out of Stock')
-    return <span className="text-sm font-medium text-red-500">Out of Stock</span>;
-  if (label === 'Low Stock')
-    return <span className="text-sm font-medium text-amber-600">{count} left · Low Stock</span>;
-  return <span className="text-sm font-medium text-emerald-600">{count} in stock · In Stock</span>;
 }
 
 // Toast helper
@@ -173,28 +165,46 @@ export function ProductDetail() {
             )}
             <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
 
-            {/* Price */}
-            <div className="rounded-xl border bg-muted/30 px-4 py-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-0.5">MRP</p>
-                  <span className="text-2xl font-bold text-foreground">
-                    {mrp ? `₹${Number(mrp).toLocaleString('en-IN')}` : '—'}
-                  </span>
-                  {active?.upa_price_computed && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                        ₹{Number(active.upa_price_computed.upa_price).toLocaleString('en-IN')}
-                      </span>
-                      <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold text-green-600 dark:text-green-400">
-                        {active.upa_price_computed.discount_percent}% off
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">UPA Price</span>
-                    </div>
-                  )}
-                </div>
-                <StockBadge label={stockLbl} count={stockCnt} />
+            {/* Price block */}
+            <div className="rounded-xl border bg-muted/30 px-4 py-4 space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                UPA Member Price
+              </p>
+              <div className="text-3xl font-bold text-primary">
+                {active?.upa_price_computed
+                  ? `₹${Number(active.upa_price_computed.upa_price).toLocaleString('en-IN')}`
+                  : mrp ? `₹${Number(mrp).toLocaleString('en-IN')}` : '—'
+                }
               </div>
+              {active?.upa_price_computed && parseFloat(active.upa_price_computed.discount_percent) > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground line-through">
+                    MRP ₹{Number(mrp).toLocaleString('en-IN')}
+                  </span>
+                  <span className="rounded-md border border-green-400/40 bg-green-500/10 px-2 py-0.5 text-xs font-bold text-green-600 dark:text-green-400">
+                    Save ₹{Number(active.upa_price_computed.saving).toLocaleString('en-IN')} · {active.upa_price_computed.discount_percent}% off
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Stock banner */}
+            <div className={[
+              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium',
+              stockLbl === 'In Stock'  ? 'bg-green-500/10 text-green-600 dark:text-green-400' :
+              stockLbl === 'Low Stock' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' :
+              'bg-red-500/10 text-red-600 dark:text-red-400'
+            ].join(' ')}>
+              <span className={[
+                'h-2 w-2 rounded-full flex-shrink-0',
+                stockLbl === 'In Stock'  ? 'bg-emerald-500' :
+                stockLbl === 'Low Stock' ? 'bg-amber-400'  : 'bg-red-500'
+              ].join(' ')} />
+              {stockLbl === 'In Stock'
+                ? `In Stock · ${stockCnt} units available`
+                : stockLbl === 'Low Stock'
+                ? `Low Stock · Only ${stockCnt} left`
+                : 'Out of Stock'}
             </div>
 
             {/* Variant selector */}
@@ -226,7 +236,12 @@ export function ProductDetail() {
                     >
                       <span>{v.name}</span>
                       <span className={`text-[10px] mt-0.5 ${active?.id === v.id ? 'opacity-90' : 'text-muted-foreground'}`}>
-                        ₹{Number(v.mrp).toLocaleString('en-IN')}
+                        {v.upa_price_computed
+                          ? `₹${Number(v.upa_price_computed.upa_price).toLocaleString('en-IN')}`
+                          : v.upa_price
+                          ? `₹${Number(v.upa_price).toLocaleString('en-IN')}`
+                          : v.mrp ? `₹${Number(v.mrp).toLocaleString('en-IN')}` : '—'
+                        }
                       </span>
                     </button>
                   ))}
@@ -247,6 +262,21 @@ export function ProductDetail() {
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description</p>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{product.description}</p>
+              </div>
+            )}
+
+            {/* Extra fields attribute grid */}
+            {product.extra_fields && Object.keys(product.extra_fields).length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Details</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(product.extra_fields).map(([key, val]) => (
+                    <div key={key} className="rounded-lg border bg-muted/30 px-3 py-2">
+                      <p className="text-[10px] text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</p>
+                      <p className="text-xs font-medium text-foreground mt-0.5">{String(val)}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
