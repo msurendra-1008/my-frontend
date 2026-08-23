@@ -285,7 +285,17 @@ function CommissionBreakupCard({
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type OverrideState = { enabled: boolean; netPct: string; teamPct: string; ruleId?: string };
+type OverrideState = {
+  enabled:     boolean;
+  netPct:      string;
+  teamPct:     string;
+  socialPct:   string;
+  companyPct:  string;
+  selfEnabled: boolean;
+  selfPct:     string;
+  deliveryPct: string;
+  ruleId?:     string;
+};
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
@@ -426,7 +436,11 @@ export function CommissionSettingsPage() {
     setRRightLeg(s.right_leg_pct);
   };
 
-  const loadVariants = async (ruleId: string, ruleNetPct?: string, ruleTeamPct?: string) => {
+  const loadVariants = async (ruleId: string, ruleDefaults?: {
+    netPct?: string; teamPct?: string;
+    socialPct?: string; companyPct?: string;
+    selfEnabled?: boolean; selfPct?: string; deliveryPct?: string;
+  }) => {
     setVariantsLoading(true);
     try {
       const r = await commissionService.getVariantsStatus(ruleId);
@@ -434,10 +448,15 @@ export function CommissionSettingsPage() {
       const overrides: Record<string, OverrideState> = {};
       for (const vs of r.data) {
         overrides[vs.variant_id] = {
-          enabled: vs.has_override,
-          netPct:  vs.rule?.network_commission_pct ?? ruleNetPct ?? rNetPct,
-          teamPct: vs.rule?.team_commission_pct    ?? ruleTeamPct ?? rTeamPct,
-          ruleId:  vs.rule?.id,
+          enabled:     vs.has_override,
+          netPct:      vs.rule?.network_commission_pct  ?? ruleDefaults?.netPct      ?? rNetPct,
+          teamPct:     vs.rule?.team_commission_pct     ?? ruleDefaults?.teamPct     ?? rTeamPct,
+          socialPct:   vs.rule?.social_work_pct         ?? ruleDefaults?.socialPct   ?? rSocialPct,
+          companyPct:  vs.rule?.company_pct             ?? ruleDefaults?.companyPct  ?? rCompanyPct,
+          selfEnabled: vs.rule?.self_commission_enabled ?? ruleDefaults?.selfEnabled  ?? rSelfEnabled,
+          selfPct:     vs.rule?.self_commission_pct     ?? ruleDefaults?.selfPct      ?? rSelfPct,
+          deliveryPct: vs.rule?.delivery_packaging_pct  ?? ruleDefaults?.deliveryPct  ?? rDeliveryPct,
+          ruleId:      vs.rule?.id,
         };
       }
       setVariantOverrides(overrides);
@@ -521,7 +540,15 @@ export function CommissionSettingsPage() {
       const rule = ruleResp.data;
       setExistingRule(rule);
       fillRuleForm(rule);
-      await loadVariants(rule.id, rule.network_commission_pct, rule.team_commission_pct);
+      await loadVariants(rule.id, {
+        netPct:      rule.network_commission_pct,
+        teamPct:     rule.team_commission_pct,
+        socialPct:   rule.social_work_pct,
+        companyPct:  rule.company_pct,
+        selfEnabled: rule.self_commission_enabled,
+        selfPct:     rule.self_commission_pct,
+        deliveryPct: rule.delivery_packaging_pct,
+      });
     } catch {
       setExistingRule(null);
       if (settings) fillRuleFromSettings(settings);
@@ -577,11 +604,11 @@ export function CommissionSettingsPage() {
               is_active:               true,
               network_commission_pct:  ov.netPct,
               team_commission_pct:     ov.teamPct,
-              social_work_pct:         rSocialPct,
-              company_pct:             rCompanyPct,
-              self_commission_enabled: rSelfEnabled,
-              self_commission_pct:     rSelfPct,
-              delivery_packaging_pct:  rDeliveryPct,
+              social_work_pct:         ov.socialPct,
+              company_pct:             ov.companyPct,
+              self_commission_enabled: ov.selfEnabled,
+              self_commission_pct:     ov.selfPct,
+              delivery_packaging_pct:  ov.deliveryPct,
               direction:               rDirection,
               max_upline_levels:       rLevels,
               use_max_levels:          false,
@@ -592,8 +619,13 @@ export function CommissionSettingsPage() {
             });
           } else if (ov.enabled && vs.has_override && vs.rule) {
             await commissionService.updateVariantRule(vs.rule.id, {
-              network_commission_pct: ov.netPct,
-              team_commission_pct:    ov.teamPct,
+              network_commission_pct:  ov.netPct,
+              team_commission_pct:     ov.teamPct,
+              social_work_pct:         ov.socialPct,
+              company_pct:             ov.companyPct,
+              self_commission_enabled: ov.selfEnabled,
+              self_commission_pct:     ov.selfPct,
+              delivery_packaging_pct:  ov.deliveryPct,
             });
           } else if (!ov.enabled && vs.has_override && vs.rule) {
             await commissionService.deleteVariantRule(vs.rule.id);
@@ -601,7 +633,15 @@ export function CommissionSettingsPage() {
         })
       );
 
-      await loadVariants(savedRule.id, rNetPct, rTeamPct);
+      await loadVariants(savedRule.id, {
+        netPct:      rNetPct,
+        teamPct:     rTeamPct,
+        socialPct:   rSocialPct,
+        companyPct:  rCompanyPct,
+        selfEnabled: rSelfEnabled,
+        selfPct:     rSelfPct,
+        deliveryPct: rDeliveryPct,
+      });
 
       commissionService.getProductRules()
         .then(r => setAllRules(r.data.results ?? []))
@@ -1055,7 +1095,11 @@ export function CommissionSettingsPage() {
                         ) : (
                           <div className="space-y-2">
                             {variants.map(vs => {
-                              const ov = variantOverrides[vs.variant_id] ?? { enabled: false, netPct: rNetPct, teamPct: rTeamPct };
+                              const ov = variantOverrides[vs.variant_id] ?? {
+                                enabled: false, netPct: rNetPct, teamPct: rTeamPct,
+                                socialPct: rSocialPct, companyPct: rCompanyPct,
+                                selfEnabled: rSelfEnabled, selfPct: rSelfPct, deliveryPct: rDeliveryPct,
+                              };
                               const isExpanded = expandedVariantId === vs.variant_id;
                               const profit = vs.variant_profit ?? productProfit;
                               const effectiveNetPct  = ov.enabled ? Number(ov.netPct)  : Number(rNetPct);
@@ -1143,8 +1187,13 @@ export function CommissionSettingsPage() {
                                           [vs.variant_id]: {
                                             ...ov,
                                             enabled,
-                                            netPct:  enabled ? (vs.rule?.network_commission_pct ?? rNetPct) : rNetPct,
-                                            teamPct: enabled ? (vs.rule?.team_commission_pct    ?? rTeamPct) : rTeamPct,
+                                            netPct:      enabled ? (vs.rule?.network_commission_pct  ?? rNetPct)      : rNetPct,
+                                            teamPct:     enabled ? (vs.rule?.team_commission_pct     ?? rTeamPct)     : rTeamPct,
+                                            socialPct:   enabled ? (vs.rule?.social_work_pct         ?? rSocialPct)   : rSocialPct,
+                                            companyPct:  enabled ? (vs.rule?.company_pct             ?? rCompanyPct)  : rCompanyPct,
+                                            selfEnabled: enabled ? (vs.rule?.self_commission_enabled ?? rSelfEnabled) : rSelfEnabled,
+                                            selfPct:     enabled ? (vs.rule?.self_commission_pct     ?? rSelfPct)     : rSelfPct,
+                                            deliveryPct: enabled ? (vs.rule?.delivery_packaging_pct  ?? rDeliveryPct) : rDeliveryPct,
                                           },
                                         }))}
                                       />
@@ -1173,23 +1222,86 @@ export function CommissionSettingsPage() {
 
                                   {/* Expanded breakup */}
                                   {isExpanded && (
-                                    <CommissionBreakupCard
-                                      profit={profit}
-                                      pricing={vs.variant_pricing}
-                                      netPct={effectiveNetPct}
-                                      teamPct={effectiveTeamPct}
-                                      socialPct={Number(rSocialPct)}
-                                      companyPct={Number(rCompanyPct)}
-                                      selfEnabled={rSelfEnabled}
-                                      selfPct={Number(rSelfPct)}
-                                      deliveryPct={Number(rDeliveryPct)}
-                                      direction={rDirection}
-                                      levels={rLevels}
-                                      levelPcts={rLevelPcts}
-                                      leftLeg={Number(rLeftLeg)}
-                                      middleLeg={Number(rMiddleLeg)}
-                                      rightLeg={Number(rRightLeg)}
-                                    />
+                                    <div className="border-t">
+                                      {ov.enabled && (
+                                        <div className="p-4 space-y-3 border-b bg-purple-500/5">
+                                          <p className="text-xs font-semibold text-purple-600 dark:text-purple-400">Variant pool overrides</p>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            {([
+                                              { label: '♥ Social',    key: 'socialPct'   as const, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/5 border-amber-500/20' },
+                                              { label: '🏢 Company',  key: 'companyPct'  as const, color: 'text-muted-foreground',              bg: 'bg-muted/40 border-border/50' },
+                                              { label: '📦 Delivery', key: 'deliveryPct' as const, color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-500/5 border-blue-500/20' },
+                                            ] as const).map(({ label, key, color, bg }) => (
+                                              <div key={key} className={cn('rounded-lg border p-2.5', bg)}>
+                                                <p className={cn('text-[10px] font-bold uppercase tracking-wide mb-1', color)}>{label}</p>
+                                                <div className="flex items-center gap-1.5">
+                                                  <input
+                                                    type="number" min={0} max={100} step="0.01"
+                                                    value={ov[key]}
+                                                    onChange={e => setVariantOverrides(prev => ({
+                                                      ...prev,
+                                                      [vs.variant_id]: { ...ov, [key]: e.target.value },
+                                                    }))}
+                                                    className="w-16 h-7 rounded-md border bg-background px-1.5 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-purple-500/30"
+                                                  />
+                                                  <span className="text-xs text-muted-foreground">%</span>
+                                                </div>
+                                                <p className={cn('text-xs font-semibold mt-1 tabular-nums', color)}>
+                                                  {fmt(profit * Number(ov[key]) / 100)}
+                                                </p>
+                                              </div>
+                                            ))}
+
+                                            {/* Self commission */}
+                                            <div className={cn('rounded-lg border p-2.5', ov.selfEnabled ? 'bg-purple-500/5 border-purple-500/20' : 'bg-muted/30 border-border/40')}>
+                                              <div className="flex items-center justify-between mb-1">
+                                                <p className="text-[10px] font-bold uppercase tracking-wide text-purple-600 dark:text-purple-400">✦ Self</p>
+                                                <Toggle
+                                                  checked={ov.selfEnabled}
+                                                  onChange={v => setVariantOverrides(prev => ({
+                                                    ...prev,
+                                                    [vs.variant_id]: { ...ov, selfEnabled: v },
+                                                  }))}
+                                                />
+                                              </div>
+                                              <div className="flex items-center gap-1.5">
+                                                <input
+                                                  type="number" min={0} max={100} step="0.01"
+                                                  value={ov.selfPct}
+                                                  disabled={!ov.selfEnabled}
+                                                  onChange={e => setVariantOverrides(prev => ({
+                                                    ...prev,
+                                                    [vs.variant_id]: { ...ov, selfPct: e.target.value },
+                                                  }))}
+                                                  className="w-16 h-7 rounded-md border bg-background px-1.5 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-purple-500/30 disabled:opacity-50"
+                                                />
+                                                <span className="text-xs text-muted-foreground">%</span>
+                                              </div>
+                                              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 mt-1 tabular-nums">
+                                                {ov.selfEnabled ? fmt(profit * Number(ov.selfPct) / 100) : 'Disabled'}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                      <CommissionBreakupCard
+                                        profit={profit}
+                                        pricing={vs.variant_pricing}
+                                        netPct={effectiveNetPct}
+                                        teamPct={effectiveTeamPct}
+                                        socialPct={ov.enabled ? Number(ov.socialPct)   : Number(rSocialPct)}
+                                        companyPct={ov.enabled ? Number(ov.companyPct) : Number(rCompanyPct)}
+                                        selfEnabled={ov.enabled ? ov.selfEnabled        : rSelfEnabled}
+                                        selfPct={ov.enabled ? Number(ov.selfPct)        : Number(rSelfPct)}
+                                        deliveryPct={ov.enabled ? Number(ov.deliveryPct) : Number(rDeliveryPct)}
+                                        direction={rDirection}
+                                        levels={rLevels}
+                                        levelPcts={rLevelPcts}
+                                        leftLeg={Number(rLeftLeg)}
+                                        middleLeg={Number(rMiddleLeg)}
+                                        rightLeg={Number(rRightLeg)}
+                                      />
+                                    </div>
                                   )}
                                 </div>
                               );
