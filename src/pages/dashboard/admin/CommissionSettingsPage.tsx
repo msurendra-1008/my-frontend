@@ -1471,10 +1471,15 @@ export function CommissionSettingsPage() {
                                   const overrides: Record<string, OverrideState> = {};
                                   for (const vs of r.data) {
                                     overrides[vs.variant_id] = {
-                                      enabled: vs.has_override,
-                                      netPct:  vs.rule?.network_commission_pct ?? rule.network_commission_pct,
-                                      teamPct: vs.rule?.team_commission_pct    ?? rule.team_commission_pct,
-                                      ruleId:  vs.rule?.id,
+                                      enabled:     vs.has_override,
+                                      netPct:      vs.rule?.network_commission_pct  ?? rule.network_commission_pct,
+                                      teamPct:     vs.rule?.team_commission_pct     ?? rule.team_commission_pct,
+                                      socialPct:   vs.rule?.social_work_pct         ?? rule.social_work_pct,
+                                      companyPct:  vs.rule?.company_pct             ?? rule.company_pct,
+                                      selfEnabled: vs.rule?.self_commission_enabled ?? rule.self_commission_enabled,
+                                      selfPct:     vs.rule?.self_commission_pct     ?? rule.self_commission_pct,
+                                      deliveryPct: vs.rule?.delivery_packaging_pct  ?? rule.delivery_packaging_pct,
+                                      ruleId:      vs.rule?.id,
                                     };
                                   }
                                   setVariantOverrides(overrides);
