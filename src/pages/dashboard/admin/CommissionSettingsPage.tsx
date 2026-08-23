@@ -371,7 +371,9 @@ export function CommissionSettingsPage() {
   // ── Derived validation ────────────────────────────────────────────────────
   const rTotalPoolPct = Number(rNetPct) + Number(rTeamPct) + Number(rSocialPct) + Number(rCompanyPct)
     + (rSelfEnabled ? Number(rSelfPct) : 0) + Number(rDeliveryPct);
-  const rIsOverBudget = rTotalPoolPct > 100;
+  const rLevelPctsTotal = rLevelPcts.slice(0, rLevels).reduce((s, v) => s + v, 0);
+  const rLevelOver      = rLevelPctsTotal > 100;
+  const rIsOverBudget   = rTotalPoolPct > 100 || rLevelOver;
 
   const productProfit = selectedProduct
     ? (selectedProduct.upa_profit_min ?? selectedProduct.upa_profit_max ?? 100)
@@ -1051,13 +1053,30 @@ export function CommissionSettingsPage() {
                                           next[idx] = Number(e.target.value);
                                           setRLevelPcts(next);
                                         }}
-                                        className="w-16 h-6 rounded-md border bg-background px-1.5 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                        className={cn(
+                                          'w-16 h-6 rounded-md border bg-background px-1.5 text-xs font-bold text-center focus:outline-none focus:ring-2',
+                                          rLevelOver ? 'border-red-400/60 focus:ring-red-500/30' : 'focus:ring-primary/30',
+                                        )}
                                       />
                                       <span className="text-xs text-muted-foreground">%</span>
                                       <span className="text-xs font-semibold text-primary min-w-[52px] text-right tabular-nums">{fmt(amt)}</span>
                                     </div>
                                   );
                                 })}
+                                {rLevelOver && (
+                                  <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                                    <AlertTriangle size={12} className="flex-shrink-0" />
+                                    <span>
+                                      Level percentages total <strong>{rLevelPctsTotal.toFixed(1)}%</strong> — must not exceed 100%. Reduce one or more levels.
+                                    </span>
+                                  </div>
+                                )}
+                                {!rLevelOver && (
+                                  <div className="mt-1 flex justify-between text-[10px] text-muted-foreground px-1">
+                                    <span>{rLevelPctsTotal.toFixed(1)}% allocated across {rLevels} levels</span>
+                                    <span>{(100 - rLevelPctsTotal).toFixed(1)}% unassigned</span>
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
@@ -1316,7 +1335,13 @@ export function CommissionSettingsPage() {
                       {rIsOverBudget && (
                         <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
                           <AlertTriangle size={14} />
-                          <span>Reduce pool percentages before saving — total exceeds 100%</span>
+                          <span>
+                            {rLevelOver && rTotalPoolPct > 100
+                              ? 'Pool total and level percentages both exceed 100% — fix before saving'
+                              : rLevelOver
+                              ? `Network level percentages total ${rLevelPctsTotal.toFixed(1)}% — must not exceed 100%`
+                              : 'Pool total exceeds 100% — reduce pool percentages before saving'}
+                          </span>
                         </div>
                       )}
                       <div className="flex items-center gap-3 ml-auto">
