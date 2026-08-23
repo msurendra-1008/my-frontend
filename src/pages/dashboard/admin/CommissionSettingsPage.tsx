@@ -1190,39 +1190,15 @@ export function CommissionSettingsPage() {
                                       <p className="text-[10px] text-muted-foreground">profit</p>
                                     </div>
 
-                                    {/* Network */}
+                                    {/* Network (read-only in header) */}
                                     <div className="text-right">
-                                      {ov.enabled ? (
-                                        <input
-                                          type="number" min={0} max={100} step="0.01"
-                                          value={ov.netPct}
-                                          onChange={e => setVariantOverrides(prev => ({
-                                            ...prev,
-                                            [vs.variant_id]: { ...ov, netPct: e.target.value },
-                                          }))}
-                                          className="w-14 h-6 rounded-md border border-purple-400/40 bg-background px-1 text-xs font-bold text-center text-primary focus:outline-none focus:ring-1 focus:ring-purple-500/30"
-                                        />
-                                      ) : (
-                                        <span className="text-xs font-semibold text-primary">{rNetPct}%</span>
-                                      )}
+                                      <p className="text-xs font-semibold text-primary tabular-nums">{effectiveNetPct}%</p>
                                       <p className="text-[10px] text-muted-foreground tabular-nums">{fmt(netAmt)}</p>
                                     </div>
 
-                                    {/* Team */}
+                                    {/* Team (read-only in header) */}
                                     <div className="text-right">
-                                      {ov.enabled ? (
-                                        <input
-                                          type="number" min={0} max={100} step="0.01"
-                                          value={ov.teamPct}
-                                          onChange={e => setVariantOverrides(prev => ({
-                                            ...prev,
-                                            [vs.variant_id]: { ...ov, teamPct: e.target.value },
-                                          }))}
-                                          className="w-14 h-6 rounded-md border border-purple-400/40 bg-background px-1 text-xs font-bold text-center text-green-600 dark:text-green-400 focus:outline-none focus:ring-1 focus:ring-purple-500/30"
-                                        />
-                                      ) : (
-                                        <span className="text-xs font-semibold text-green-600 dark:text-green-400">{rTeamPct}%</span>
-                                      )}
+                                      <p className="text-xs font-semibold text-green-600 dark:text-green-400 tabular-nums">{effectiveTeamPct}%</p>
                                       <p className="text-[10px] text-muted-foreground tabular-nums">{fmt(teamAmt)}</p>
                                     </div>
 
@@ -1277,6 +1253,8 @@ export function CommissionSettingsPage() {
                                           <p className="text-xs font-semibold text-purple-600 dark:text-purple-400">Variant pool overrides</p>
                                           <div className="grid grid-cols-2 gap-2">
                                             {([
+                                              { label: '↑ Network',   key: 'netPct'      as const, color: 'text-primary',                       bg: 'bg-primary/5 border-primary/20' },
+                                              { label: '↓ Team',      key: 'teamPct'     as const, color: 'text-green-600 dark:text-green-400', bg: 'bg-green-500/5 border-green-500/20' },
                                               { label: '♥ Social',    key: 'socialPct'   as const, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/5 border-amber-500/20' },
                                               { label: '🏢 Company',  key: 'companyPct'  as const, color: 'text-muted-foreground',              bg: 'bg-muted/40 border-border/50' },
                                               { label: '📦 Delivery', key: 'deliveryPct' as const, color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-500/5 border-blue-500/20' },
