@@ -1489,6 +1489,8 @@ export function CommissionSettingsPage() {
                                   upa_profit_amount: rule.product_pricing?.upa_profit ?? null,
                                   upa_discount_override: null,
                                   has_commission_rule: true,
+                                  min_variant_upa_price: null,
+                                  max_discount_percent: null,
                                 };
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                                 setSelectedProduct(fakeProduct);
