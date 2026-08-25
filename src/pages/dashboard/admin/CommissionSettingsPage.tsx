@@ -651,43 +651,64 @@ export function CommissionSettingsPage() {
         freshVariants.map(async (vs) => {
           const ov = variantOverrides[vs.variant_id];
           if (!ov) return;
-          if (ov.enabled && !vs.has_override) {
-            await commissionService.createVariantRule({
-              variant:                 vs.variant_id,
-              is_active:               true,
-              network_commission_pct:  ov.netPct,
-              team_commission_pct:     ov.teamPct,
-              social_work_pct:         ov.socialPct,
-              company_pct:             ov.companyPct,
-              self_commission_enabled: ov.selfEnabled,
-              self_commission_pct:     ov.selfPct,
-              delivery_packaging_pct:  ov.deliveryPct,
-              direction:               ov.direction,
-              max_upline_levels:       ov.levels,
-              use_max_levels:          false,
-              level_percentages:       ov.levelPcts,
-              left_leg_pct:            ov.leftLeg,
-              middle_leg_pct:          ov.middleLeg,
-              right_leg_pct:           ov.rightLeg,
-            });
-          } else if (ov.enabled && vs.has_override && vs.rule) {
-            await commissionService.updateVariantRule(vs.rule.id, {
-              network_commission_pct:  ov.netPct,
-              team_commission_pct:     ov.teamPct,
-              social_work_pct:         ov.socialPct,
-              company_pct:             ov.companyPct,
-              self_commission_enabled: ov.selfEnabled,
-              self_commission_pct:     ov.selfPct,
-              delivery_packaging_pct:  ov.deliveryPct,
-              direction:               ov.direction,
-              max_upline_levels:       ov.levels,
-              level_percentages:       ov.levelPcts,
-              left_leg_pct:            ov.leftLeg,
-              middle_leg_pct:          ov.middleLeg,
-              right_leg_pct:           ov.rightLeg,
-            });
-          } else if (!ov.enabled && vs.has_override && vs.rule) {
-            await commissionService.deleteVariantRule(vs.rule.id);
+
+          const ovPayload = {
+            is_active:               true,
+            network_commission_pct:  ov.netPct,
+            team_commission_pct:     ov.teamPct,
+            social_work_pct:         ov.socialPct,
+            company_pct:             ov.companyPct,
+            self_commission_enabled: ov.selfEnabled,
+            self_commission_pct:     ov.selfPct,
+            delivery_packaging_pct:  ov.deliveryPct,
+            direction:               ov.direction,
+            max_upline_levels:       ov.levels,
+            level_percentages:       ov.levelPcts,
+            left_leg_pct:            ov.leftLeg,
+            middle_leg_pct:          ov.middleLeg,
+            right_leg_pct:           ov.rightLeg,
+          };
+
+          // Resolve the existing rule ID: prefer fresh data, fall back to cached state,
+          // then fetch by variant when has_override=true but rule was null (backend serializer gap).
+          const resolveExistingId = async (): Promise<string | null> => {
+            if (vs.rule?.id) return vs.rule.id;
+            if (ov.ruleId) return ov.ruleId;
+            if (vs.has_override) {
+              try {
+                const r = await commissionService.getVariantRuleByVariant(vs.variant_id);
+                return r.data?.id ?? null;
+              } catch { return null; }
+            }
+            return null;
+          };
+
+          if (ov.enabled) {
+            const existingId = await resolveExistingId();
+            if (existingId) {
+              await commissionService.updateVariantRule(existingId, ovPayload);
+            } else {
+              try {
+                await commissionService.createVariantRule({
+                  variant: vs.variant_id, use_max_levels: false, ...ovPayload,
+                });
+              } catch (err) {
+                // 400 "already exists" — stale has_override=false but rule is in DB; fetch and update.
+                if ((err as { response?: { status?: number } })?.response?.status === 400) {
+                  const r = await commissionService.getVariantRuleByVariant(vs.variant_id);
+                  if (r.data?.id) {
+                    await commissionService.updateVariantRule(r.data.id, ovPayload);
+                  }
+                } else {
+                  throw err;
+                }
+              }
+            }
+          } else {
+            const existingId = await resolveExistingId();
+            if (existingId) {
+              await commissionService.deleteVariantRule(existingId);
+            }
           }
         })
       );
