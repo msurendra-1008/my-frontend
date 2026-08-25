@@ -324,6 +324,12 @@ type OverrideState = {
   selfEnabled: boolean;
   selfPct:     string;
   deliveryPct: string;
+  direction:   CommissionDirection;
+  levels:      number;
+  levelPcts:   number[];
+  leftLeg:     string;
+  middleLeg:   string;
+  rightLeg:    string;
   ruleId?:     string;
 };
 
@@ -472,6 +478,8 @@ export function CommissionSettingsPage() {
     netPct?: string; teamPct?: string;
     socialPct?: string; companyPct?: string;
     selfEnabled?: boolean; selfPct?: string; deliveryPct?: string;
+    direction?: CommissionDirection; levels?: number; levelPcts?: number[];
+    leftLeg?: string; middleLeg?: string; rightLeg?: string;
   }) => {
     setVariantsLoading(true);
     try {
@@ -479,6 +487,7 @@ export function CommissionSettingsPage() {
       setVariants(r.data);
       const overrides: Record<string, OverrideState> = {};
       for (const vs of r.data) {
+        const vLevels = vs.rule?.max_upline_levels ?? ruleDefaults?.levels ?? rLevels;
         overrides[vs.variant_id] = {
           enabled:     vs.has_override,
           netPct:      vs.rule?.network_commission_pct  ?? ruleDefaults?.netPct      ?? rNetPct,
@@ -488,6 +497,12 @@ export function CommissionSettingsPage() {
           selfEnabled: vs.rule?.self_commission_enabled ?? ruleDefaults?.selfEnabled  ?? rSelfEnabled,
           selfPct:     vs.rule?.self_commission_pct     ?? ruleDefaults?.selfPct      ?? rSelfPct,
           deliveryPct: vs.rule?.delivery_packaging_pct  ?? ruleDefaults?.deliveryPct  ?? rDeliveryPct,
+          direction:   vs.rule?.direction               ?? ruleDefaults?.direction    ?? rDirection,
+          levels:      vLevels,
+          levelPcts:   (vs.rule?.level_percentages?.slice(0, vLevels)) ?? ruleDefaults?.levelPcts ?? rLevelPcts,
+          leftLeg:     vs.rule?.left_leg_pct            ?? ruleDefaults?.leftLeg      ?? rLeftLeg,
+          middleLeg:   vs.rule?.middle_leg_pct          ?? ruleDefaults?.middleLeg    ?? rMiddleLeg,
+          rightLeg:    vs.rule?.right_leg_pct           ?? ruleDefaults?.rightLeg     ?? rRightLeg,
           ruleId:      vs.rule?.id,
         };
       }
@@ -580,6 +595,12 @@ export function CommissionSettingsPage() {
         selfEnabled: rule.self_commission_enabled,
         selfPct:     rule.self_commission_pct,
         deliveryPct: rule.delivery_packaging_pct,
+        direction:   rule.direction,
+        levels:      rule.max_upline_levels,
+        levelPcts:   rule.level_percentages,
+        leftLeg:     rule.left_leg_pct,
+        middleLeg:   rule.middle_leg_pct,
+        rightLeg:    rule.right_leg_pct,
       });
     } catch {
       setExistingRule(null);
@@ -594,6 +615,7 @@ export function CommissionSettingsPage() {
   const handleSaveRule = async () => {
     if (!selectedProduct || rIsOverBudget) return;
     setRuleSaving(true);
+    let savedRule: ProductCommissionRule | null = null;
     try {
       const ruleData = {
         product:                 selectedProduct.id,
@@ -613,7 +635,6 @@ export function CommissionSettingsPage() {
         right_leg_pct:           rRightLeg,
       };
 
-      let savedRule: ProductCommissionRule;
       if (existingRule) {
         const r = await commissionService.updateProductRule(existingRule.id, ruleData);
         savedRule = r.data;
@@ -641,13 +662,13 @@ export function CommissionSettingsPage() {
               self_commission_enabled: ov.selfEnabled,
               self_commission_pct:     ov.selfPct,
               delivery_packaging_pct:  ov.deliveryPct,
-              direction:               rDirection,
-              max_upline_levels:       rLevels,
+              direction:               ov.direction,
+              max_upline_levels:       ov.levels,
               use_max_levels:          false,
-              level_percentages:       rLevelPcts,
-              left_leg_pct:            rLeftLeg,
-              middle_leg_pct:          rMiddleLeg,
-              right_leg_pct:           rRightLeg,
+              level_percentages:       ov.levelPcts,
+              left_leg_pct:            ov.leftLeg,
+              middle_leg_pct:          ov.middleLeg,
+              right_leg_pct:           ov.rightLeg,
             });
           } else if (ov.enabled && vs.has_override && vs.rule) {
             await commissionService.updateVariantRule(vs.rule.id, {
@@ -658,22 +679,18 @@ export function CommissionSettingsPage() {
               self_commission_enabled: ov.selfEnabled,
               self_commission_pct:     ov.selfPct,
               delivery_packaging_pct:  ov.deliveryPct,
+              direction:               ov.direction,
+              max_upline_levels:       ov.levels,
+              level_percentages:       ov.levelPcts,
+              left_leg_pct:            ov.leftLeg,
+              middle_leg_pct:          ov.middleLeg,
+              right_leg_pct:           ov.rightLeg,
             });
           } else if (!ov.enabled && vs.has_override && vs.rule) {
             await commissionService.deleteVariantRule(vs.rule.id);
           }
         })
       );
-
-      await loadVariants(savedRule.id, {
-        netPct:      rNetPct,
-        teamPct:     rTeamPct,
-        socialPct:   rSocialPct,
-        companyPct:  rCompanyPct,
-        selfEnabled: rSelfEnabled,
-        selfPct:     rSelfPct,
-        deliveryPct: rDeliveryPct,
-      });
 
       commissionService.getProductRules()
         .then(r => setAllRules(r.data.results ?? []))
@@ -683,6 +700,23 @@ export function CommissionSettingsPage() {
     } catch {
       toast.show('Failed to save commission rules', true);
     } finally {
+      if (savedRule) {
+        await loadVariants(savedRule.id, {
+          netPct:      rNetPct,
+          teamPct:     rTeamPct,
+          socialPct:   rSocialPct,
+          companyPct:  rCompanyPct,
+          selfEnabled: rSelfEnabled,
+          selfPct:     rSelfPct,
+          deliveryPct: rDeliveryPct,
+          direction:   rDirection,
+          levels:      rLevels,
+          levelPcts:   rLevelPcts,
+          leftLeg:     rLeftLeg,
+          middleLeg:   rMiddleLeg,
+          rightLeg:    rRightLeg,
+        });
+      }
       setRuleSaving(false);
     }
   };
@@ -1148,6 +1182,8 @@ export function CommissionSettingsPage() {
                                 enabled: false, netPct: rNetPct, teamPct: rTeamPct,
                                 socialPct: rSocialPct, companyPct: rCompanyPct,
                                 selfEnabled: rSelfEnabled, selfPct: rSelfPct, deliveryPct: rDeliveryPct,
+                                direction: rDirection, levels: rLevels, levelPcts: rLevelPcts,
+                                leftLeg: rLeftLeg, middleLeg: rMiddleLeg, rightLeg: rRightLeg,
                               };
                               const isExpanded = expandedVariantId === vs.variant_id;
                               const profit = vs.variant_profit ?? productProfit;
@@ -1207,20 +1243,29 @@ export function CommissionSettingsPage() {
                                       <Toggle
                                         checked={ov.enabled}
                                         disabled={!existingRule}
-                                        onChange={enabled => setVariantOverrides(prev => ({
-                                          ...prev,
-                                          [vs.variant_id]: {
-                                            ...ov,
-                                            enabled,
-                                            netPct:      enabled ? (vs.rule?.network_commission_pct  ?? rNetPct)      : rNetPct,
-                                            teamPct:     enabled ? (vs.rule?.team_commission_pct     ?? rTeamPct)     : rTeamPct,
-                                            socialPct:   enabled ? (vs.rule?.social_work_pct         ?? rSocialPct)   : rSocialPct,
-                                            companyPct:  enabled ? (vs.rule?.company_pct             ?? rCompanyPct)  : rCompanyPct,
-                                            selfEnabled: enabled ? (vs.rule?.self_commission_enabled ?? rSelfEnabled) : rSelfEnabled,
-                                            selfPct:     enabled ? (vs.rule?.self_commission_pct     ?? rSelfPct)     : rSelfPct,
-                                            deliveryPct: enabled ? (vs.rule?.delivery_packaging_pct  ?? rDeliveryPct) : rDeliveryPct,
-                                          },
-                                        }))}
+                                        onChange={enabled => {
+                                          const vLevels = vs.rule?.max_upline_levels ?? rLevels;
+                                          setVariantOverrides(prev => ({
+                                            ...prev,
+                                            [vs.variant_id]: {
+                                              ...ov,
+                                              enabled,
+                                              netPct:      enabled ? (vs.rule?.network_commission_pct  ?? rNetPct)      : rNetPct,
+                                              teamPct:     enabled ? (vs.rule?.team_commission_pct     ?? rTeamPct)     : rTeamPct,
+                                              socialPct:   enabled ? (vs.rule?.social_work_pct         ?? rSocialPct)   : rSocialPct,
+                                              companyPct:  enabled ? (vs.rule?.company_pct             ?? rCompanyPct)  : rCompanyPct,
+                                              selfEnabled: enabled ? (vs.rule?.self_commission_enabled ?? rSelfEnabled) : rSelfEnabled,
+                                              selfPct:     enabled ? (vs.rule?.self_commission_pct     ?? rSelfPct)     : rSelfPct,
+                                              deliveryPct: enabled ? (vs.rule?.delivery_packaging_pct  ?? rDeliveryPct) : rDeliveryPct,
+                                              direction:   enabled ? (vs.rule?.direction               ?? rDirection)   : rDirection,
+                                              levels:      enabled ? vLevels                                            : rLevels,
+                                              levelPcts:   enabled ? (vs.rule?.level_percentages?.slice(0, vLevels) ?? rLevelPcts) : rLevelPcts,
+                                              leftLeg:     enabled ? (vs.rule?.left_leg_pct            ?? rLeftLeg)    : rLeftLeg,
+                                              middleLeg:   enabled ? (vs.rule?.middle_leg_pct          ?? rMiddleLeg)  : rMiddleLeg,
+                                              rightLeg:    enabled ? (vs.rule?.right_leg_pct            ?? rRightLeg)  : rRightLeg,
+                                            },
+                                          }));
+                                        }}
                                       />
                                       <span className={cn(
                                         'text-[9px] font-semibold',
@@ -1311,22 +1356,122 @@ export function CommissionSettingsPage() {
                                           </div>
                                         </div>
                                       )}
+                                      {ov.enabled && (
+                                        <>
+                                          {/* Team Leg Split override */}
+                                          <div className="p-4 space-y-2 border-b bg-green-500/5">
+                                            <p className="text-xs font-semibold text-green-600 dark:text-green-400">Team Leg Split</p>
+                                            <div className="grid grid-cols-3 gap-2">
+                                              {([
+                                                { label: 'Left',   key: 'leftLeg'   as const },
+                                                { label: 'Middle', key: 'middleLeg' as const },
+                                                { label: 'Right',  key: 'rightLeg'  as const },
+                                              ]).map(({ label, key }) => (
+                                                <div key={key} className="rounded-lg border border-green-500/20 bg-green-500/5 p-2 text-center">
+                                                  <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
+                                                  <input
+                                                    type="number" min={0} max={100} step="0.01"
+                                                    value={ov[key]}
+                                                    onChange={e => setVariantOverrides(prev => ({
+                                                      ...prev,
+                                                      [vs.variant_id]: { ...ov, [key]: e.target.value },
+                                                    }))}
+                                                    className="w-full text-center text-sm font-bold text-green-600 dark:text-green-400 border-none bg-transparent focus:outline-none"
+                                                  />
+                                                  <p className="text-[10px] text-muted-foreground">% of team</p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+
+                                          {/* Network Distribution override */}
+                                          <div className="p-4 space-y-2 border-b bg-primary/5">
+                                            <p className="text-xs font-semibold text-primary">Network Distribution</p>
+                                            <div className="flex border border-border/60 rounded-lg overflow-hidden">
+                                              <button
+                                                onClick={() => setVariantOverrides(prev => ({ ...prev, [vs.variant_id]: { ...ov, direction: 'direct_first' } }))}
+                                                className={cn('flex-1 h-7 text-[10px] font-medium transition-colors',
+                                                  ov.direction === 'direct_first' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')}
+                                              >
+                                                ↓ Direct parent first
+                                              </button>
+                                              <button
+                                                onClick={() => setVariantOverrides(prev => ({ ...prev, [vs.variant_id]: { ...ov, direction: 'ancestor_first' } }))}
+                                                className={cn('flex-1 h-7 text-[10px] font-medium border-l border-border/60 transition-colors',
+                                                  ov.direction === 'ancestor_first' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted')}
+                                              >
+                                                ↑ Ancestor first
+                                              </button>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-[10px] text-muted-foreground">Max upline levels</label>
+                                              <input
+                                                type="number" min={1} max={10}
+                                                value={ov.levels}
+                                                onChange={e => {
+                                                  const n = Math.min(10, Math.max(1, parseInt(e.target.value) || 1));
+                                                  const next = [...ov.levelPcts];
+                                                  while (next.length < n) next.push(0);
+                                                  setVariantOverrides(prev => ({ ...prev, [vs.variant_id]: { ...ov, levels: n, levelPcts: next.slice(0, n) } }));
+                                                }}
+                                                className="w-12 h-6 rounded-md border bg-background px-1.5 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                              />
+                                            </div>
+                                            {(() => {
+                                              const dispPcts = ov.direction === 'ancestor_first' ? [...ov.levelPcts].reverse() : ov.levelPcts;
+                                              const netPool = profit * Number(ov.netPct) / 100;
+                                              return (
+                                                <div className="space-y-0">
+                                                  {Array.from({ length: ov.levels }, (_, i) => {
+                                                    const pct = dispPcts[i] ?? 0;
+                                                    const amt = netPool * pct / 100;
+                                                    return (
+                                                      <div key={i} className="flex items-center gap-2 py-1 border-b border-border/30 last:border-0">
+                                                        <span className="w-6 h-4 rounded flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0"
+                                                          style={{ background: LEVEL_COLORS[i] ?? '#aaa' }}>
+                                                          L{i + 1}
+                                                        </span>
+                                                        <span className="flex-1 text-[10px] text-muted-foreground">
+                                                          {i === 0 ? 'Direct parent' : `Level ${i + 1}`}
+                                                        </span>
+                                                        <input
+                                                          type="number" min={0} max={100} step="0.1"
+                                                          value={pct}
+                                                          onChange={e => {
+                                                            const next = [...ov.levelPcts];
+                                                            const idx = ov.direction === 'ancestor_first' ? ov.levels - 1 - i : i;
+                                                            next[idx] = Number(e.target.value);
+                                                            setVariantOverrides(prev => ({ ...prev, [vs.variant_id]: { ...ov, levelPcts: next } }));
+                                                          }}
+                                                          className="w-12 h-5 rounded-md border bg-background px-1 text-[10px] font-bold text-center focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                                        />
+                                                        <span className="text-[10px] text-muted-foreground">%</span>
+                                                        <span className="text-[10px] font-semibold text-primary min-w-[44px] text-right tabular-nums">{amt > 0 ? fmt(amt) : '—'}</span>
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              );
+                                            })()}
+                                          </div>
+                                        </>
+                                      )}
                                       <CommissionBreakupCard
                                         profit={profit}
                                         pricing={vs.variant_pricing}
                                         netPct={effectiveNetPct}
                                         teamPct={effectiveTeamPct}
-                                        socialPct={ov.enabled ? Number(ov.socialPct)   : Number(rSocialPct)}
-                                        companyPct={ov.enabled ? Number(ov.companyPct) : Number(rCompanyPct)}
-                                        selfEnabled={ov.enabled ? ov.selfEnabled        : rSelfEnabled}
-                                        selfPct={ov.enabled ? Number(ov.selfPct)        : Number(rSelfPct)}
+                                        socialPct={ov.enabled ? Number(ov.socialPct)    : Number(rSocialPct)}
+                                        companyPct={ov.enabled ? Number(ov.companyPct)  : Number(rCompanyPct)}
+                                        selfEnabled={ov.enabled ? ov.selfEnabled          : rSelfEnabled}
+                                        selfPct={ov.enabled ? Number(ov.selfPct)          : Number(rSelfPct)}
                                         deliveryPct={ov.enabled ? Number(ov.deliveryPct) : Number(rDeliveryPct)}
-                                        direction={rDirection}
-                                        levels={rLevels}
-                                        levelPcts={rLevelPcts}
-                                        leftLeg={Number(rLeftLeg)}
-                                        middleLeg={Number(rMiddleLeg)}
-                                        rightLeg={Number(rRightLeg)}
+                                        direction={ov.enabled ? ov.direction    : rDirection}
+                                        levels={ov.enabled ? ov.levels          : rLevels}
+                                        levelPcts={ov.enabled ? ov.levelPcts    : rLevelPcts}
+                                        leftLeg={ov.enabled ? Number(ov.leftLeg)       : Number(rLeftLeg)}
+                                        middleLeg={ov.enabled ? Number(ov.middleLeg)   : Number(rMiddleLeg)}
+                                        rightLeg={ov.enabled ? Number(ov.rightLeg)     : Number(rRightLeg)}
                                       />
                                     </div>
                                   )}
@@ -1505,6 +1650,7 @@ export function CommissionSettingsPage() {
                                   setVariants(r.data);
                                   const overrides: Record<string, OverrideState> = {};
                                   for (const vs of r.data) {
+                                    const vLevels = vs.rule?.max_upline_levels ?? rule.max_upline_levels;
                                     overrides[vs.variant_id] = {
                                       enabled:     vs.has_override,
                                       netPct:      vs.rule?.network_commission_pct  ?? rule.network_commission_pct,
@@ -1514,6 +1660,12 @@ export function CommissionSettingsPage() {
                                       selfEnabled: vs.rule?.self_commission_enabled ?? rule.self_commission_enabled,
                                       selfPct:     vs.rule?.self_commission_pct     ?? rule.self_commission_pct,
                                       deliveryPct: vs.rule?.delivery_packaging_pct  ?? rule.delivery_packaging_pct,
+                                      direction:   vs.rule?.direction               ?? rule.direction,
+                                      levels:      vLevels,
+                                      levelPcts:   (vs.rule?.level_percentages?.slice(0, vLevels)) ?? rule.level_percentages,
+                                      leftLeg:     vs.rule?.left_leg_pct            ?? rule.left_leg_pct,
+                                      middleLeg:   vs.rule?.middle_leg_pct          ?? rule.middle_leg_pct,
+                                      rightLeg:    vs.rule?.right_leg_pct           ?? rule.right_leg_pct,
                                       ruleId:      vs.rule?.id,
                                     };
                                   }
