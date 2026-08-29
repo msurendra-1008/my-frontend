@@ -1383,25 +1383,34 @@ export function CommissionSettingsPage() {
                                           <div className="p-4 space-y-2 border-b bg-green-500/5">
                                             <p className="text-xs font-semibold text-green-600 dark:text-green-400">Team Leg Split</p>
                                             <div className="grid grid-cols-3 gap-2">
-                                              {([
-                                                { label: 'Left',   key: 'leftLeg'   as const },
-                                                { label: 'Middle', key: 'middleLeg' as const },
-                                                { label: 'Right',  key: 'rightLeg'  as const },
-                                              ]).map(({ label, key }) => (
-                                                <div key={key} className="rounded-lg border border-green-500/20 bg-green-500/5 p-2 text-center">
-                                                  <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
-                                                  <input
-                                                    type="number" min={0} max={100} step="0.01"
-                                                    value={ov[key]}
-                                                    onChange={e => setVariantOverrides(prev => ({
-                                                      ...prev,
-                                                      [vs.variant_id]: { ...ov, [key]: e.target.value },
-                                                    }))}
-                                                    className="w-full text-center text-sm font-bold text-green-600 dark:text-green-400 border-none bg-transparent focus:outline-none"
-                                                  />
-                                                  <p className="text-[10px] text-muted-foreground">% of team</p>
-                                                </div>
-                                              ))}
+                                              {(() => {
+                                                const teamPool = profit * Number(ov.teamPct) / 100;
+                                                return ([
+                                                  { label: 'Left',   key: 'leftLeg'   as const },
+                                                  { label: 'Middle', key: 'middleLeg' as const },
+                                                  { label: 'Right',  key: 'rightLeg'  as const },
+                                                ]).map(({ label, key }) => {
+                                                  const legAmt = teamPool * Number(ov[key]) / 100;
+                                                  return (
+                                                  <div key={key} className="rounded-lg border border-green-500/20 bg-green-500/5 p-2 text-center">
+                                                    <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
+                                                    <input
+                                                      type="number" min={0} max={100} step="0.01"
+                                                      value={ov[key]}
+                                                      onChange={e => setVariantOverrides(prev => ({
+                                                        ...prev,
+                                                        [vs.variant_id]: { ...ov, [key]: e.target.value },
+                                                      }))}
+                                                      className="w-full text-center text-sm font-bold text-green-600 dark:text-green-400 border-none bg-transparent focus:outline-none"
+                                                    />
+                                                    <p className="text-[10px] text-muted-foreground">% of team</p>
+                                                    <p className="text-xs font-bold text-green-600 dark:text-green-400 tabular-nums mt-0.5">
+                                                      {legAmt > 0 ? fmt(legAmt) : '—'}
+                                                    </p>
+                                                  </div>
+                                                  );
+                                                });
+                                              })()}
                                             </div>
                                           </div>
 
